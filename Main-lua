@@ -1,7 +1,7 @@
-print("Script berhasil dijalankan")
+print("Script dari GitHub berhasil dijalankan!")
 
-game.StarterGui:SetCore("SendNotification",{
-Title = "Script Hub",
-Text = "Script berhasil di load!",
-Duration = 5
+game.StarterGui:SetCore("SendNotification", {
+    Title = "Learn Lua Hub",
+    Text = "Script berhasil di load!",
+    Duration = 5
 })
