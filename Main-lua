@@ -1,0 +1,7 @@
+print("Script berhasil dijalankan")
+
+game.StarterGui:SetCore("SendNotification",{
+Title = "Script Hub",
+Text = "Script berhasil di load!",
+Duration = 5
+})
