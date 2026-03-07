@@ -1,95 +1,35 @@
-print("Learn Lua Hub Loaded")
+loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
-local player = game.Players.LocalPlayer
-local PlayerGui = player:WaitForChild("PlayerGui")
+local Window = Rayfield:CreateWindow({
+   Name = "Learn Lua Hub",
+   LoadingTitle = "Learn Lua Hub",
+   LoadingSubtitle = "by You",
+   ConfigurationSaving = {
+      Enabled = false
+   }
+})
 
-local gui = Instance.new("ScreenGui")
-gui.Name = "LearnLuaHub"
-gui.ResetOnSpawn = false
-gui.Parent = PlayerGui
+local MainTab = Window:CreateTab("Main", 4483362458)
 
--- MAIN WINDOW
-local frame = Instance.new("Frame")
-frame.Size = UDim2.new(0,300,0,200)
-frame.Position = UDim2.new(0.5,-150,0.5,-100)
-frame.BackgroundColor3 = Color3.fromRGB(25,25,25)
-frame.Parent = gui
+MainTab:CreateToggle({
+   Name = "Auto Farm",
+   CurrentValue = false,
+   Callback = function(Value)
+      if Value then
+         print("AutoFarm ON")
+      else
+         print("AutoFarm OFF")
+      end
+   end,
+})
 
--- TITLE BAR
-local title = Instance.new("TextLabel")
-title.Size = UDim2.new(1,0,0,30)
-title.BackgroundColor3 = Color3.fromRGB(35,35,35)
-title.Text = "Learn Lua Hub"
-title.TextColor3 = Color3.new(1,1,1)
-title.Parent = frame
-
--- CLOSE BUTTON
-local close = Instance.new("TextButton")
-close.Size = UDim2.new(0,30,0,30)
-close.Position = UDim2.new(1,-30,0,0)
-close.Text = "X"
-close.BackgroundColor3 = Color3.fromRGB(170,0,0)
-close.TextColor3 = Color3.new(1,1,1)
-close.Parent = frame
-
--- MINIMIZE BUTTON
-local minimize = Instance.new("TextButton")
-minimize.Size = UDim2.new(0,30,0,30)
-minimize.Position = UDim2.new(1,-60,0,0)
-minimize.Text = "-"
-minimize.BackgroundColor3 = Color3.fromRGB(80,80,80)
-minimize.TextColor3 = Color3.new(1,1,1)
-minimize.Parent = frame
-
--- CONTENT AREA
-local content = Instance.new("Frame")
-content.Size = UDim2.new(1,0,1,-30)
-content.Position = UDim2.new(0,0,0,30)
-content.BackgroundTransparency = 1
-content.Parent = frame
-
--- TOGGLE BUTTON
-local toggle = Instance.new("TextButton")
-toggle.Size = UDim2.new(0,200,0,40)
-toggle.Position = UDim2.new(0.5,-100,0,20)
-toggle.Text = "Auto Farm : OFF"
-toggle.BackgroundColor3 = Color3.fromRGB(50,50,50)
-toggle.TextColor3 = Color3.new(1,1,1)
-toggle.Parent = content
-
-local enabled = false
-
-toggle.MouseButton1Click:Connect(function()
-    enabled = not enabled
-
-    if enabled then
-        toggle.Text = "Auto Farm : ON"
-        print("AutoFarm Enabled")
-    else
-        toggle.Text = "Auto Farm : OFF"
-        print("AutoFarm Disabled")
-    end
-end)
-
--- MINIMIZE
-local minimized = false
-minimize.MouseButton1Click:Connect(function()
-
-    minimized = not minimized
-
-    if minimized then
-        content.Visible = false
-        frame.Size = UDim2.new(0,300,0,30)
-    else
-        content.Visible = true
-        frame.Size = UDim2.new(0,300,0,200)
-    end
-
-end)
-
--- CLOSE
-close.MouseButton1Click:Connect(function()
-    gui:Destroy()
-end)
-
-print("GUI Created Successfully")
+MainTab:CreateButton({
+   Name = "Test Button",
+   Callback = function()
+      Rayfield:Notify({
+         Title = "Learn Lua Hub",
+         Content = "Button berhasil ditekan!",
+         Duration = 4
+      })
+   end,
+})
