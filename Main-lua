@@ -1,17 +1,21 @@
 print("Learn Lua Hub Loaded")
 
 local player = game.Players.LocalPlayer
+local PlayerGui = player:WaitForChild("PlayerGui")
+
 local gui = Instance.new("ScreenGui")
 gui.Name = "LearnLuaHub"
 gui.ResetOnSpawn = false
-gui.Parent = game.CoreGui
+gui.Parent = PlayerGui
 
+-- MAIN WINDOW
 local frame = Instance.new("Frame")
 frame.Size = UDim2.new(0,300,0,200)
 frame.Position = UDim2.new(0.5,-150,0.5,-100)
 frame.BackgroundColor3 = Color3.fromRGB(25,25,25)
 frame.Parent = gui
 
+-- TITLE BAR
 local title = Instance.new("TextLabel")
 title.Size = UDim2.new(1,0,0,30)
 title.BackgroundColor3 = Color3.fromRGB(35,35,35)
@@ -37,6 +41,7 @@ minimize.BackgroundColor3 = Color3.fromRGB(80,80,80)
 minimize.TextColor3 = Color3.new(1,1,1)
 minimize.Parent = frame
 
+-- CONTENT AREA
 local content = Instance.new("Frame")
 content.Size = UDim2.new(1,0,1,-30)
 content.Position = UDim2.new(0,0,0,30)
@@ -66,7 +71,7 @@ toggle.MouseButton1Click:Connect(function()
     end
 end)
 
--- MINIMIZE FUNCTION
+-- MINIMIZE
 local minimized = false
 minimize.MouseButton1Click:Connect(function()
 
@@ -82,47 +87,9 @@ minimize.MouseButton1Click:Connect(function()
 
 end)
 
--- CLOSE FUNCTION
+-- CLOSE
 close.MouseButton1Click:Connect(function()
     gui:Destroy()
 end)
 
--- DRAG WINDOW
-local UIS = game:GetService("UserInputService")
-
-local dragging
-local dragInput
-local dragStart
-local startPos
-
-local function update(input)
-    local delta = input.Position - dragStart
-    frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X,
-        startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-end
-
-frame.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-        dragging = true
-        dragStart = input.Position
-        startPos = frame.Position
-
-        input.Changed:Connect(function()
-            if input.UserInputState == Enum.UserInputState.End then
-                dragging = false
-            end
-        end)
-    end
-end)
-
-frame.InputChanged:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseMovement then
-        dragInput = input
-    end
-end)
-
-UIS.InputChanged:Connect(function(input)
-    if input == dragInput and dragging then
-        update(input)
-    end
-end)
+print("GUI Created Successfully")
