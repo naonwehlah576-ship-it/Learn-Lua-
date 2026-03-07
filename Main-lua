@@ -1,7 +1,15 @@
-print("Script dari GitHub berhasil dijalankan!")
+print("SCRIPT BERHASIL DI LOAD DARI GITHUB")
 
-game.StarterGui:SetCore("SendNotification", {
-    Title = "Learn Lua Hub",
-    Text = "Script berhasil di load!",
-    Duration = 5
+local StarterGui = game:GetService("StarterGui")
+
+StarterGui:SetCore("SendNotification", {
+Title = "Learn Lua Hub",
+Text = "Script berhasil di load!",
+Duration = 5
 })
+
+-- test tambahan supaya kelihatan
+while true do
+    print("Script running...")
+    task.wait(5)
+end
