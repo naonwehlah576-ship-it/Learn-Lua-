@@ -1,65 +1,73 @@
-print("SCANNER START")
+print("SCANNER EXECUTED")
 
-local player = game.Players.LocalPlayer
-
-local parentGui
+local parent
 pcall(function()
-    parentGui = gethui()
+    parent = gethui()
 end)
 
-if not parentGui then
-    parentGui = game.CoreGui
+if not parent then
+    parent = game:GetService("CoreGui")
 end
 
 local gui = Instance.new("ScreenGui")
-gui.Parent = parentGui
+gui.Parent = parent
 
 local frame = Instance.new("Frame")
-frame.Size = UDim2.new(0,400,0,300)
-frame.Position = UDim2.new(0.5,-200,0.5,-150)
+frame.Size = UDim2.new(0,420,0,320)
+frame.Position = UDim2.new(0.5,-210,0.5,-160)
 frame.BackgroundColor3 = Color3.fromRGB(30,30,30)
 frame.Parent = gui
 
 local title = Instance.new("TextLabel")
-title.Size = UDim2.new(1,0,0,30)
-title.Text = "Game Scanner"
+title.Size = UDim2.new(1,0,0,35)
 title.BackgroundColor3 = Color3.fromRGB(50,50,50)
 title.TextColor3 = Color3.new(1,1,1)
+title.Text = "GAME SCANNER"
 title.Parent = frame
 
+local status = Instance.new("TextLabel")
+status.Size = UDim2.new(1,0,0,25)
+status.Position = UDim2.new(0,0,0,35)
+status.TextColor3 = Color3.new(1,1,0)
+status.BackgroundTransparency = 1
+status.Text = "STATUS: EXECUTED"
+status.Parent = frame
+
 local box = Instance.new("TextBox")
-box.Size = UDim2.new(1,-10,1,-40)
-box.Position = UDim2.new(0,5,0,35)
+box.Size = UDim2.new(1,-10,1,-70)
+box.Position = UDim2.new(0,5,0,65)
+box.MultiLine = true
 box.TextXAlignment = Enum.TextXAlignment.Left
 box.TextYAlignment = Enum.TextYAlignment.Top
-box.TextWrapped = false
 box.ClearTextOnFocus = false
-box.MultiLine = true
 box.Text = ""
 box.BackgroundColor3 = Color3.fromRGB(20,20,20)
 box.TextColor3 = Color3.new(1,1,1)
 box.Parent = frame
 
-local function add(text)
+local function log(text)
     box.Text = box.Text .. "\n" .. text
 end
 
-add("Scanning Workspace...")
+task.wait(1)
+
+status.Text = "STATUS: SCANNING WORKSPACE"
 
 for _,v in pairs(workspace:GetDescendants()) do
     if v:IsA("Part") or v:IsA("Model") then
-        add(v.Name)
+        log(v.Name)
     end
 end
 
-add("---- ReplicatedStorage ----")
+status.Text = "STATUS: SCANNING REPLICATED STORAGE"
 
 local rs = game:GetService("ReplicatedStorage")
 
 for _,v in pairs(rs:GetDescendants()) do
     if v:IsA("RemoteEvent") or v:IsA("RemoteFunction") then
-        add("Remote: "..v.Name)
+        log("REMOTE: "..v.Name)
     end
 end
 
-add("Scan Finished")
+status.Text = "STATUS: SCAN FINISHED"
+print("SCAN FINISHED")
