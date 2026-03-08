@@ -1,0 +1,36 @@
+local UIS = game:GetService("UserInputService")
+local player = game.Players.LocalPlayer
+local char = player.Character or player.CharacterAdded:Wait()
+local hrp = char:WaitForChild("HumanoidRootPart")
+
+local flying = false
+local speed = 60
+
+local bv = Instance.new("BodyVelocity")
+bv.MaxForce = Vector3.new(9e9,9e9,9e9)
+
+UIS.InputBegan:Connect(function(key)
+    if key.KeyCode == Enum.KeyCode.F then
+        flying = not flying
+        if flying then
+            bv.Parent = hrp
+        else
+            bv.Parent = nil
+        end
+    end
+end)
+
+game:GetService("RunService").Heartbeat:Connect(function()
+    if flying then
+        local dir = Vector3.zero
+
+        if UIS:IsKeyDown(Enum.KeyCode.W) then dir += workspace.CurrentCamera.CFrame.LookVector end
+        if UIS:IsKeyDown(Enum.KeyCode.S) then dir -= workspace.CurrentCamera.CFrame.LookVector end
+        if UIS:IsKeyDown(Enum.KeyCode.A) then dir -= workspace.CurrentCamera.CFrame.RightVector end
+        if UIS:IsKeyDown(Enum.KeyCode.D) then dir += workspace.CurrentCamera.CFrame.RightVector end
+        if UIS:IsKeyDown(Enum.KeyCode.Space) then dir += Vector3.new(0,1,0) end
+        if UIS:IsKeyDown(Enum.KeyCode.LeftShift) then dir -= Vector3.new(0,1,0) end
+
+        bv.Velocity = dir * speed
+    end
+end)
