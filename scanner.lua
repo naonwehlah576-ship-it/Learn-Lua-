@@ -13,8 +13,8 @@ local gui = Instance.new("ScreenGui")
 gui.Parent = parent
 
 local frame = Instance.new("Frame")
-frame.Size = UDim2.new(0,420,0,320)
-frame.Position = UDim2.new(0.5,-210,0.5,-160)
+frame.Size = UDim2.new(0,420,0,340)
+frame.Position = UDim2.new(0.5,-210,0.5,-170)
 frame.BackgroundColor3 = Color3.fromRGB(30,30,30)
 frame.Parent = gui
 
@@ -33,8 +33,16 @@ status.BackgroundTransparency = 1
 status.Text = "STATUS: EXECUTED"
 status.Parent = frame
 
+local copy = Instance.new("TextButton")
+copy.Size = UDim2.new(0,100,0,30)
+copy.Position = UDim2.new(1,-110,0,35)
+copy.Text = "COPY ALL"
+copy.BackgroundColor3 = Color3.fromRGB(70,70,70)
+copy.TextColor3 = Color3.new(1,1,1)
+copy.Parent = frame
+
 local box = Instance.new("TextBox")
-box.Size = UDim2.new(1,-10,1,-70)
+box.Size = UDim2.new(1,-10,1,-75)
 box.Position = UDim2.new(0,5,0,65)
 box.MultiLine = true
 box.TextXAlignment = Enum.TextXAlignment.Left
@@ -48,6 +56,15 @@ box.Parent = frame
 local function log(text)
     box.Text = box.Text .. "\n" .. text
 end
+
+copy.MouseButton1Click:Connect(function()
+    if setclipboard then
+        setclipboard(box.Text)
+        status.Text = "STATUS: COPIED TO CLIPBOARD"
+    else
+        status.Text = "STATUS: CLIPBOARD NOT SUPPORTED"
+    end
+end)
 
 task.wait(1)
 
