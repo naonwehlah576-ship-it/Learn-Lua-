@@ -1,75 +1,103 @@
-print("Learn Lua Hub Loaded")
+print("Fly Script Loaded")
 
-local player = game:GetService("Players").LocalPlayer
+local player = game.Players.LocalPlayer
+local char = player.Character or player.CharacterAdded:Wait()
+local hrp = char:WaitForChild("HumanoidRootPart")
 
-local gui = Instance.new("ScreenGui")
-gui.Name = "LearnLuaHub"
+local speedMultiplier = 3
+local flying = false
 
-pcall(function()
-    gui.Parent = game.CoreGui
-end)
+-- GUI
+local gui = Instance.new("ScreenGui",game.CoreGui)
+gui.Name = "FlyMenu"
 
-if not gui.Parent then
-    gui.Parent = player:WaitForChild("PlayerGui")
+local frame = Instance.new("Frame",gui)
+frame.Size = UDim2.new(0,200,0,180)
+frame.Position = UDim2.new(0.05,0,0.4,0)
+frame.BackgroundColor3 = Color3.fromRGB(30,30,30)
+
+local flyBtn = Instance.new("TextButton",frame)
+flyBtn.Size = UDim2.new(1,0,0,40)
+flyBtn.Text = "FLY: OFF"
+
+local speedBtn = Instance.new("TextButton",frame)
+speedBtn.Position = UDim2.new(0,0,0,40)
+speedBtn.Size = UDim2.new(1,0,0,40)
+speedBtn.Text = "SPEED x3"
+
+local submitBtn = Instance.new("TextButton",frame)
+submitBtn.Position = UDim2.new(0,0,0,80)
+submitBtn.Size = UDim2.new(1,0,0,40)
+submitBtn.Text = "GO SUBMIT"
+
+local closeBtn = Instance.new("TextButton",frame)
+closeBtn.Position = UDim2.new(0,0,0,120)
+closeBtn.Size = UDim2.new(1,0,0,40)
+closeBtn.Text = "CLOSE"
+
+-- fly toggle
+flyBtn.MouseButton1Click:Connect(function()
+
+flying = not flying
+
+if flying then
+flyBtn.Text = "FLY: ON"
+else
+flyBtn.Text = "FLY: OFF"
 end
 
-local frame = Instance.new("Frame")
-frame.Size = UDim2.new(0,300,0,160)
-frame.Position = UDim2.new(0.5,-150,0.5,-80)
-frame.BackgroundColor3 = Color3.fromRGB(30,30,30)
-frame.Parent = gui
-
-local title = Instance.new("TextLabel")
-title.Size = UDim2.new(1,0,0,30)
-title.BackgroundColor3 = Color3.fromRGB(45,45,45)
-title.Text = "Learn Lua Hub"
-title.TextColor3 = Color3.new(1,1,1)
-title.Parent = frame
-
-local close = Instance.new("TextButton")
-close.Size = UDim2.new(0,30,0,30)
-close.Position = UDim2.new(1,-30,0,0)
-close.Text = "X"
-close.BackgroundColor3 = Color3.fromRGB(170,0,0)
-close.TextColor3 = Color3.new(1,1,1)
-close.Parent = frame
-
-local minimize = Instance.new("TextButton")
-minimize.Size = UDim2.new(0,30,0,30)
-minimize.Position = UDim2.new(1,-60,0,0)
-minimize.Text = "-"
-minimize.BackgroundColor3 = Color3.fromRGB(80,80,80)
-minimize.TextColor3 = Color3.new(1,1,1)
-minimize.Parent = frame
-
-local button = Instance.new("TextButton")
-button.Size = UDim2.new(0,200,0,40)
-button.Position = UDim2.new(0.5,-100,0.5,-20)
-button.Text = "Test Button"
-button.BackgroundColor3 = Color3.fromRGB(60,60,60)
-button.TextColor3 = Color3.new(1,1,1)
-button.Parent = frame
-
-button.MouseButton1Click:Connect(function()
-    print("Button clicked!")
 end)
 
-local minimized = false
+-- fly system
+game:GetService("RunService").RenderStepped:Connect(function()
 
-minimize.MouseButton1Click:Connect(function()
-    minimized = not minimized
-    
-    if minimized then
-        frame.Size = UDim2.new(0,300,0,30)
-        button.Visible = false
-    else
-        frame.Size = UDim2.new(0,300,0,160)
-        button.Visible = true
-    end
+if flying and hrp then
+
+local move = Vector3.new(0,0,0)
+
+if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.W) then
+move = move + workspace.CurrentCamera.CFrame.LookVector
+end
+
+if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.S) then
+move = move - workspace.CurrentCamera.CFrame.LookVector
+end
+
+if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.A) then
+move = move - workspace.CurrentCamera.CFrame.RightVector
+end
+
+if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.D) then
+move = move + workspace.CurrentCamera.CFrame.RightVector
+end
+
+hrp.Velocity = move * (60 * speedMultiplier)
+
+end
+
 end)
 
-close.MouseButton1Click:Connect(function()
-    gui:Destroy()
+-- go to submit
+submitBtn.MouseButton1Click:Connect(function()
+
+local converter = workspace:FindFirstChild("PhantomConverter")
+
+if converter then
+
+local target = converter:GetPivot().Position
+
+while (hrp.Position - target).Magnitude > 5 do
+
+hrp.CFrame = hrp.CFrame:Lerp(CFrame.new(target + Vector3.new(0,10,0)),0.05)
+
+task.wait()
+
+end
+
+end
+
 end)
 
-print("GUI Created")
+closeBtn.MouseButton1Click:Connect(function()
+gui:Destroy()
+end)
