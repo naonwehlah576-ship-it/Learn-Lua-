@@ -1,8 +1,9 @@
-print("Phantom Scanner Loaded")
+print("Speed Scanner Loaded")
 
 local player = game.Players.LocalPlayer
+
 local gui = Instance.new("ScreenGui")
-gui.Name = "PhantomScanner"
+gui.Name = "SpeedScanner"
 gui.Parent = game.CoreGui
 
 local frame = Instance.new("Frame")
@@ -13,7 +14,7 @@ frame.Parent = gui
 
 local title = Instance.new("TextLabel")
 title.Size = UDim2.new(1,0,0,30)
-title.Text = "Phantom Scanner"
+title.Text = "Speed Scanner"
 title.TextColor3 = Color3.new(1,1,1)
 title.BackgroundColor3 = Color3.fromRGB(40,40,40)
 title.Parent = frame
@@ -33,7 +34,7 @@ box.Parent = frame
 local scan = Instance.new("TextButton")
 scan.Size = UDim2.new(0.45,0,0,30)
 scan.Position = UDim2.new(0.05,0,1,-35)
-scan.Text = "SCAN"
+scan.Text = "SCAN SPEED"
 scan.BackgroundColor3 = Color3.fromRGB(60,120,60)
 scan.Parent = frame
 
@@ -51,17 +52,18 @@ scan.MouseButton1Click:Connect(function()
     if scanning then return end
     scanning = true
 
-    box.Text = "Scanning...\n"
+    box.Text = "Scanning for Speed values...\n"
 
-    for _,v in pairs(workspace:GetDescendants()) do
-
-        if string.find(v.Name,"Phantom")
-        or string.find(v.Name,"Converter")
-        or string.find(v.Name,"Prompt")
-        or string.find(v.Name,"Submit") then
-
-            box.Text = box.Text .. v:GetFullName() .. "\n"
-
+    for _,v in pairs(game:GetDescendants()) do
+        
+        if v:IsA("IntValue") or v:IsA("NumberValue") then
+            
+            if v.Value >= 500 and v.Value <= 600 then
+                
+                box.Text = box.Text .. v:GetFullName() .. " = " .. v.Value .. "\n"
+            
+            end
+        
         end
 
     end
@@ -72,7 +74,5 @@ scan.MouseButton1Click:Connect(function()
 end)
 
 close.MouseButton1Click:Connect(function()
-
     gui:Destroy()
-
 end)
