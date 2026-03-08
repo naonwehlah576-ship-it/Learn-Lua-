@@ -1,78 +1,77 @@
-print("Speed Scanner Loaded")
+print("Advanced Speed Scanner Loaded")
 
 local player = game.Players.LocalPlayer
 
-local gui = Instance.new("ScreenGui")
-gui.Name = "SpeedScanner"
-gui.Parent = game.CoreGui
+local gui = Instance.new("ScreenGui",game.CoreGui)
+gui.Name = "AdvancedSpeedScanner"
 
-local frame = Instance.new("Frame")
-frame.Size = UDim2.new(0,350,0,250)
-frame.Position = UDim2.new(0.5,-175,0.5,-125)
+local frame = Instance.new("Frame",gui)
+frame.Size = UDim2.new(0,400,0,300)
+frame.Position = UDim2.new(0.5,-200,0.5,-150)
 frame.BackgroundColor3 = Color3.fromRGB(25,25,25)
-frame.Parent = gui
 
-local title = Instance.new("TextLabel")
+local title = Instance.new("TextLabel",frame)
 title.Size = UDim2.new(1,0,0,30)
-title.Text = "Speed Scanner"
+title.Text = "Advanced Speed Scanner"
 title.TextColor3 = Color3.new(1,1,1)
 title.BackgroundColor3 = Color3.fromRGB(40,40,40)
-title.Parent = frame
 
-local box = Instance.new("TextBox")
+local box = Instance.new("TextBox",frame)
 box.Size = UDim2.new(1,-20,1,-80)
 box.Position = UDim2.new(0,10,0,40)
-box.Text = ""
+box.BackgroundColor3 = Color3.fromRGB(20,20,20)
 box.TextColor3 = Color3.new(1,1,1)
+box.MultiLine = true
 box.TextXAlignment = Enum.TextXAlignment.Left
 box.TextYAlignment = Enum.TextYAlignment.Top
 box.ClearTextOnFocus = false
-box.BackgroundColor3 = Color3.fromRGB(20,20,20)
-box.MultiLine = true
-box.Parent = frame
+box.Text = ""
 
-local scan = Instance.new("TextButton")
+local scan = Instance.new("TextButton",frame)
 scan.Size = UDim2.new(0.45,0,0,30)
 scan.Position = UDim2.new(0.05,0,1,-35)
-scan.Text = "SCAN SPEED"
+scan.Text = "SCAN"
 scan.BackgroundColor3 = Color3.fromRGB(60,120,60)
-scan.Parent = frame
 
-local close = Instance.new("TextButton")
+local close = Instance.new("TextButton",frame)
 close.Size = UDim2.new(0.45,0,0,30)
 close.Position = UDim2.new(0.5,0,1,-35)
 close.Text = "CLOSE"
 close.BackgroundColor3 = Color3.fromRGB(120,60,60)
-close.Parent = frame
-
-local scanning = false
 
 scan.MouseButton1Click:Connect(function()
 
-    if scanning then return end
-    scanning = true
+box.Text = "Scanning...\n"
 
-    box.Text = "Scanning for Speed values...\n"
+for _,v in pairs(game:GetDescendants()) do
 
-    for _,v in pairs(game:GetDescendants()) do
-        
-        if v:IsA("IntValue") or v:IsA("NumberValue") then
-            
-            if v.Value >= 500 and v.Value <= 600 then
-                
-                box.Text = box.Text .. v:GetFullName() .. " = " .. v.Value .. "\n"
-            
-            end
-        
-        end
+-- Number values
+if v:IsA("IntValue") or v:IsA("NumberValue") then
+if v.Value == 541 then
+box.Text = box.Text .. "VALUE FOUND: "..v:GetFullName().." = "..v.Value.."\n"
+end
+end
 
-    end
+-- Attributes
+for _,attr in pairs(v:GetAttributes()) do
+if attr == 541 then
+box.Text = box.Text .. "ATTRIBUTE FOUND: "..v:GetFullName().."\n"
+end
+end
 
-    box.Text = box.Text .. "\nScan finished"
-    scanning = false
+-- UI text
+if v:IsA("TextLabel") or v:IsA("TextButton") then
+if string.find(v.Text,"541") then
+box.Text = box.Text .. "UI TEXT: "..v:GetFullName().." = "..v.Text.."\n"
+end
+end
+
+end
+
+box.Text = box.Text .. "\nScan finished"
 
 end)
 
 close.MouseButton1Click:Connect(function()
-    gui:Destroy()
+gui:Destroy()
 end)
