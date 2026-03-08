@@ -1,103 +1,79 @@
-print("Fly Script Loaded")
+print("Fly To Phantom Cannon Loaded")
 
 local player = game.Players.LocalPlayer
 local char = player.Character or player.CharacterAdded:Wait()
 local hrp = char:WaitForChild("HumanoidRootPart")
 
-local speedMultiplier = 3
+local gui = Instance.new("ScreenGui")
+gui.Name = "FlyToCannon"
+gui.Parent = game.CoreGui
+
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0,300,0,150)
+frame.Position = UDim2.new(0.5,-150,0.5,-75)
+frame.BackgroundColor3 = Color3.fromRGB(25,25,25)
+frame.Parent = gui
+
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1,0,0,30)
+title.Text = "Fly To Phantom Cannon"
+title.TextColor3 = Color3.new(1,1,1)
+title.BackgroundColor3 = Color3.fromRGB(40,40,40)
+title.Parent = frame
+
+local fly = Instance.new("TextButton")
+fly.Size = UDim2.new(0.45,0,0,35)
+fly.Position = UDim2.new(0.05,0,1,-45)
+fly.Text = "FLY x3"
+fly.BackgroundColor3 = Color3.fromRGB(60,120,60)
+fly.Parent = frame
+
+local close = Instance.new("TextButton")
+close.Size = UDim2.new(0.45,0,0,35)
+close.Position = UDim2.new(0.5,0,1,-45)
+close.Text = "CLOSE"
+close.BackgroundColor3 = Color3.fromRGB(120,60,60)
+close.Parent = frame
+
 local flying = false
 
--- GUI
-local gui = Instance.new("ScreenGui",game.CoreGui)
-gui.Name = "FlyMenu"
+fly.MouseButton1Click:Connect(function()
 
-local frame = Instance.new("Frame",gui)
-frame.Size = UDim2.new(0,200,0,180)
-frame.Position = UDim2.new(0.05,0,0.4,0)
-frame.BackgroundColor3 = Color3.fromRGB(30,30,30)
+    if flying then return end
+    flying = true
 
-local flyBtn = Instance.new("TextButton",frame)
-flyBtn.Size = UDim2.new(1,0,0,40)
-flyBtn.Text = "FLY: OFF"
+    local cannon = workspace:FindFirstChild("PhantomMap")
+        and workspace.PhantomMap:FindFirstChild("GhostCannon")
 
-local speedBtn = Instance.new("TextButton",frame)
-speedBtn.Position = UDim2.new(0,0,0,40)
-speedBtn.Size = UDim2.new(1,0,0,40)
-speedBtn.Text = "SPEED x3"
+    if not cannon then
+        flying = false
+        return
+    end
 
-local submitBtn = Instance.new("TextButton",frame)
-submitBtn.Position = UDim2.new(0,0,0,80)
-submitBtn.Size = UDim2.new(1,0,0,40)
-submitBtn.Text = "GO SUBMIT"
+    local target
 
-local closeBtn = Instance.new("TextButton",frame)
-closeBtn.Position = UDim2.new(0,0,0,120)
-closeBtn.Size = UDim2.new(1,0,0,40)
-closeBtn.Text = "CLOSE"
+    if cannon:IsA("Model") then
+        target = cannon:GetPivot().Position
+    else
+        target = cannon.Position
+    end
 
--- fly toggle
-flyBtn.MouseButton1Click:Connect(function()
+    while flying and (hrp.Position - target).Magnitude > 5 do
 
-flying = not flying
+        local dir = (target - hrp.Position).Unit
+        hrp.CFrame = hrp.CFrame + dir * (3 * 10)
 
-if flying then
-flyBtn.Text = "FLY: ON"
-else
-flyBtn.Text = "FLY: OFF"
-end
+        task.wait()
+
+    end
+
+    flying = false
 
 end)
 
--- fly system
-game:GetService("RunService").RenderStepped:Connect(function()
+close.MouseButton1Click:Connect(function()
 
-if flying and hrp then
+    flying = false
+    gui:Destroy()
 
-local move = Vector3.new(0,0,0)
-
-if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.W) then
-move = move + workspace.CurrentCamera.CFrame.LookVector
-end
-
-if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.S) then
-move = move - workspace.CurrentCamera.CFrame.LookVector
-end
-
-if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.A) then
-move = move - workspace.CurrentCamera.CFrame.RightVector
-end
-
-if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.D) then
-move = move + workspace.CurrentCamera.CFrame.RightVector
-end
-
-hrp.Velocity = move * (60 * speedMultiplier)
-
-end
-
-end)
-
--- go to submit
-submitBtn.MouseButton1Click:Connect(function()
-
-local converter = workspace:FindFirstChild("PhantomConverter")
-
-if converter then
-
-local target = converter:GetPivot().Position
-
-while (hrp.Position - target).Magnitude > 5 do
-
-hrp.CFrame = hrp.CFrame:Lerp(CFrame.new(target + Vector3.new(0,10,0)),0.05)
-
-task.wait()
-
-end
-
-end
-
-end)
-
-closeBtn.MouseButton1Click:Connect(function()
-gui:Destroy()
 end)
