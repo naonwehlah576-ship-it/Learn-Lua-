@@ -195,7 +195,7 @@ end
 local rbtdState = true
 local autoFarmState = true
 local autoSellState = true
-local sellThreshold = 20
+local sellThreshold = 22
 local farmRunning = false
 
 -- RBTD
@@ -277,7 +277,7 @@ farmBtn.MouseButton1Click:Connect(function()
 end)
 
 -- Toggle + Input: Auto Sell
-local sellInput = makeInput(Content, "Auto Sell di bawah (M):", 20)
+local sellInput = makeInput(Content, "Auto Sell di bawah (M):", 22)
 sellInput:GetPropertyChangedSignal("Text"):Connect(function()
     sellThreshold = tonumber(sellInput.Text) or 20
 end)
