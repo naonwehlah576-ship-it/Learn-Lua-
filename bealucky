@@ -22,7 +22,6 @@ ScreenGui.Name = "BrainrotHubGUI"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.Parent = parentUI
 
--- Main Frame
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
 MainFrame.Size = UDim2.new(0, 300, 0, 340)
@@ -37,7 +36,6 @@ local UICorner = Instance.new("UICorner")
 UICorner.CornerRadius = UDim.new(0, 8)
 UICorner.Parent = MainFrame
 
--- Title Bar
 local TitleBar = Instance.new("Frame")
 TitleBar.Size = UDim2.new(1, 0, 0, 36)
 TitleBar.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
@@ -59,7 +57,6 @@ TitleLabel.Font = Enum.Font.GothamBold
 TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
 TitleLabel.Parent = TitleBar
 
--- Minimize Button
 local MinBtn = Instance.new("TextButton")
 MinBtn.Size = UDim2.new(0, 28, 0, 28)
 MinBtn.Position = UDim2.new(1, -62, 0, 4)
@@ -71,7 +68,6 @@ MinBtn.Font = Enum.Font.GothamBold
 MinBtn.Parent = TitleBar
 Instance.new("UICorner", MinBtn).CornerRadius = UDim.new(0, 4)
 
--- Close Button
 local CloseBtn = Instance.new("TextButton")
 CloseBtn.Size = UDim2.new(0, 28, 0, 28)
 CloseBtn.Position = UDim2.new(1, -30, 0, 4)
@@ -83,7 +79,6 @@ CloseBtn.Font = Enum.Font.GothamBold
 CloseBtn.Parent = TitleBar
 Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 4)
 
--- Content Frame
 local Content = Instance.new("Frame")
 Content.Size = UDim2.new(1, 0, 1, -36)
 Content.Position = UDim2.new(0, 0, 0, 36)
@@ -190,15 +185,6 @@ local function makeInput(parent, labelText, default)
 end
 
 -- ================== LOGIKA ==================
-
--- State
-local rbtdState = true
-local autoFarmState = true
-local autoSellState = true
-local sellThreshold = 25
-local farmRunning = false
-
--- RBTD
 local storedParts = {}
 local bossTouchFolder = workspace:WaitForChild("BossTouchDetectors")
 
@@ -219,7 +205,6 @@ local function applyRBTD(state)
     end
 end
 
--- Konversi harga
 local function konversiHarga(teks)
     local angkaBersih = string.gsub(teks, "[%$%s,]", "")
     local multiplier = 1
@@ -240,7 +225,6 @@ local function konversiHarga(teks)
     return hasil and (hasil * multiplier) or math.huge
 end
 
--- Sell Remote
 local sellRemote = nil
 task.spawn(function()
     repeat task.wait(1)
@@ -260,8 +244,6 @@ task.spawn(function()
 end)
 
 -- ================== BUILD UI ==================
-
--- Toggle: RBTD
 local rbtdBtn, getRBTD = makeToggle(Content, "Remove Bad Boss Detectors", true)
 applyRBTD(true)
 rbtdBtn.MouseButton1Click:Connect(function()
@@ -269,22 +251,16 @@ rbtdBtn.MouseButton1Click:Connect(function()
     applyRBTD(getRBTD())
 end)
 
--- Toggle: Auto Farm
 local farmBtn, getFarm = makeToggle(Content, "Auto Farm Best Brainrots", true)
-farmBtn.MouseButton1Click:Connect(function()
-    task.wait(0.05)
-    farmRunning = getFarm()
-end)
 
--- Toggle + Input: Auto Sell
 local sellInput = makeInput(Content, "Auto Sell di bawah (M):", 25)
+local sellThreshold = 25
 sellInput:GetPropertyChangedSignal("Text"):Connect(function()
-    sellThreshold = tonumber(sellInput.Text) or 20
+    sellThreshold = tonumber(sellInput.Text) or 25
 end)
 
 local sellBtn, getSell = makeToggle(Content, "Auto Sell Brainrots", true)
 
--- Button: Teleport to End
 local tpBtn = makeButton(Content, "⚡ Teleport to End", Color3.fromRGB(180, 100, 20))
 tpBtn.MouseButton1Click:Connect(function()
     local modelsFolder = workspace:FindFirstChild("RunningModels")
@@ -305,7 +281,6 @@ tpBtn.MouseButton1Click:Connect(function()
     end
 end)
 
--- Button: Rejoin
 local rejoinBtn = makeButton(Content, "🔄 Rejoin Server", Color3.fromRGB(150, 50, 50))
 rejoinBtn.MouseButton1Click:Connect(function()
     pcall(function()
@@ -331,35 +306,30 @@ task.spawn(function()
     while true do
         task.wait(0.1)
         if getFarm() then
-            farmRunning = true
             local character = player.Character or player.CharacterAdded:Wait()
             local root = character:WaitForChild("HumanoidRootPart")
-            local humanoid = character:WaitForChild("Humanoid")
             local userId = player.UserId
             local modelsFolder = workspace:WaitForChild("RunningModels")
             local collectZones = workspace:WaitForChild("CollectZones")
 
+            -- Fase 1: langsung CFrame, tanpa MoveTo
+            root.CFrame = CFrame.new(709, 39, -2122)
+
+            -- Fase 2: cari model milik kita
             local eventNames = {"DEVIL", "ZEUS"}
             local target = collectZones:FindFirstChild("base15")
             for _, eventName in ipairs(eventNames) do
                 local eventBase = collectZones:FindFirstChild(eventName)
-                if eventBase then
-                    target = eventBase
-                    break
-                end
+                if eventBase then target = eventBase break end
             end
 
-            if not target then task.wait(1) continue end
-
-            root.CFrame = CFrame.new(715, 39, -2122)
-            task.wait(0.3)
-            humanoid:MoveTo(Vector3.new(709, 39, -2122))
+            if not target then task.wait(0.1) continue end
 
             local ownedModel = nil
             local timeout = 0
             repeat
                 task.wait(0.3)
-                timeout = timeout + 0.3
+                timeout += 0.3
                 for _, obj in ipairs(modelsFolder:GetChildren()) do
                     if obj:IsA("Model") and obj:GetAttribute("OwnerId") == userId then
                         ownedModel = obj
@@ -370,6 +340,7 @@ task.spawn(function()
 
             if not getFarm() or not ownedModel then continue end
 
+            -- Fase 3: snap ke collect zone
             if ownedModel.PrimaryPart then
                 ownedModel:SetPrimaryPartCFrame(target.CFrame)
             else
@@ -388,11 +359,13 @@ task.spawn(function()
                 end
             end
 
+            -- Fase 4: tunggu model hilang
             repeat task.wait(0.3)
             until not getFarm() or (ownedModel == nil or ownedModel.Parent ~= modelsFolder)
 
             if not getFarm() then continue end
 
+            -- Fase 5: tunggu respawn lalu tp ke collect area
             local oldCharacter = player.Character
             repeat task.wait(0.2)
             until not getFarm() or (player.Character ~= oldCharacter and player.Character ~= nil)
@@ -405,7 +378,8 @@ task.spawn(function()
                 local newRoot = newChar:WaitForChild("HumanoidRootPart")
                 newRoot.CFrame = CFrame.new(737, 39, -2118)
             end
-            task.wait(2.1)
+            task.wait(0.3)
+
         end
     end
 end)
