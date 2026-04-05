@@ -1,0 +1,450 @@
+-- ==========================================
+-- 🧠 BRAINROT HUB - Standalone GUI
+-- ==========================================
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TeleportService = game:GetService("TeleportService")
+local player = Players.LocalPlayer
+
+-- ================== SAFE INJECT ==================
+local parentUI
+local ok = pcall(function() parentUI = game:GetService("CoreGui") end)
+if not ok or not parentUI then parentUI = player:WaitForChild("PlayerGui") end
+
+if parentUI:FindFirstChild("BrainrotHubGUI") then
+    parentUI.BrainrotHubGUI:Destroy()
+end
+
+-- ================== GUI ==================
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "BrainrotHubGUI"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = parentUI
+
+-- Main Frame
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Size = UDim2.new(0, 300, 0, 340)
+MainFrame.Position = UDim2.new(0.5, -150, 0.5, -170)
+MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Draggable = true
+MainFrame.Parent = ScreenGui
+
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(0, 8)
+UICorner.Parent = MainFrame
+
+-- Title Bar
+local TitleBar = Instance.new("Frame")
+TitleBar.Size = UDim2.new(1, 0, 0, 36)
+TitleBar.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+TitleBar.BorderSizePixel = 0
+TitleBar.Parent = MainFrame
+
+local TitleCorner = Instance.new("UICorner")
+TitleCorner.CornerRadius = UDim.new(0, 8)
+TitleCorner.Parent = TitleBar
+
+local TitleLabel = Instance.new("TextLabel")
+TitleLabel.Size = UDim2.new(1, -80, 1, 0)
+TitleLabel.Position = UDim2.new(0, 10, 0, 0)
+TitleLabel.BackgroundTransparency = 1
+TitleLabel.Text = "🧠 BRAINROT HUB"
+TitleLabel.TextColor3 = Color3.fromRGB(255, 215, 0)
+TitleLabel.TextSize = 14
+TitleLabel.Font = Enum.Font.GothamBold
+TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+TitleLabel.Parent = TitleBar
+
+-- Minimize Button
+local MinBtn = Instance.new("TextButton")
+MinBtn.Size = UDim2.new(0, 28, 0, 28)
+MinBtn.Position = UDim2.new(1, -62, 0, 4)
+MinBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+MinBtn.Text = "—"
+MinBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+MinBtn.TextSize = 12
+MinBtn.Font = Enum.Font.GothamBold
+MinBtn.Parent = TitleBar
+Instance.new("UICorner", MinBtn).CornerRadius = UDim.new(0, 4)
+
+-- Close Button
+local CloseBtn = Instance.new("TextButton")
+CloseBtn.Size = UDim2.new(0, 28, 0, 28)
+CloseBtn.Position = UDim2.new(1, -30, 0, 4)
+CloseBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+CloseBtn.Text = "✕"
+CloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+CloseBtn.TextSize = 12
+CloseBtn.Font = Enum.Font.GothamBold
+CloseBtn.Parent = TitleBar
+Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 4)
+
+-- Content Frame
+local Content = Instance.new("Frame")
+Content.Size = UDim2.new(1, 0, 1, -36)
+Content.Position = UDim2.new(0, 0, 0, 36)
+Content.BackgroundTransparency = 1
+Content.Parent = MainFrame
+
+local UIList = Instance.new("UIListLayout")
+UIList.Padding = UDim.new(0, 6)
+UIList.Parent = Content
+
+local UIPadding = Instance.new("UIPadding")
+UIPadding.PaddingLeft = UDim.new(0, 10)
+UIPadding.PaddingRight = UDim.new(0, 10)
+UIPadding.PaddingTop = UDim.new(0, 8)
+UIPadding.Parent = Content
+
+-- ================== HELPER FUNCTIONS ==================
+local function makeToggle(parent, labelText, defaultOn)
+    local row = Instance.new("Frame")
+    row.Size = UDim2.new(1, 0, 0, 36)
+    row.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+    row.BorderSizePixel = 0
+    row.Parent = parent
+    Instance.new("UICorner", row).CornerRadius = UDim.new(0, 6)
+
+    local lbl = Instance.new("TextLabel")
+    lbl.Size = UDim2.new(1, -60, 1, 0)
+    lbl.Position = UDim2.new(0, 10, 0, 0)
+    lbl.BackgroundTransparency = 1
+    lbl.Text = labelText
+    lbl.TextColor3 = Color3.fromRGB(220, 220, 220)
+    lbl.TextSize = 12
+    lbl.Font = Enum.Font.GothamSemibold
+    lbl.TextXAlignment = Enum.TextXAlignment.Left
+    lbl.Parent = row
+
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(0, 44, 0, 24)
+    btn.Position = UDim2.new(1, -52, 0.5, -12)
+    btn.BackgroundColor3 = defaultOn and Color3.fromRGB(50, 200, 50) or Color3.fromRGB(255, 50, 50)
+    btn.Text = defaultOn and "ON" or "OFF"
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.TextSize = 11
+    btn.Font = Enum.Font.GothamBold
+    btn.Parent = row
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
+
+    local state = defaultOn
+    btn.MouseButton1Click:Connect(function()
+        state = not state
+        btn.Text = state and "ON" or "OFF"
+        btn.BackgroundColor3 = state and Color3.fromRGB(50, 200, 50) or Color3.fromRGB(255, 50, 50)
+    end)
+
+    return btn, function() return state end
+end
+
+local function makeButton(parent, labelText, color)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1, 0, 0, 34)
+    btn.BackgroundColor3 = color or Color3.fromRGB(50, 100, 200)
+    btn.Text = labelText
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.TextSize = 12
+    btn.Font = Enum.Font.GothamBold
+    btn.BorderSizePixel = 0
+    btn.Parent = parent
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+    return btn
+end
+
+local function makeInput(parent, labelText, default)
+    local row = Instance.new("Frame")
+    row.Size = UDim2.new(1, 0, 0, 36)
+    row.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+    row.BorderSizePixel = 0
+    row.Parent = parent
+    Instance.new("UICorner", row).CornerRadius = UDim.new(0, 6)
+
+    local lbl = Instance.new("TextLabel")
+    lbl.Size = UDim2.new(0.6, 0, 1, 0)
+    lbl.Position = UDim2.new(0, 10, 0, 0)
+    lbl.BackgroundTransparency = 1
+    lbl.Text = labelText
+    lbl.TextColor3 = Color3.fromRGB(220, 220, 220)
+    lbl.TextSize = 12
+    lbl.Font = Enum.Font.GothamSemibold
+    lbl.TextXAlignment = Enum.TextXAlignment.Left
+    lbl.Parent = row
+
+    local box = Instance.new("TextBox")
+    box.Size = UDim2.new(0, 60, 0, 24)
+    box.Position = UDim2.new(1, -68, 0.5, -12)
+    box.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    box.Text = tostring(default)
+    box.TextColor3 = Color3.fromRGB(255, 255, 255)
+    box.TextSize = 12
+    box.Font = Enum.Font.GothamBold
+    box.BorderSizePixel = 0
+    box.Parent = row
+    Instance.new("UICorner", box).CornerRadius = UDim.new(0, 4)
+
+    return box
+end
+
+-- ================== LOGIKA ==================
+
+-- State
+local rbtdState = true
+local autoFarmState = true
+local autoSellState = true
+local sellThreshold = 20
+local farmRunning = false
+
+-- RBTD
+local storedParts = {}
+local bossTouchFolder = workspace:WaitForChild("BossTouchDetectors")
+
+local function applyRBTD(state)
+    if state then
+        storedParts = {}
+        for _, obj in ipairs(bossTouchFolder:GetChildren()) do
+            if obj.Name ~= "base15" then
+                table.insert(storedParts, obj)
+                obj.Parent = nil
+            end
+        end
+    else
+        for _, obj in ipairs(storedParts) do
+            if obj then obj.Parent = bossTouchFolder end
+        end
+        storedParts = {}
+    end
+end
+
+-- Konversi harga
+local function konversiHarga(teks)
+    local angkaBersih = string.gsub(teks, "[%$%s,]", "")
+    local multiplier = 1
+    if string.find(angkaBersih, "T") then
+        multiplier = 1000000000000
+        angkaBersih = string.gsub(angkaBersih, "T", "")
+    elseif string.find(angkaBersih, "B") then
+        multiplier = 1000000000
+        angkaBersih = string.gsub(angkaBersih, "B", "")
+    elseif string.find(angkaBersih, "M") then
+        multiplier = 1000000
+        angkaBersih = string.gsub(angkaBersih, "M", "")
+    elseif string.find(angkaBersih, "K") then
+        multiplier = 1000
+        angkaBersih = string.gsub(angkaBersih, "K", "")
+    end
+    local hasil = tonumber(angkaBersih)
+    return hasil and (hasil * multiplier) or math.huge
+end
+
+-- Sell Remote
+local sellRemote = nil
+task.spawn(function()
+    repeat task.wait(1)
+        pcall(function()
+            sellRemote = ReplicatedStorage
+                :WaitForChild("Packages", 5)
+                :WaitForChild("_Index", 5)
+                :WaitForChild("sleitnick_knit@1.7.0", 5)
+                :WaitForChild("knit", 5)
+                :WaitForChild("Services", 5)
+                :WaitForChild("InventoryService", 5)
+                :WaitForChild("RF", 5)
+                :WaitForChild("SellBrainrot", 5)
+        end)
+    until sellRemote ~= nil
+    print("[BrainrotHub] Sell remote siap!")
+end)
+
+-- ================== BUILD UI ==================
+
+-- Toggle: RBTD
+local rbtdBtn, getRBTD = makeToggle(Content, "Remove Bad Boss Detectors", true)
+applyRBTD(true)
+rbtdBtn.MouseButton1Click:Connect(function()
+    task.wait(0.05)
+    applyRBTD(getRBTD())
+end)
+
+-- Toggle: Auto Farm
+local farmBtn, getFarm = makeToggle(Content, "Auto Farm Best Brainrots", true)
+farmBtn.MouseButton1Click:Connect(function()
+    task.wait(0.05)
+    farmRunning = getFarm()
+end)
+
+-- Toggle + Input: Auto Sell
+local sellInput = makeInput(Content, "Auto Sell di bawah (M):", 20)
+sellInput:GetPropertyChangedSignal("Text"):Connect(function()
+    sellThreshold = tonumber(sellInput.Text) or 20
+end)
+
+local sellBtn, getSell = makeToggle(Content, "Auto Sell Brainrots", true)
+
+-- Button: Teleport to End
+local tpBtn = makeButton(Content, "⚡ Teleport to End", Color3.fromRGB(180, 100, 20))
+tpBtn.MouseButton1Click:Connect(function()
+    local modelsFolder = workspace:FindFirstChild("RunningModels")
+    local collectZones = workspace:FindFirstChild("CollectZones")
+    if not modelsFolder or not collectZones then return end
+    local target = collectZones:FindFirstChild("base15")
+    if not target then return end
+    for _, obj in ipairs(modelsFolder:GetChildren()) do
+        if obj:IsA("Model") then
+            if obj.PrimaryPart then obj:SetPrimaryPartCFrame(target.CFrame)
+            else
+                local part = obj:FindFirstChildWhichIsA("BasePart")
+                if part then part.CFrame = target.CFrame end
+            end
+        elseif obj:IsA("BasePart") then
+            obj.CFrame = target.CFrame
+        end
+    end
+end)
+
+-- Button: Rejoin
+local rejoinBtn = makeButton(Content, "🔄 Rejoin Server", Color3.fromRGB(150, 50, 50))
+rejoinBtn.MouseButton1Click:Connect(function()
+    pcall(function()
+        TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, player)
+    end)
+end)
+
+-- ================== MINIMIZE & CLOSE ==================
+local minimized = false
+MinBtn.MouseButton1Click:Connect(function()
+    minimized = not minimized
+    Content.Visible = not minimized
+    MainFrame.Size = minimized and UDim2.new(0, 300, 0, 36) or UDim2.new(0, 300, 0, 340)
+    MinBtn.Text = minimized and "▲" or "—"
+end)
+
+CloseBtn.MouseButton1Click:Connect(function()
+    ScreenGui:Destroy()
+end)
+
+-- ================== AUTO FARM LOOP ==================
+task.spawn(function()
+    while true do
+        task.wait(0.1)
+        if getFarm() then
+            farmRunning = true
+            local character = player.Character or player.CharacterAdded:Wait()
+            local root = character:WaitForChild("HumanoidRootPart")
+            local humanoid = character:WaitForChild("Humanoid")
+            local userId = player.UserId
+            local modelsFolder = workspace:WaitForChild("RunningModels")
+            local collectZones = workspace:WaitForChild("CollectZones")
+
+            local eventNames = {"DEVIL", "ZEUS"}
+            local target = collectZones:FindFirstChild("base15")
+            for _, eventName in ipairs(eventNames) do
+                local eventBase = collectZones:FindFirstChild(eventName)
+                if eventBase then
+                    target = eventBase
+                    break
+                end
+            end
+
+            if not target then task.wait(1) continue end
+
+            root.CFrame = CFrame.new(715, 39, -2122)
+            task.wait(0.3)
+            humanoid:MoveTo(Vector3.new(709, 39, -2122))
+
+            local ownedModel = nil
+            local timeout = 0
+            repeat
+                task.wait(0.3)
+                timeout = timeout + 0.3
+                for _, obj in ipairs(modelsFolder:GetChildren()) do
+                    if obj:IsA("Model") and obj:GetAttribute("OwnerId") == userId then
+                        ownedModel = obj
+                        break
+                    end
+                end
+            until ownedModel ~= nil or not getFarm() or timeout > 15
+
+            if not getFarm() or not ownedModel then continue end
+
+            if ownedModel.PrimaryPart then
+                ownedModel:SetPrimaryPartCFrame(target.CFrame)
+            else
+                local part = ownedModel:FindFirstChildWhichIsA("BasePart")
+                if part then part.CFrame = target.CFrame end
+            end
+
+            task.wait(0.7)
+
+            if ownedModel and ownedModel.Parent == modelsFolder then
+                if ownedModel.PrimaryPart then
+                    ownedModel:SetPrimaryPartCFrame(target.CFrame * CFrame.new(0, -5, 0))
+                else
+                    local part = ownedModel:FindFirstChildWhichIsA("BasePart")
+                    if part then part.CFrame = target.CFrame * CFrame.new(0, -5, 0) end
+                end
+            end
+
+            repeat task.wait(0.3)
+            until not getFarm() or (ownedModel == nil or ownedModel.Parent ~= modelsFolder)
+
+            if not getFarm() then continue end
+
+            local oldCharacter = player.Character
+            repeat task.wait(0.2)
+            until not getFarm() or (player.Character ~= oldCharacter and player.Character ~= nil)
+
+            if not getFarm() then continue end
+
+            task.wait(0.4)
+            local newChar = player.Character
+            if newChar then
+                local newRoot = newChar:WaitForChild("HumanoidRootPart")
+                newRoot.CFrame = CFrame.new(737, 39, -2118)
+            end
+            task.wait(2.1)
+        end
+    end
+end)
+
+-- ================== AUTO SELL LOOP ==================
+task.spawn(function()
+    while true do
+        task.wait(1)
+        if getSell() and sellRemote then
+            pcall(function()
+                local batas = sellThreshold * 1000000
+                local scrollingFrame = player.PlayerGui
+                    :WaitForChild("Windows")
+                    :WaitForChild("SellBrainrots")
+                    :WaitForChild("ShopContainer")
+                    :WaitForChild("ScrollingFrame")
+
+                for _, frame in ipairs(scrollingFrame:GetChildren()) do
+                    if not getSell() then break end
+                    if string.match(frame.Name, "%x%x%x%x%x%x%x%x%-%x%x%x%x%-%x%x%x%x%-%x%x%x%x%-%x%x%x%x%x%x%x%x%x%x%x%x") then
+                        local cashLabel = nil
+                        for _, v in ipairs(frame:GetDescendants()) do
+                            if v:IsA("TextLabel") and v.Name == "Cash" then
+                                cashLabel = v
+                                break
+                            end
+                        end
+                        if cashLabel then
+                            local harga = konversiHarga(cashLabel.Text)
+                            if harga > 0 and harga < batas then
+                                pcall(function()
+                                    sellRemote:InvokeServer(frame.Name)
+                                end)
+                                task.wait(0.3)
+                            end
+                        end
+                    end
+                end
+            end)
+        end
+    end
+end)
