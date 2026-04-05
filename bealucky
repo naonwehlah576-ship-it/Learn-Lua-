@@ -24,7 +24,7 @@ ScreenGui.Parent = parentUI
 
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
-MainFrame.Size = UDim2.new(0, 300, 0, 340)
+MainFrame.Size = UDim2.new(0, 300, 0, 384)
 MainFrame.Position = UDim2.new(0.5, -150, 0.5, -170)
 MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 MainFrame.BorderSizePixel = 0
@@ -261,6 +261,8 @@ end)
 
 local sellBtn, getSell = makeToggle(Content, "Auto Sell Brainrots", true)
 
+local collectBtn, getCollect = makeToggle(Content, "Auto Collect Money", false)
+
 local tpBtn = makeButton(Content, "⚡ Teleport to End", Color3.fromRGB(180, 100, 20))
 tpBtn.MouseButton1Click:Connect(function()
     local modelsFolder = workspace:FindFirstChild("RunningModels")
@@ -293,7 +295,7 @@ local minimized = false
 MinBtn.MouseButton1Click:Connect(function()
     minimized = not minimized
     Content.Visible = not minimized
-    MainFrame.Size = minimized and UDim2.new(0, 300, 0, 36) or UDim2.new(0, 300, 0, 340)
+    MainFrame.Size = minimized and UDim2.new(0, 300, 0, 36) or UDim2.new(0, 300, 0, 384)
     MinBtn.Text = minimized and "▲" or "—"
 end)
 
@@ -378,8 +380,33 @@ task.spawn(function()
                 local newRoot = newChar:WaitForChild("HumanoidRootPart")
                 newRoot.CFrame = CFrame.new(737, 39, -2118)
             end
-            task.wait(0.5)
+            task.wait(1)
 
+        end
+    end
+end)
+
+-- ================== AUTO COLLECT LOOP ==================
+task.spawn(function()
+    while true do
+        task.wait(2)
+        if getCollect() then
+            pcall(function()
+                local char = player.Character
+                if char and char:FindFirstChild("HumanoidRootPart") then
+                    local root = char.HumanoidRootPart
+                    local disedot = 0
+                    for _, obj in pairs(workspace.Plots:GetDescendants()) do
+                        if not getCollect() then break end
+                        if obj.Name == "CollectionPad" and obj:IsA("BasePart") and obj:FindFirstChild("TouchInterest") then
+                            firetouchinterest(root, obj, 0)
+                            firetouchinterest(root, obj, 1)
+                            disedot = disedot + 1
+                            if disedot % 10 == 0 then task.wait() end
+                        end
+                    end
+                end
+            end)
         end
     end
 end)
