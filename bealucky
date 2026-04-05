@@ -378,7 +378,7 @@ task.spawn(function()
                 local newRoot = newChar:WaitForChild("HumanoidRootPart")
                 newRoot.CFrame = CFrame.new(737, 39, -2118)
             end
-            task.wait(0.3)
+            task.wait(0.5)
 
         end
     end
