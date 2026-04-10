@@ -253,8 +253,8 @@ end)
 
 local farmBtn, getFarm = makeToggle(Content, "Auto Farm Best Brainrots", true)
 
-local sellInput = makeInput(Content, "Auto Sell di bawah (M):", 29)
-local sellThreshold = 29
+local sellInput = makeInput(Content, "Auto Sell di bawah (M):", 27)
+local sellThreshold = 27
 sellInput:GetPropertyChangedSignal("Text"):Connect(function()
     sellThreshold = tonumber(sellInput.Text) or 25
 end)
