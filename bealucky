@@ -412,6 +412,23 @@ task.spawn(function()
 end)
 
 -- ================== AUTO SELL LOOP ==================
+local blacklist = {
+    "Magiani Tankiani",
+    "Dojonini Assassini",
+    "I2perfectini Foxinini",
+    "Gorgonzilla",
+    "Squalo Cavallo"
+}
+
+local function isBlacklisted(name)
+    for _, v in ipairs(blacklist) do
+        if string.lower(name) == string.lower(v) then
+            return true
+        end
+    end
+    return false
+end
+
 task.spawn(function()
     while true do
         task.wait(1)
@@ -428,15 +445,18 @@ task.spawn(function()
                     if not getSell() then break end
                     if string.match(frame.Name, "%x%x%x%x%x%x%x%x%-%x%x%x%x%-%x%x%x%x%-%x%x%x%x%-%x%x%x%x%x%x%x%x%x%x%x%x") then
                         local cashLabel = nil
+                        local namaLabel = nil
                         for _, v in ipairs(frame:GetDescendants()) do
                             if v:IsA("TextLabel") and v.Name == "Cash" then
                                 cashLabel = v
-                                break
+                            end
+                            if v:IsA("TextLabel") and v.Name == "TextLabel" then
+                                namaLabel = v
                             end
                         end
-                        if cashLabel then
+                        if cashLabel and namaLabel then
                             local harga = konversiHarga(cashLabel.Text)
-                            if harga > 0 and harga < batas then
+                            if harga > 0 and harga < batas and not isBlacklisted(namaLabel.Text) then
                                 pcall(function()
                                     sellRemote:InvokeServer(frame.Name)
                                 end)
