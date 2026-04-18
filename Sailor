@@ -1,0 +1,368 @@
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local player = Players.LocalPlayer
+
+local parentUI
+local ok = pcall(function() parentUI = game:GetService("CoreGui") end)
+if not ok or not parentUI then parentUI = player:WaitForChild("PlayerGui") end
+
+if parentUI:FindFirstChild("SailorFarmGUI") then
+    parentUI.SailorFarmGUI:Destroy()
+end
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "SailorFarmGUI"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = parentUI
+
+-- ================== MAIN FRAME ==================
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 260, 0, 36)
+MainFrame.Position = UDim2.new(0.5, -130, 0.5, -18)
+MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Draggable = true
+MainFrame.ClipsDescendants = true
+MainFrame.Parent = ScreenGui
+Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 8)
+
+-- Title Bar
+local TitleBar = Instance.new("Frame")
+TitleBar.Size = UDim2.new(1, 0, 0, 36)
+TitleBar.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+TitleBar.BorderSizePixel = 0
+TitleBar.Parent = MainFrame
+Instance.new("UICorner", TitleBar).CornerRadius = UDim.new(0, 8)
+
+local TitleLabel = Instance.new("TextLabel")
+TitleLabel.Size = UDim2.new(1, -80, 1, 0)
+TitleLabel.Position = UDim2.new(0, 10, 0, 0)
+TitleLabel.BackgroundTransparency = 1
+TitleLabel.Text = "⚔️ Sailor Piece Farm"
+TitleLabel.TextColor3 = Color3.fromRGB(255, 215, 0)
+TitleLabel.TextSize = 13
+TitleLabel.Font = Enum.Font.GothamBold
+TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+TitleLabel.Parent = TitleBar
+
+local ExpandBtn = Instance.new("TextButton")
+ExpandBtn.Size = UDim2.new(0, 28, 0, 28)
+ExpandBtn.Position = UDim2.new(1, -62, 0, 4)
+ExpandBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+ExpandBtn.Text = "▼"
+ExpandBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+ExpandBtn.TextSize = 11
+ExpandBtn.Font = Enum.Font.GothamBold
+ExpandBtn.Parent = TitleBar
+Instance.new("UICorner", ExpandBtn).CornerRadius = UDim.new(0, 4)
+
+local CloseBtn = Instance.new("TextButton")
+CloseBtn.Size = UDim2.new(0, 28, 0, 28)
+CloseBtn.Position = UDim2.new(1, -30, 0, 4)
+CloseBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+CloseBtn.Text = "✕"
+CloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+CloseBtn.TextSize = 12
+CloseBtn.Font = Enum.Font.GothamBold
+CloseBtn.Parent = TitleBar
+Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 4)
+
+-- Content Frame
+local Content = Instance.new("Frame")
+Content.Size = UDim2.new(1, 0, 0, 600)
+Content.Position = UDim2.new(0, 0, 0, 36)
+Content.BackgroundTransparency = 1
+Content.Parent = MainFrame
+
+-- PENTING: SortOrder = LayoutOrder biar urutan terjamin
+local UIList = Instance.new("UIListLayout")
+UIList.Padding = UDim.new(0, 6)
+UIList.SortOrder = Enum.SortOrder.LayoutOrder
+UIList.Parent = Content
+
+local UIPadding = Instance.new("UIPadding")
+UIPadding.PaddingLeft = UDim.new(0, 10)
+UIPadding.PaddingRight = UDim.new(0, 10)
+UIPadding.PaddingTop = UDim.new(0, 8)
+UIPadding.Parent = Content
+
+-- ================== HELPER ==================
+local function makeToggle(parent, labelText, defaultOn, layoutOrder)
+    local row = Instance.new("Frame")
+    row.Size = UDim2.new(1, 0, 0, 34)
+    row.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+    row.BorderSizePixel = 0
+    row.LayoutOrder = layoutOrder or 0
+    row.Parent = parent
+    Instance.new("UICorner", row).CornerRadius = UDim.new(0, 6)
+
+    local lbl = Instance.new("TextLabel")
+    lbl.Size = UDim2.new(1, -60, 1, 0)
+    lbl.Position = UDim2.new(0, 10, 0, 0)
+    lbl.BackgroundTransparency = 1
+    lbl.Text = labelText
+    lbl.TextColor3 = Color3.fromRGB(220, 220, 220)
+    lbl.TextSize = 12
+    lbl.Font = Enum.Font.GothamSemibold
+    lbl.TextXAlignment = Enum.TextXAlignment.Left
+    lbl.Parent = row
+
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(0, 44, 0, 24)
+    btn.Position = UDim2.new(1, -52, 0.5, -12)
+    btn.BackgroundColor3 = defaultOn and Color3.fromRGB(50, 200, 50) or Color3.fromRGB(255, 50, 50)
+    btn.Text = defaultOn and "ON" or "OFF"
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.TextSize = 11
+    btn.Font = Enum.Font.GothamBold
+    btn.Parent = row
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
+
+    local state = defaultOn
+    btn.MouseButton1Click:Connect(function()
+        state = not state
+        btn.Text = state and "ON" or "OFF"
+        btn.BackgroundColor3 = state and Color3.fromRGB(50, 200, 50) or Color3.fromRGB(255, 50, 50)
+    end)
+
+    return function() return state end
+end
+
+local function updateMainSize()
+    task.wait()
+    local totalH = UIList.AbsoluteContentSize.Y + 52
+    MainFrame.Size = UDim2.new(0, 260, 0, totalH)
+end
+
+-- ================== LAYOUT ORDER: ==================
+-- [1] Auto Equip Toggle
+-- [2] Status Label
+-- [3] Delay Row
+-- [4] STOP TP Button
+-- [5] AUTO SKILL Header  <-- header di atas skill!
+-- [6] Skill Container    <-- isi skill di bawah header
+
+-- [1] Auto Equip
+local getAutoEquip = makeToggle(Content, "Auto Equip True Manipulator", true, 1)
+
+-- [2] Status Label
+local StatusLabel = Instance.new("TextLabel")
+StatusLabel.Size = UDim2.new(1, 0, 0, 20)
+StatusLabel.BackgroundTransparency = 1
+StatusLabel.Text = "Status: Running..."
+StatusLabel.TextColor3 = Color3.fromRGB(100, 220, 100)
+StatusLabel.TextSize = 11
+StatusLabel.Font = Enum.Font.Gotham
+StatusLabel.TextXAlignment = Enum.TextXAlignment.Left
+StatusLabel.LayoutOrder = 2
+StatusLabel.Parent = Content
+
+-- [3] Delay Row
+local delayRow = Instance.new("Frame")
+delayRow.Size = UDim2.new(1, 0, 0, 34)
+delayRow.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+delayRow.BorderSizePixel = 0
+delayRow.LayoutOrder = 3
+delayRow.Parent = Content
+Instance.new("UICorner", delayRow).CornerRadius = UDim.new(0, 6)
+
+local delayLbl = Instance.new("TextLabel")
+delayLbl.Size = UDim2.new(0.6, 0, 1, 0)
+delayLbl.Position = UDim2.new(0, 10, 0, 0)
+delayLbl.BackgroundTransparency = 1
+delayLbl.Text = "TP Delay (detik):"
+delayLbl.TextColor3 = Color3.fromRGB(220, 220, 220)
+delayLbl.TextSize = 12
+delayLbl.Font = Enum.Font.GothamSemibold
+delayLbl.TextXAlignment = Enum.TextXAlignment.Left
+delayLbl.Parent = delayRow
+
+local delayBox = Instance.new("TextBox")
+delayBox.Size = UDim2.new(0, 60, 0, 24)
+delayBox.Position = UDim2.new(1, -68, 0.5, -12)
+delayBox.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+delayBox.Text = "0.5"
+delayBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+delayBox.TextSize = 12
+delayBox.Font = Enum.Font.GothamBold
+delayBox.BorderSizePixel = 0
+delayBox.Parent = delayRow
+Instance.new("UICorner", delayBox).CornerRadius = UDim.new(0, 4)
+
+-- [4] STOP TP Button
+local StartBtn = Instance.new("TextButton")
+StartBtn.Size = UDim2.new(1, 0, 0, 34)
+StartBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+StartBtn.Text = "⏹ STOP TP"
+StartBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+StartBtn.TextSize = 13
+StartBtn.Font = Enum.Font.GothamBold
+StartBtn.BorderSizePixel = 0
+StartBtn.LayoutOrder = 4
+StartBtn.Parent = Content
+Instance.new("UICorner", StartBtn).CornerRadius = UDim.new(0, 6)
+
+-- [5] AUTO SKILL Header — di atas skill
+local skillHeader = Instance.new("TextButton")
+skillHeader.Size = UDim2.new(1, 0, 0, 28)
+skillHeader.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+skillHeader.BorderSizePixel = 0
+skillHeader.Text = "▼ AUTO SKILL"
+skillHeader.TextColor3 = Color3.fromRGB(255, 215, 0)
+skillHeader.TextSize = 11
+skillHeader.Font = Enum.Font.GothamBold
+skillHeader.TextXAlignment = Enum.TextXAlignment.Left
+skillHeader.LayoutOrder = 5
+skillHeader.Parent = Content
+Instance.new("UICorner", skillHeader).CornerRadius = UDim.new(0, 6)
+local shPad = Instance.new("UIPadding")
+shPad.PaddingLeft = UDim.new(0, 8)
+shPad.Parent = skillHeader
+
+-- [6] Skill Container — langsung di bawah header
+local skillContainer = Instance.new("Frame")
+skillContainer.Size = UDim2.new(1, 0, 0, 0)
+skillContainer.BackgroundTransparency = 1
+skillContainer.BorderSizePixel = 0
+skillContainer.ClipsDescendants = true
+skillContainer.LayoutOrder = 6
+skillContainer.Parent = Content
+
+local skillList = Instance.new("UIListLayout")
+skillList.Padding = UDim.new(0, 6)
+skillList.SortOrder = Enum.SortOrder.LayoutOrder
+skillList.Parent = skillContainer
+
+local skillPad = Instance.new("UIPadding")
+skillPad.PaddingBottom = UDim.new(0, 4)
+skillPad.Parent = skillContainer
+
+local getZ = makeToggle(skillContainer, "Skill Z", true, 1)
+local getX = makeToggle(skillContainer, "Skill X", true, 2)
+local getC = makeToggle(skillContainer, "Skill C", true, 3)
+local getV = makeToggle(skillContainer, "Skill V", false, 4)
+local getF = makeToggle(skillContainer, "Skill F", false, 5)
+
+-- Collapsible logic
+local skillOpen = true
+local function updateSkillSize()
+    local h = skillList.AbsoluteContentSize.Y + 8
+    skillContainer.Size = UDim2.new(1, 0, 0, skillOpen and h or 0)
+    skillHeader.Text = (skillOpen and "▼ " or "► ") .. "AUTO SKILL"
+    updateMainSize()
+end
+
+skillHeader.MouseButton1Click:Connect(function()
+    skillOpen = not skillOpen
+    updateSkillSize()
+end)
+
+task.delay(0.1, updateSkillSize)
+
+-- ================== EXPAND/COLLAPSE MAIN ==================
+local expanded = false
+ExpandBtn.MouseButton1Click:Connect(function()
+    expanded = not expanded
+    ExpandBtn.Text = expanded and "▲" or "▼"
+    if expanded then
+        updateMainSize()
+    else
+        MainFrame.Size = UDim2.new(0, 260, 0, 36)
+    end
+end)
+
+task.delay(0.2, function()
+    expanded = true
+    ExpandBtn.Text = "▲"
+    updateMainSize()
+end)
+
+-- ================== LOGIC ==================
+local running = true
+local delay = 0.5
+
+local locations = {
+    Vector3.new(-326.2, -3.7, -117.5),
+    Vector3.new(-3075.8, 7.5, -664.8),
+    Vector3.new(-1579.2, 2.7, 1843.3),
+}
+local locNames = {"Lokasi 1", "Lokasi 2", "Lokasi 3"}
+
+delayBox:GetPropertyChangedSignal("Text"):Connect(function()
+    delay = tonumber(delayBox.Text) or 0.5
+end)
+
+CloseBtn.MouseButton1Click:Connect(function()
+    running = false
+    ScreenGui:Destroy()
+end)
+
+StartBtn.MouseButton1Click:Connect(function()
+    running = not running
+    if running then
+        StartBtn.Text = "⏹ STOP TP"
+        StartBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+        StatusLabel.Text = "Status: Running..."
+        StatusLabel.TextColor3 = Color3.fromRGB(100, 220, 100)
+    else
+        StartBtn.Text = "▶ START TP"
+        StartBtn.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
+        StatusLabel.Text = "Status: Idle"
+        StatusLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    end
+end)
+
+-- ================== AUTO EQUIP LOOP ==================
+task.spawn(function()
+    while true do
+        task.wait(0.5)
+        if not getAutoEquip() then continue end
+        local char = player.Character
+        if not char then continue end
+        local humanoid = char:FindFirstChild("Humanoid")
+        if not humanoid then continue end
+        local tool = player.Backpack:FindFirstChild("True Manipulator")
+        if tool then
+            pcall(function() humanoid:EquipTool(tool) end)
+        end
+    end
+end)
+
+-- ================== TP LOOP ==================
+task.spawn(function()
+    local idx = 1
+    while true do
+        task.wait(0.1)
+        if not running then continue end
+        local char = player.Character
+        if not char then continue end
+        local root = char:FindFirstChild("HumanoidRootPart")
+        if not root then continue end
+        StatusLabel.Text = "TP ke: " .. locNames[idx]
+        root.CFrame = CFrame.new(locations[idx])
+        idx = idx % #locations + 1
+        task.wait(delay)
+    end
+end)
+
+-- ================== SKILL LOOP ==================
+local skillRemote = ReplicatedStorage:WaitForChild("AbilitySystem"):WaitForChild("Remotes"):WaitForChild("RequestAbility")
+local skills = {
+    { id = 1, getState = getZ },
+    { id = 2, getState = getX },
+    { id = 3, getState = getC },
+    { id = 4, getState = getV },
+    { id = 5, getState = getF },
+}
+
+task.spawn(function()
+    while true do
+        task.wait(0.1)
+        for _, skill in ipairs(skills) do
+            if skill.getState() then
+                pcall(function() skillRemote:FireServer(skill.id) end)
+            end
+        end
+    end
+end)
