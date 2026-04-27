@@ -1,0 +1,395 @@
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local player = Players.LocalPlayer
+
+local parentUI
+local ok = pcall(function() parentUI = game:GetService("CoreGui") end)
+if not ok or not parentUI then parentUI = player:WaitForChild("PlayerGui") end
+
+if parentUI:FindFirstChild("BrainrotFarmGUI") then
+    parentUI.BrainrotFarmGUI:Destroy()
+end
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "BrainrotFarmGUI"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = parentUI
+
+-- ================== GUI ==================
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 240, 0, 410)
+MainFrame.Position = UDim2.new(0.5, -120, 0.5, -172)
+MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Draggable = true
+MainFrame.Parent = ScreenGui
+Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 8)
+
+local TitleBar = Instance.new("Frame")
+TitleBar.Size = UDim2.new(1, 0, 0, 36)
+TitleBar.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+TitleBar.BorderSizePixel = 0
+TitleBar.Parent = MainFrame
+Instance.new("UICorner", TitleBar).CornerRadius = UDim.new(0, 8)
+
+local TitleLabel = Instance.new("TextLabel")
+TitleLabel.Size = UDim2.new(1, -80, 1, 0)
+TitleLabel.Position = UDim2.new(0, 10, 0, 0)
+TitleLabel.BackgroundTransparency = 1
+TitleLabel.Text = "🧠 Brainrot Farm"
+TitleLabel.TextColor3 = Color3.fromRGB(255, 215, 0)
+TitleLabel.TextSize = 13
+TitleLabel.Font = Enum.Font.GothamBold
+TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+TitleLabel.Parent = TitleBar
+
+local CloseBtn = Instance.new("TextButton")
+CloseBtn.Size = UDim2.new(0, 28, 0, 28)
+CloseBtn.Position = UDim2.new(1, -32, 0, 4)
+CloseBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+CloseBtn.Text = "✕"
+CloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+CloseBtn.TextSize = 12
+CloseBtn.Font = Enum.Font.GothamBold
+CloseBtn.Parent = TitleBar
+Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 4)
+
+local StatusLabel = Instance.new("TextLabel")
+StatusLabel.Size = UDim2.new(1, -20, 0, 24)
+StatusLabel.Position = UDim2.new(0, 10, 0, 44)
+StatusLabel.BackgroundTransparency = 1
+StatusLabel.Text = "Status: Idle"
+StatusLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+StatusLabel.TextSize = 11
+StatusLabel.Font = Enum.Font.Gotham
+StatusLabel.TextXAlignment = Enum.TextXAlignment.Left
+StatusLabel.Parent = MainFrame
+
+local ToggleBtn = Instance.new("TextButton")
+ToggleBtn.Size = UDim2.new(1, -20, 0, 34)
+ToggleBtn.Position = UDim2.new(0, 10, 0, 72)
+ToggleBtn.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
+ToggleBtn.Text = "▶ START"
+ToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+ToggleBtn.TextSize = 13
+ToggleBtn.Font = Enum.Font.GothamBold
+ToggleBtn.BorderSizePixel = 0
+ToggleBtn.Parent = MainFrame
+Instance.new("UICorner", ToggleBtn).CornerRadius = UDim.new(0, 6)
+
+-- Fly Speed
+local FlyLabel = Instance.new("TextLabel")
+FlyLabel.Size = UDim2.new(0, 100, 0, 20)
+FlyLabel.Position = UDim2.new(0, 10, 0, 114)
+FlyLabel.BackgroundTransparency = 1
+FlyLabel.Text = "Fly Speed:"
+FlyLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+FlyLabel.TextSize = 10
+FlyLabel.Font = Enum.Font.GothamBold
+FlyLabel.TextXAlignment = Enum.TextXAlignment.Left
+FlyLabel.Parent = MainFrame
+
+local FlySpeedBox = Instance.new("TextBox")
+FlySpeedBox.Size = UDim2.new(0, 100, 0, 22)
+FlySpeedBox.Position = UDim2.new(0, 120, 0, 112)
+FlySpeedBox.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+FlySpeedBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+FlySpeedBox.Text = "1000"
+FlySpeedBox.TextSize = 11
+FlySpeedBox.Font = Enum.Font.GothamBold
+FlySpeedBox.ClearTextOnFocus = false
+FlySpeedBox.BorderSizePixel = 0
+FlySpeedBox.Parent = MainFrame
+Instance.new("UICorner", FlySpeedBox).CornerRadius = UDim.new(0, 4)
+
+-- Mutation Section Label
+local MutLabel = Instance.new("TextLabel")
+MutLabel.Size = UDim2.new(1, -20, 0, 20)
+MutLabel.Position = UDim2.new(0, 10, 0, 142)
+MutLabel.BackgroundTransparency = 1
+MutLabel.Text = "Mutation Filter (ON = lanjut):"
+MutLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+MutLabel.TextSize = 10
+MutLabel.Font = Enum.Font.GothamBold
+MutLabel.TextXAlignment = Enum.TextXAlignment.Left
+MutLabel.Parent = MainFrame
+
+-- ================== MUTATION TOGGLES ==================
+local MUTATIONS = {
+    { name = "Normal",       key = "None",         color = Color3.fromRGB(180, 180, 180) },
+    { name = "Gold",         key = "Gold",         color = Color3.fromRGB(255, 200, 0)   },
+    { name = "Diamond",      key = "Diamond",      color = Color3.fromRGB(100, 220, 255) },
+    { name = "Plasma",       key = "Plasma",       color = Color3.fromRGB(200, 80, 255)  },
+    { name = "Molten",       key = "Molten",       color = Color3.fromRGB(255, 100, 30)  },
+    { name = "Radioactive",  key = "Radioactive",  color = Color3.fromRGB(80, 255, 80)   },
+    { name = "Shadow",       key = "Shadow",       color = Color3.fromRGB(60, 60, 80)    },
+    { name = "Electrified",  key = "Electrified",  color = Color3.fromRGB(0, 220, 255)   },
+    { name = "Rainbow",      key = "Rainbow",      color = Color3.fromRGB(255, 100, 200) },
+    { name = "Void",         key = "Void",         color = Color3.fromRGB(80, 0, 120)    },
+}
+
+local mutationEnabled = {
+    ["None"]        = false,
+    ["Gold"]        = false,
+    ["Diamond"]     = false,
+    ["Plasma"]      = false,
+    ["Molten"]      = true,
+    ["Radioactive"] = true,
+    ["Shadow"]      = true,
+    ["Electrified"] = true,
+    ["Rainbow"]     = true,
+    ["Void"]        = true,
+}
+
+local startY = 164
+for i, mut in ipairs(MUTATIONS) do
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(0, 105, 0, 26)
+    local col = (i - 1) % 2
+    local row = math.floor((i - 1) / 2)
+    btn.Position = UDim2.new(0, 10 + col * 118, 0, startY + row * 32)
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 10
+    btn.BorderSizePixel = 0
+    btn.Parent = MainFrame
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
+
+    local function updateBtn()
+        if mutationEnabled[mut.key] then
+            btn.BackgroundColor3 = mut.color
+            btn.TextColor3 = Color3.fromRGB(20, 20, 20)
+            btn.Text = "✔ " .. mut.name
+        else
+            btn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+            btn.TextColor3 = Color3.fromRGB(150, 150, 150)
+            btn.Text = "✘ " .. mut.name
+        end
+    end
+
+    updateBtn()
+    btn.MouseButton1Click:Connect(function()
+        mutationEnabled[mut.key] = not mutationEnabled[mut.key]
+        updateBtn()
+    end)
+end
+
+-- ================== LOGIC ==================
+local KICK_POS = Vector3.new(704.0, 3.2, 237.6)
+local SAFE_POS = Vector3.new(748.0, 3.2, 322.5)
+local SAFE1    = Vector3.new(748.0, 3.2, 322.5)
+local SAFE2    = Vector3.new(748.5, 3.2, 308.0)
+
+local VALID_BRAINROTS = {
+    ["Strawberry Elephant"]      = true,
+    ["Dragonfrutina Dolphinita"] = true,
+    ["Guerriro Digitale"]        = true,
+    ["Chicleteira Bicicleteira"] = true,
+    ["Pot Hotspot"]              = true,
+    ["Krupuk Pagi Pagi"]         = true,
+    ["Beluga Beluga"]            = true,
+    ["Tralaledon"]               = true,
+    ["Anpali Babel"]             = true,
+    ["Mastodontico Telepiedone"] = true,
+    ["Ketupat Kepat"]            = true,
+}
+
+local running = false
+local network   = ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Packages"):WaitForChild("Network")
+local kickEvent = network:WaitForChild("rev_KickEvent")
+
+local function setStatus(text, color)
+    StatusLabel.Text = "Status: " .. text
+    StatusLabel.TextColor3 = color or Color3.fromRGB(200, 200, 200)
+end
+
+local function getRoot()
+    local char = player.Character
+    if not char then return nil end
+    return char:FindFirstChild("HumanoidRootPart")
+end
+
+local function bundir()
+    local char = player.Character
+    if char then
+        char:FindFirstChild("Humanoid").Health = 0
+    end
+end
+
+local function getFlySpeed()
+    local val = tonumber(FlySpeedBox.Text)
+    if not val or val <= 0 then return 100 end
+    return val
+end
+
+local function isValidBrainrot(obj)
+    if VALID_BRAINROTS[obj.Name] then return true end
+    local mutation = obj:GetAttribute("Mutation")
+    local mutKey = mutation and tostring(mutation) or "None"
+    if mutationEnabled[mutKey] then return true end
+    return false
+end
+
+local function runLoop()
+    while running do
+        -- STEP 1: TP ke kick spot
+        setStatus("TP ke kick spot...", Color3.fromRGB(100, 180, 255))
+        local root = getRoot()
+        if not root then task.wait(1) continue end
+        pcall(function() root.CFrame = CFrame.new(KICK_POS) end)
+        task.wait(0.5)
+
+        if not running then break end
+
+        -- STEP 2: Fire kick
+        setStatus("Nge-kick...", Color3.fromRGB(255, 150, 50))
+        pcall(function() kickEvent:FireServer(1) end)
+
+        if not running then break end
+
+        -- STEP 3: Nunggu kena kick (X < -2500)
+        setStatus("Nunggu kena kick...", Color3.fromRGB(200, 100, 255))
+        local timeout = 30
+        local elapsed = 0
+        local kicked = false
+        while elapsed < timeout and running do
+            task.wait(0.1)
+            elapsed = elapsed + 0.1
+            local r = getRoot()
+            if r and r.Position.X < -2500 then
+                kicked = true
+                break
+            end
+        end
+
+        if not kicked or not running then
+            setStatus("Timeout/stop, retry...", Color3.fromRGB(255, 50, 50))
+            task.wait(1)
+            continue
+        end
+
+        if not running then break end
+
+        -- STEP 4: Fly ke safe zone
+        setStatus("Fly ke safe zone...", Color3.fromRGB(100, 220, 100))
+        root = getRoot()
+        if root then
+            root.Anchored = true
+            local flySpeed = getFlySpeed()
+            local startPos = root.Position
+            local distance = (SAFE_POS - startPos).Magnitude
+            local duration = distance / flySpeed
+            local elapsed2 = 0
+            while elapsed2 < duration and running do
+                local alpha = math.min(elapsed2 / duration, 1)
+                pcall(function()
+                    root.CFrame = CFrame.new(startPos:Lerp(SAFE_POS, alpha))
+                end)
+                task.wait(0.05)
+                elapsed2 = elapsed2 + 0.05
+            end
+            pcall(function() root.CFrame = CFrame.new(SAFE_POS) end)
+            root.Anchored = false
+        end
+
+        if not running then break end
+
+        -- STEP 5: Scan Debris cari brainrot (PrimaryPart.Name == "Root")
+        setStatus("Scanning brainrot...", Color3.fromRGB(255, 215, 0))
+        local debris = workspace:WaitForChild("Debris")
+        local brainrot = nil
+
+        local function findBrainrot()
+            for _, child in ipairs(debris:GetChildren()) do
+                if child:IsA("Model") and child.PrimaryPart and child.PrimaryPart.Name == "Root" then
+                    return child
+                end
+            end
+            return nil
+        end
+
+        local waitTimeout = 60
+        local waitElapsed = 0
+        while not brainrot and waitElapsed < waitTimeout and running do
+            brainrot = findBrainrot()
+            if not brainrot then
+                task.wait(0.1)
+                waitElapsed = waitElapsed + 0.1
+            end
+        end
+
+        if not brainrot or not running then
+            setStatus("Timeout brainrot, retry...", Color3.fromRGB(255, 50, 50))
+            task.wait(1)
+            continue
+        end
+
+        -- STEP 6: Cek valid
+        local mutVal = brainrot:GetAttribute("Mutation") or "None"
+        if not isValidBrainrot(brainrot) then
+            setStatus("Bundir: " .. brainrot.Name .. " [" .. mutVal .. "]", Color3.fromRGB(255, 50, 50))
+            task.wait(0.3)
+            bundir()
+            task.wait(4)
+            continue
+        end
+
+        -- STEP 7: Valid, jalan bolak-balik nunggu removed
+        setStatus("Valid! [" .. mutVal .. "] " .. brainrot.Name, Color3.fromRGB(100, 220, 100))
+
+        local isRemoved = false
+        local removedConn = brainrot.AncestryChanged:Connect(function()
+            if not brainrot.Parent then
+                isRemoved = true
+            end
+        end)
+
+        local toggle = false
+        while not isRemoved and running do
+            if not brainrot.Parent then isRemoved = true break end
+            local char2 = player.Character
+            if not char2 then task.wait(0.5) continue end
+            local hum2 = char2:FindFirstChild("Humanoid")
+            if not hum2 then task.wait(0.5) continue end
+
+            toggle = not toggle
+            local target = toggle and SAFE1 or SAFE2
+            hum2:MoveTo(target)
+            task.wait(3)
+        end
+        removedConn:Disconnect()
+
+        if not running then break end
+
+        setStatus("Brainrot selesai! Ulang...", Color3.fromRGB(100, 220, 100))
+        task.wait(0.5)
+    end
+
+    setStatus("Idle", Color3.fromRGB(200, 200, 200))
+end
+
+-- ================== BUTTON EVENTS ==================
+ToggleBtn.MouseButton1Click:Connect(function()
+    running = not running
+    if running then
+        ToggleBtn.Text = "⏹ STOP"
+        ToggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+        task.spawn(runLoop)
+    else
+        ToggleBtn.Text = "▶ START"
+        ToggleBtn.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
+        setStatus("Stopping...", Color3.fromRGB(255, 100, 50))
+    end
+end)
+
+-- Auto start
+task.wait(5)
+running = true
+ToggleBtn.Text = "⏹ STOP"
+ToggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+task.spawn(runLoop)
+
+CloseBtn.MouseButton1Click:Connect(function()
+    running = false
+    ScreenGui:Destroy()
+end)
