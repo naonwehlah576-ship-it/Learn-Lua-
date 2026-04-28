@@ -194,6 +194,24 @@ local VALID_BRAINROTS = {
     ["Ketupat Kepat"]            = true,
 }
 
+-- 4 nama ini wajib mutasi Plasma ke atas, kalau di bawah itu bundir
+local STRICT_BRAINROTS = {
+    ["Strawberry Elephant"]      = true,
+    ["Dragonfrutina Dolphinita"] = true,
+    ["Guerriro Digitale"]        = true,
+    ["Chicleteira Bicicleteira"] = true,
+}
+
+local HIGH_MUTATIONS = {
+    ["Plasma"]      = true,
+    ["Molten"]      = true,
+    ["Radioactive"] = true,
+    ["Shadow"]      = true,
+    ["Electrified"] = true,
+    ["Rainbow"]     = true,
+    ["Void"]        = true,
+}
+
 local running = false
 local network   = ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Packages"):WaitForChild("Network")
 local kickEvent = network:WaitForChild("rev_KickEvent")
@@ -223,10 +241,20 @@ local function getFlySpeed()
 end
 
 local function isValidBrainrot(obj)
-    if VALID_BRAINROTS[obj.Name] then return true end
     local mutation = obj:GetAttribute("Mutation")
     local mutKey = mutation and tostring(mutation) or "None"
+
+    -- 4 nama strict: wajib mutasi plasma ke atas
+    if STRICT_BRAINROTS[obj.Name] then
+        return HIGH_MUTATIONS[mutKey] == true
+    end
+
+    -- 7 nama sisanya: lanjut apapun mutasinya
+    if VALID_BRAINROTS[obj.Name] then return true end
+
+    -- nama tidak ada di list: cek mutation toggle
     if mutationEnabled[mutKey] then return true end
+
     return false
 end
 
