@@ -330,7 +330,10 @@ local function runLoop()
             setStatus("Bundir: " .. brainrot.Name .. " [" .. mutVal .. "]", Color3.fromRGB(255, 50, 50))
             task.wait(0.3)
             bundir()
-            task.wait(4)
+            -- nunggu mati dulu
+            repeat task.wait(0.1) until not player.Character or (player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health <= 0)
+            -- nunggu respawn
+            repeat task.wait(0.1) until player.Character and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0
             continue
         end
 
