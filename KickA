@@ -134,7 +134,7 @@ local mutationEnabled = {
     ["Gold"]        = false,
     ["Diamond"]     = false,
     ["Plasma"]      = false,
-    ["Molten"]      = true,
+    ["Molten"]      = false,
     ["Radioactive"] = true,
     ["Shadow"]      = true,
     ["Electrified"] = true,
@@ -204,7 +204,7 @@ local STRICT_BRAINROTS = {
 
 local HIGH_MUTATIONS = {
     ["Plasma"]      = true,
-    ["Molten"]      = true,
+    ["Molten"]      = false,
     ["Radioactive"] = true,
     ["Shadow"]      = true,
     ["Electrified"] = true,
