@@ -37,7 +37,7 @@ local TitleLabel = Instance.new("TextLabel")
 TitleLabel.Size = UDim2.new(1, -80, 1, 0)
 TitleLabel.Position = UDim2.new(0, 10, 0, 0)
 TitleLabel.BackgroundTransparency = 1
-TitleLabel.Text = "🧠 Brainrot Farm"
+TitleLabel.Text = "🧠 Brainrot Farm | Dafa Goreng"
 TitleLabel.TextColor3 = Color3.fromRGB(255, 215, 0)
 TitleLabel.TextSize = 13
 TitleLabel.Font = Enum.Font.GothamBold
@@ -176,9 +176,9 @@ end
 
 -- ================== LOGIC ==================
 local KICK_POS = Vector3.new(704.0, 3.2, 237.6)
-local SAFE_POS = Vector3.new(748.0, 3.2, 322.5)
-local SAFE1    = Vector3.new(748.0, 3.2, 322.5)
-local SAFE2    = Vector3.new(748.5, 3.2, 308.0)
+local SAFE_POS = Vector3.new(701.9, 4.2, 229.5)
+local SAFE1    = Vector3.new(701.9, 4.2, 229.5)
+local SAFE2    = Vector3.new(701.9, 4.2, 229.5)
 
 local VALID_BRAINROTS = {
     ["Strawberry Elephant"]      = true,
@@ -298,33 +298,8 @@ local function runLoop()
 
         if not running then break end
 
-        -- STEP 4: Fly ke safe zone
-        setStatus("Fly ke safe zone...", Color3.fromRGB(100, 220, 100))
-        root = getRoot()
-        if root then
-            root.Anchored = true
-            local flySpeed = getFlySpeed()
-            local startPos = root.Position
-            local distance = (SAFE_POS - startPos).Magnitude
-            local duration = distance / flySpeed
-            local elapsed2 = 0
-            while elapsed2 < duration and running do
-                local alpha = math.min(elapsed2 / duration, 1)
-                pcall(function()
-                    root.CFrame = CFrame.new(startPos:Lerp(SAFE_POS, alpha))
-                end)
-                task.wait(0.05)
-                elapsed2 = elapsed2 + 0.05
-            end
-            pcall(function() root.CFrame = CFrame.new(SAFE_POS) end)
-            root.Anchored = false
-        end
-
-        if not running then break end
-
-        -- STEP 5: Scan Debris cari brainrot (PrimaryPart.Name == "Root")
-        task.wait(1)
-        setStatus("Scanning brainrot...", Color3.fromRGB(255, 215, 0))
+        -- STEP 4: Jalan ke safe zone + scan brainrot bersamaan
+        setStatus("Jalan ke safe zone + scanning...", Color3.fromRGB(100, 220, 100))
         local debris = workspace:WaitForChild("Debris")
         local brainrot = nil
 
@@ -337,14 +312,43 @@ local function runLoop()
             return nil
         end
 
-        local waitTimeout = 60
-        local waitElapsed = 0
-        while not brainrot and waitElapsed < waitTimeout and running do
-            brainrot = findBrainrot()
-            if not brainrot then
-                task.wait(0.1)
-                waitElapsed = waitElapsed + 0.1
+        local char4 = player.Character
+        local shouldBundir = false
+
+        if char4 then
+            local hum4 = char4:FindFirstChild("Humanoid")
+            if hum4 then
+                hum4:MoveTo(SAFE_POS)
+                task.wait(2) -- jeda 2 detik sebelum scan
+                while running do
+                    local r2 = getRoot()
+                    if not r2 then break end
+
+                    -- scan brainrot setelah jeda
+                    local found = findBrainrot()
+                    if found and not brainrot then
+                        brainrot = found
+                        local mutVal2 = brainrot:GetAttribute("Mutation") or "None"
+                        if not isValidBrainrot(brainrot) then
+                            setStatus("Bundir: " .. brainrot.Name .. " [" .. mutVal2 .. "]", Color3.fromRGB(255, 50, 50))
+                            shouldBundir = true
+                            break
+                        end
+                        setStatus("Valid! Lanjut jalan ke safe...", Color3.fromRGB(100, 220, 100))
+                    end
+
+                    if (r2.Position - SAFE_POS).Magnitude < 5 then break end
+                    hum4:MoveTo(SAFE_POS)
+                    task.wait(7)
+                end
             end
+        end
+
+        if shouldBundir then
+            task.wait(1)
+            bundir()
+            repeat task.wait(0.1) until player.Character and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0
+            continue
         end
 
         if not brainrot or not running then
@@ -375,18 +379,9 @@ local function runLoop()
             end
         end)
 
-        local toggle = false
         while not isRemoved and running do
             if not brainrot.Parent then isRemoved = true break end
-            local char2 = player.Character
-            if not char2 then task.wait(0.5) continue end
-            local hum2 = char2:FindFirstChild("Humanoid")
-            if not hum2 then task.wait(0.5) continue end
-
-            toggle = not toggle
-            local target = toggle and SAFE1 or SAFE2
-            hum2:MoveTo(target)
-            task.wait(3)
+            task.wait(0.1)
         end
         removedConn:Disconnect()
 
