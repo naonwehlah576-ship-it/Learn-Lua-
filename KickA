@@ -127,6 +127,7 @@ local MUTATIONS = {
     { name = "Electrified",  key = "Electrified",  color = Color3.fromRGB(0, 220, 255)   },
     { name = "Rainbow",      key = "Rainbow",      color = Color3.fromRGB(255, 100, 200) },
     { name = "Void",         key = "Void",         color = Color3.fromRGB(80, 0, 120)    },
+    { name = "Virus",        key = "Virus",        color = Color3.fromRGB(0, 180, 50)    },
 }
 
 local mutationEnabled = {
@@ -140,6 +141,7 @@ local mutationEnabled = {
     ["Electrified"] = true,
     ["Rainbow"]     = true,
     ["Void"]        = true,
+    ["Virus"]       = true,
 }
 
 local startY = 164
@@ -210,6 +212,7 @@ local HIGH_MUTATIONS = {
     ["Electrified"] = true,
     ["Rainbow"]     = true,
     ["Void"]        = true,
+    ["Virus"]       = true,
 }
 
 local running = false
