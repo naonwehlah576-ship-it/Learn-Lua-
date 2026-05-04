@@ -204,6 +204,22 @@ local STRICT_BRAINROTS = {
     ["Chicleteira Bicicleteira"] = true,
 }
 
+local ELECTRIFIED_ONLY = {
+    ["Blackhole Goat"]        = true,
+    ["Compactoroni Diskaloni"] = true,
+    ["Cappuccino Clownino"]   = true,
+    ["Nuclearo Dinossauro"]   = true,
+    ["Chillin Chilli"]        = true,
+    ["Crazylone Pizaione"]    = true,
+    ["Corn Sahur"]            = true,
+    ["Meowl"]                 = true,
+}
+
+local ELECTRIFIED_MUTATIONS = {
+    ["Electrified"] = true,
+    ["Rainbow"]     = true,
+}
+
 local HIGH_MUTATIONS = {
     ["Plasma"]      = true,
     ["Molten"]      = false,
@@ -247,7 +263,12 @@ local function isValidBrainrot(obj)
     local mutation = obj:GetAttribute("Mutation")
     local mutKey = mutation and tostring(mutation) or "None"
 
-    -- 4 nama strict: wajib mutasi plasma ke atas
+    -- nama electrified only: wajib Electrified atau Rainbow
+    if ELECTRIFIED_ONLY[obj.Name] then
+        return ELECTRIFIED_MUTATIONS[mutKey] == true
+    end
+
+    -- 4 nama strict: wajib mutasi Molten ke atas
     if STRICT_BRAINROTS[obj.Name] then
         return HIGH_MUTATIONS[mutKey] == true
     end
