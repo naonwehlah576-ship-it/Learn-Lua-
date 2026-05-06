@@ -132,6 +132,7 @@ Instance.new("UICorner", FlySpeedBox).CornerRadius = UDim.new(0, 4)
 local MULTIPLIER = {
     ["None"]        = 1,
     ["Gold"]        = 1.5,
+    ["Golden"]      = 1.5,
     ["Diamond"]     = 2,
     ["Plasma"]      = 4,
     ["Molten"]      = 6,
