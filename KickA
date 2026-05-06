@@ -17,8 +17,8 @@ ScreenGui.Parent = parentUI
 
 -- ================== GUI ==================
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 240, 0, 410)
-MainFrame.Position = UDim2.new(0.5, -120, 0.5, -172)
+MainFrame.Size = UDim2.new(0, 260, 0, 178)
+MainFrame.Position = UDim2.new(0.5, -120, 0.5, -80)
 MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 MainFrame.BorderSizePixel = 0
 MainFrame.Active = true
@@ -39,7 +39,7 @@ TitleLabel.Position = UDim2.new(0, 10, 0, 0)
 TitleLabel.BackgroundTransparency = 1
 TitleLabel.Text = "🧠 Brainrot Farm | Dafa Goreng"
 TitleLabel.TextColor3 = Color3.fromRGB(255, 215, 0)
-TitleLabel.TextSize = 13
+TitleLabel.TextSize = 11
 TitleLabel.Font = Enum.Font.GothamBold
 TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
 TitleLabel.Parent = TitleBar
@@ -78,10 +78,35 @@ ToggleBtn.BorderSizePixel = 0
 ToggleBtn.Parent = MainFrame
 Instance.new("UICorner", ToggleBtn).CornerRadius = UDim.new(0, 6)
 
+-- Min Harga
+local MinLabel = Instance.new("TextLabel")
+MinLabel.Size = UDim2.new(0, 110, 0, 22)
+MinLabel.Position = UDim2.new(0, 10, 0, 116)
+MinLabel.BackgroundTransparency = 1
+MinLabel.Text = "Min Harga (M/s):"
+MinLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+MinLabel.TextSize = 10
+MinLabel.Font = Enum.Font.GothamBold
+MinLabel.TextXAlignment = Enum.TextXAlignment.Left
+MinLabel.Parent = MainFrame
+
+local MinBox = Instance.new("TextBox")
+MinBox.Size = UDim2.new(0, 90, 0, 22)
+MinBox.Position = UDim2.new(0, 130, 0, 116)
+MinBox.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+MinBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+MinBox.Text = "4"
+MinBox.TextSize = 11
+MinBox.Font = Enum.Font.GothamBold
+MinBox.ClearTextOnFocus = false
+MinBox.BorderSizePixel = 0
+MinBox.Parent = MainFrame
+Instance.new("UICorner", MinBox).CornerRadius = UDim.new(0, 4)
+
 -- Fly Speed
 local FlyLabel = Instance.new("TextLabel")
-FlyLabel.Size = UDim2.new(0, 100, 0, 20)
-FlyLabel.Position = UDim2.new(0, 10, 0, 114)
+FlyLabel.Size = UDim2.new(0, 110, 0, 22)
+FlyLabel.Position = UDim2.new(0, 10, 0, 142)
 FlyLabel.BackgroundTransparency = 1
 FlyLabel.Text = "Fly Speed:"
 FlyLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
@@ -91,8 +116,8 @@ FlyLabel.TextXAlignment = Enum.TextXAlignment.Left
 FlyLabel.Parent = MainFrame
 
 local FlySpeedBox = Instance.new("TextBox")
-FlySpeedBox.Size = UDim2.new(0, 100, 0, 22)
-FlySpeedBox.Position = UDim2.new(0, 120, 0, 112)
+FlySpeedBox.Size = UDim2.new(0, 90, 0, 22)
+FlySpeedBox.Position = UDim2.new(0, 130, 0, 142)
 FlySpeedBox.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
 FlySpeedBox.TextColor3 = Color3.fromRGB(255, 255, 255)
 FlySpeedBox.Text = "2000"
@@ -103,133 +128,133 @@ FlySpeedBox.BorderSizePixel = 0
 FlySpeedBox.Parent = MainFrame
 Instance.new("UICorner", FlySpeedBox).CornerRadius = UDim.new(0, 4)
 
--- Mutation Section Label
-local MutLabel = Instance.new("TextLabel")
-MutLabel.Size = UDim2.new(1, -20, 0, 20)
-MutLabel.Position = UDim2.new(0, 10, 0, 142)
-MutLabel.BackgroundTransparency = 1
-MutLabel.Text = "Mutation Filter (ON = lanjut):"
-MutLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
-MutLabel.TextSize = 10
-MutLabel.Font = Enum.Font.GothamBold
-MutLabel.TextXAlignment = Enum.TextXAlignment.Left
-MutLabel.Parent = MainFrame
-
--- ================== MUTATION TOGGLES ==================
-local MUTATIONS = {
-    { name = "Normal",       key = "None",         color = Color3.fromRGB(180, 180, 180) },
-    { name = "Gold",         key = "Gold",         color = Color3.fromRGB(255, 200, 0)   },
-    { name = "Diamond",      key = "Diamond",      color = Color3.fromRGB(100, 220, 255) },
-    { name = "Plasma",       key = "Plasma",       color = Color3.fromRGB(200, 80, 255)  },
-    { name = "Molten",       key = "Molten",       color = Color3.fromRGB(255, 100, 30)  },
-    { name = "Radioactive",  key = "Radioactive",  color = Color3.fromRGB(80, 255, 80)   },
-    { name = "Shadow",       key = "Shadow",       color = Color3.fromRGB(60, 60, 80)    },
-    { name = "Electrified",  key = "Electrified",  color = Color3.fromRGB(0, 220, 255)   },
-    { name = "Rainbow",      key = "Rainbow",      color = Color3.fromRGB(255, 100, 200) },
-    { name = "Void",         key = "Void",         color = Color3.fromRGB(80, 0, 120)    },
-    { name = "Virus",        key = "Virus",        color = Color3.fromRGB(0, 180, 50)    },
+-- ================== DATA ==================
+local MULTIPLIER = {
+    ["None"]        = 1,
+    ["Gold"]        = 1.5,
+    ["Diamond"]     = 2,
+    ["Plasma"]      = 4,
+    ["Molten"]      = 6,
+    ["Radioactive"] = 8,
+    ["Void"]        = 8,
+    ["Shadow"]      = 12,
+    ["Virus"]       = 10,
+    ["Electrified"] = 16,
+    ["Rainbow"]     = 30,
 }
 
-local mutationEnabled = {
-    ["None"]        = false,
-    ["Gold"]        = false,
-    ["Diamond"]     = false,
-    ["Plasma"]      = false,
-    ["Molten"]      = false,
-    ["Radioactive"] = true,
-    ["Shadow"]      = true,
-    ["Electrified"] = true,
-    ["Rainbow"]     = true,
-    ["Void"]        = true,
-    ["Virus"]       = true,
+local BASE_PRICE = {
+    ["Noobini Pizzanini"]          = 2,
+    ["Lirili Larila"]              = 3,
+    ["Tim Cheese"]                 = 3,
+    ["Talpa Di Fero"]              = 4,
+    ["Svinina Bombardino"]         = 5,
+    ["Pipi Kiwi"]                  = 6,
+    ["Trippi Troppi"]              = 7,
+    ["Fruli Frula"]                = 7,
+    ["Gangster Footera"]           = 15,
+    ["Bobrito Bandito"]            = 17,
+    ["Boneca Ambalabu"]            = 17,
+    ["Ta Ta Ta Ta Sahur"]          = 18,
+    ["Ballerina Cappuccina"]       = 19,
+    ["Cappuccino Assassino"]       = 22,
+    ["Brr Brr Patapim"]            = 22,
+    ["Cacto Hipopotamo"]           = 26,
+    ["Garamararam"]                = 40,
+    ["Madung"]                     = 44,
+    ["Waterdino"]                  = 50,
+    ["Pesto Mortioni"]             = 52,
+    ["Pannaburro"]                 = 62,
+    ["Orcalero"]                   = 64,
+    ["Mangolini Parrocini"]        = 64,
+    ["John Pork"]                  = 72,
+    ["Gattatino Nyanino"]          = 76,
+    ["Chimpanzini Bananini"]       = 100,
+    ["Plan Red"]                   = 130,
+    ["Plan Blue"]                  = 140,
+    ["Capi Taco"]                  = 150,
+    ["Bambini Crostini"]           = 160,
+    ["Trulimero Trulicina"]        = 160,
+    ["Elefantucci Bananucci"]      = 170,
+    ["Bananita Dolphinita"]        = 210,
+    ["Salamino Pinguino"]          = 230,
+    ["Penguino Cocosino"]          = 450,
+    ["67"]                         = 500,
+    ["Burbaloni Luliloli"]         = 550,
+    ["Chef Crabracadabra"]         = 600,
+    ["Capybara Eggplant"]          = 650,
+    ["Bangello"]                   = 725,
+    ["Elefanto Frigo"]             = 775,
+    ["Rinooccio Verdini"]          = 880,
+    ["Glorbo Fruttodrillo"]        = 920,
+    ["Udin Din Din Dun"]           = 1800,
+    ["Pandaccini Bananini"]        = 2000,
+    ["Octopusini Bluberini"]       = 2100,
+    ["Strawberelli Flamingelli"]   = 2300,
+    ["Sigma Boy"]                  = 2400,
+    ["Frigo Camelo"]               = 2600,
+    ["Orangutini Ananasini"]       = 2700,
+    ["Rhino Toasterino"]           = 2900,
+    ["Bombardiro Crocodilo"]       = 3100,
+    ["Bombini Gusini"]             = 4700,
+    ["Castlino Fortini"]           = 5000,
+    ["Tuff Toucan"]                = 5300,
+    ["Fryuro"]                     = 5800,
+    ["Burguro"]                    = 6200,
+    ["Guest666"]                   = 7000,
+    ["Zibra Zubra Zibralini"]      = 7700,
+    ["Cavallo Virtuso"]            = 8500,
+    ["Gorillo Watermelondrillo"]   = 9500,
+    ["Cocofanto Elefanto"]         = 10000,
+    ["Bambu Sahur"]                = 12500,
+    ["W or L"]                     = 15000,
+    ["Girafa Celeste"]             = 16500,
+    ["Tralalero Tralala"]          = 17500,
+    ["Tralalerita Tralala"]        = 18000,
+    ["Peant Jarro"]                = 19500,
+    ["Dipperi Chiperini"]          = 20000,
+    ["Rexosaurus"]                 = 22500,
+    ["1x1x1x1"]                    = 23000,
+    ["Matteo"]                     = 25000,
+    ["Alessio"]                    = 27500,
+    ["Espresso Signora"]           = 27500,
+    ["Tripi Tropi Tropa Tripa"]    = 28000,
+    ["SWAG SODA"]                  = 29000,
+    ["Stoppo Luminino"]            = 30000,
+    ["Torrtuginni Dragonfrutini"]  = 32000,
+    ["Tictac Sahur"]               = 38000,
+    ["Cactus Pingu"]               = 44500,
+    ["Los Primos Blue"]            = 44500,
+    ["La Vacca Saturno Saturnita"] = 49500,
+    ["Agarrini La Palini"]         = 53500,
+    ["Bottellini"]                 = 75000,
+    ["Karkerkar Kurkur"]           = 120000,
+    ["Blackhole Goat"]             = 125000,
+    ["Compactoroni Diskaloni"]     = 135000,
+    ["Cappuccino Clownino"]        = 135000,
+    ["Nuclearo Dinossauro"]        = 190000,
+    ["Los Nooo My Hotspotsitos"]   = 200000,
+    ["Chillin Chilli"]             = 220000,
+    ["Crazylone Pizaione"]         = 225000,
+    ["Corn Sahur"]                 = 225000,
+    ["Meowl"]                      = 275000,
+    ["Strawberry Elephant"]        = 420000,
+    ["Dragonfrutina Dolphinita"]   = 475000,
+    ["Guerriro Digitale"]          = 490000,
+    ["Chicleteira Bicicleteira"]   = 500000,
+    ["Pot Hotspot"]                = 525000,
+    ["Krupuk Pagi Pagi"]           = 540000,
+    ["Beluga Beluga"]              = 575000,
+    ["Tralaledon"]                 = 625000,
+    ["Anpali Babel"]               = 750000,
+    ["Ketchuru Matsuru"]           = 800000,
+    ["Mastodontico Telepiedone"]   = 850000,
+    ["Ketupat Kepat"]              = 1000000,
 }
-
-local startY = 164
-for i, mut in ipairs(MUTATIONS) do
-    local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(0, 105, 0, 26)
-    local col = (i - 1) % 2
-    local row = math.floor((i - 1) / 2)
-    btn.Position = UDim2.new(0, 10 + col * 118, 0, startY + row * 32)
-    btn.Font = Enum.Font.GothamBold
-    btn.TextSize = 10
-    btn.BorderSizePixel = 0
-    btn.Parent = MainFrame
-    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
-
-    local function updateBtn()
-        if mutationEnabled[mut.key] then
-            btn.BackgroundColor3 = mut.color
-            btn.TextColor3 = Color3.fromRGB(20, 20, 20)
-            btn.Text = "✔ " .. mut.name
-        else
-            btn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-            btn.TextColor3 = Color3.fromRGB(150, 150, 150)
-            btn.Text = "✘ " .. mut.name
-        end
-    end
-
-    updateBtn()
-    btn.MouseButton1Click:Connect(function()
-        mutationEnabled[mut.key] = not mutationEnabled[mut.key]
-        updateBtn()
-    end)
-end
 
 -- ================== LOGIC ==================
 local KICK_POS = Vector3.new(704.0, 3.2, 237.6)
 local SAFE_POS = Vector3.new(701.9, 4.2, 229.5)
-local SAFE1    = Vector3.new(701.9, 4.2, 229.5)
-local SAFE2    = Vector3.new(701.9, 4.2, 229.5)
-
-local VALID_BRAINROTS = {
-    ["Strawberry Elephant"]      = true,
-    ["Dragonfrutina Dolphinita"] = true,
-    ["Guerriro Digitale"]        = true,
-    ["Chicleteira Bicicleteira"] = true,
-    ["Pot Hotspot"]              = true,
-    ["Krupuk Pagi Pagi"]         = true,
-    ["Beluga Beluga"]            = true,
-    ["Tralaledon"]               = true,
-    ["Anpali Babel"]             = true,
-    ["Mastodontico Telepiedone"] = true,
-    ["Ketupat Kepat"]            = true,
-}
-
--- 4 nama ini wajib mutasi Plasma ke atas, kalau di bawah itu bundir
-local STRICT_BRAINROTS = {
-    ["Strawberry Elephant"]      = true,
-    ["Dragonfrutina Dolphinita"] = true,
-    ["Guerriro Digitale"]        = true,
-    ["Chicleteira Bicicleteira"] = true,
-}
-
-local ELECTRIFIED_ONLY = {
-    ["Blackhole Goat"]        = true,
-    ["Compactoroni Diskaloni"] = true,
-    ["Cappuccino Clownino"]   = true,
-    ["Nuclearo Dinossauro"]   = true,
-    ["Chillin Chilli"]        = true,
-    ["Crazylone Pizaione"]    = true,
-    ["Corn Sahur"]            = true,
-    ["Meowl"]                 = true,
-}
-
-local ELECTRIFIED_MUTATIONS = {
-    ["Electrified"] = true,
-    ["Rainbow"]     = true,
-}
-
-local HIGH_MUTATIONS = {
-    ["Plasma"]      = true,
-    ["Molten"]      = false,
-    ["Radioactive"] = true,
-    ["Shadow"]      = true,
-    ["Electrified"] = true,
-    ["Rainbow"]     = true,
-    ["Void"]        = true,
-    ["Virus"]       = true,
-}
 
 local running = false
 local network   = ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Packages"):WaitForChild("Network")
@@ -253,33 +278,31 @@ local function bundir()
     end
 end
 
+local function getMinHarga()
+    local val = tonumber(MinBox.Text)
+    if not val or val <= 0 then return 4 end
+    return val * 1000000 -- convert M/s ke angka
+end
+
 local function getFlySpeed()
     local val = tonumber(FlySpeedBox.Text)
-    if not val or val <= 0 then return 100 end
+    if not val or val <= 0 then return 2000 end
     return val
 end
 
 local function isValidBrainrot(obj)
     local mutation = obj:GetAttribute("Mutation")
     local mutKey = mutation and tostring(mutation) or "None"
+    local basePrice = BASE_PRICE[obj.Name]
 
-    -- nama electrified only: wajib Electrified atau Rainbow
-    if ELECTRIFIED_ONLY[obj.Name] then
-        return ELECTRIFIED_MUTATIONS[mutKey] == true
-    end
+    -- kalau nama tidak ada di list, bundir
+    if not basePrice then return false end
 
-    -- 4 nama strict: wajib mutasi Molten ke atas
-    if STRICT_BRAINROTS[obj.Name] then
-        return HIGH_MUTATIONS[mutKey] == true
-    end
+    local multiplier = MULTIPLIER[mutKey] or 1
+    local actualPrice = basePrice * multiplier
+    local minHarga = getMinHarga()
 
-    -- 7 nama sisanya: lanjut apapun mutasinya
-    if VALID_BRAINROTS[obj.Name] then return true end
-
-    -- nama tidak ada di list: cek mutation toggle
-    if mutationEnabled[mutKey] then return true end
-
-    return false
+    return actualPrice >= minHarga
 end
 
 local function runLoop()
@@ -322,7 +345,7 @@ local function runLoop()
 
         if not running then break end
 
-        -- STEP 4: Jalan ke safe zone + scan brainrot bersamaan
+        -- STEP 4: Jalan ke safe zone + scan brainrot
         setStatus("Jalan ke safe zone + scanning...", Color3.fromRGB(100, 220, 100))
         local debris = workspace:WaitForChild("Debris")
         local brainrot = nil
@@ -343,22 +366,24 @@ local function runLoop()
             local hum4 = char4:FindFirstChild("Humanoid")
             if hum4 then
                 hum4:MoveTo(SAFE_POS)
-                task.wait(2) -- jeda 2 detik sebelum scan
+                task.wait(2)
                 while running do
                     local r2 = getRoot()
                     if not r2 then break end
 
-                    -- scan brainrot setelah jeda
                     local found = findBrainrot()
                     if found and not brainrot then
                         brainrot = found
                         local mutVal2 = brainrot:GetAttribute("Mutation") or "None"
+                        local basePrice = BASE_PRICE[brainrot.Name] or 0
+                        local multiplier = MULTIPLIER[mutVal2] or 1
+                        local actualPrice = basePrice * multiplier
                         if not isValidBrainrot(brainrot) then
-                            setStatus("Bundir: " .. brainrot.Name .. " [" .. mutVal2 .. "]", Color3.fromRGB(255, 50, 50))
+                            setStatus("Bundir: " .. brainrot.Name .. " [" .. mutVal2 .. "] $" .. math.floor(actualPrice/1000) .. "K/s", Color3.fromRGB(255, 50, 50))
                             shouldBundir = true
                             break
                         end
-                        setStatus("Valid! Lanjut jalan ke safe...", Color3.fromRGB(100, 220, 100))
+                        setStatus("Valid! $" .. math.floor(actualPrice/1000) .. "K/s - " .. brainrot.Name, Color3.fromRGB(100, 220, 100))
                     end
 
                     if (r2.Position - SAFE_POS).Magnitude < 5 then break end
@@ -381,20 +406,12 @@ local function runLoop()
             continue
         end
 
-        -- STEP 6: Cek valid
+        -- STEP 5: Nunggu removed
         local mutVal = brainrot:GetAttribute("Mutation") or "None"
-        if not isValidBrainrot(brainrot) then
-            setStatus("Bundir: " .. brainrot.Name .. " [" .. mutVal .. "]", Color3.fromRGB(255, 50, 50))
-            task.wait(0.3)
-            bundir()
-            task.wait(1)
-            -- nunggu respawn
-            repeat task.wait(0.1) until player.Character and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0
-            continue
-        end
-
-        -- STEP 7: Valid, jalan bolak-balik nunggu removed
-        setStatus("Valid! [" .. mutVal .. "] " .. brainrot.Name, Color3.fromRGB(100, 220, 100))
+        local basePrice = BASE_PRICE[brainrot.Name] or 0
+        local multiplier = MULTIPLIER[mutVal] or 1
+        local actualPrice = basePrice * multiplier
+        setStatus("Nunggu removed: " .. brainrot.Name .. " $" .. math.floor(actualPrice/1000) .. "K/s", Color3.fromRGB(100, 220, 100))
 
         local isRemoved = false
         local removedConn = brainrot.AncestryChanged:Connect(function()
@@ -432,14 +449,14 @@ ToggleBtn.MouseButton1Click:Connect(function()
     end
 end)
 
+CloseBtn.MouseButton1Click:Connect(function()
+    running = false
+    ScreenGui:Destroy()
+end)
+
 -- Auto start
 task.wait(5)
 running = true
 ToggleBtn.Text = "⏹ STOP"
 ToggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
 task.spawn(runLoop)
-
-CloseBtn.MouseButton1Click:Connect(function()
-    running = false
-    ScreenGui:Destroy()
-end)
