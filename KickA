@@ -17,7 +17,7 @@ ScreenGui.Parent = parentUI
 
 -- ================== GUI ==================
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 260, 0, 178)
+MainFrame.Size = UDim2.new(0, 260, 0, 370)
 MainFrame.Position = UDim2.new(0.5, -120, 0.5, -80)
 MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 MainFrame.BorderSizePixel = 0
@@ -127,6 +127,35 @@ FlySpeedBox.ClearTextOnFocus = false
 FlySpeedBox.BorderSizePixel = 0
 FlySpeedBox.Parent = MainFrame
 Instance.new("UICorner", FlySpeedBox).CornerRadius = UDim.new(0, 4)
+
+-- ================== EVENT TOGGLES ==================
+local BACON_EVENT = {
+    ["Chicleteira Bicicleteira"] = true,
+    ["Agarrini La Palini"]       = true,
+    ["Trippi Troppi"]            = true,
+    ["Strawberry Elephant"]      = true,
+}
+
+local UFO_EVENT = {
+    ["Girafa Celeste"]   = true,
+    ["Guerriro Digitale"] = true,
+    ["SWAG SODA"]        = true,
+    ["Cacto Hipopotamo"] = true,
+}
+
+local baconEnabled = {
+    ["Chicleteira Bicicleteira"] = true,
+    ["Agarrini La Palini"]       = true,
+    ["Trippi Troppi"]            = true,
+    ["Strawberry Elephant"]      = true,
+}
+
+local ufoEnabled = {
+    ["Girafa Celeste"]   = true,
+    ["Guerriro Digitale"] = true,
+    ["SWAG SODA"]        = true,
+    ["Cacto Hipopotamo"] = true,
+}
 
 -- ================== DATA ==================
 local MULTIPLIER = {
@@ -257,6 +286,104 @@ local BASE_PRICE = {
     ["Ketupat Kepat"]              = 1000000,
 }
 
+-- Bacon Event Label
+local BaconLabel = Instance.new("TextLabel")
+BaconLabel.Size = UDim2.new(1, -20, 0, 20)
+BaconLabel.Position = UDim2.new(0, 10, 0, 172)
+BaconLabel.BackgroundTransparency = 1
+BaconLabel.Text = "🥓 Bacon Event"
+BaconLabel.TextColor3 = Color3.fromRGB(255, 180, 50)
+BaconLabel.TextSize = 11
+BaconLabel.Font = Enum.Font.GothamBold
+BaconLabel.TextXAlignment = Enum.TextXAlignment.Left
+BaconLabel.Parent = MainFrame
+
+local BACON_LIST = {
+    {key = "Chicleteira Bicicleteira", label = "Chicleteira"},
+    {key = "Agarrini La Palini",       label = "Agarrini"},
+    {key = "Trippi Troppi",            label = "Trippi Troppi"},
+    {key = "Strawberry Elephant",      label = "Strawberry"},
+}
+
+for i, item in ipairs(BACON_LIST) do
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(0, 115, 0, 24)
+    local col = (i-1) % 2
+    local row = math.floor((i-1) / 2)
+    btn.Position = UDim2.new(0, 10 + col * 128, 0, 194 + row * 28)
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 9
+    btn.BorderSizePixel = 0
+    btn.Parent = MainFrame
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
+
+    local function updateBtn()
+        if baconEnabled[item.key] then
+            btn.BackgroundColor3 = Color3.fromRGB(255, 150, 30)
+            btn.TextColor3 = Color3.fromRGB(20, 20, 20)
+            btn.Text = "✔ " .. item.label
+        else
+            btn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+            btn.TextColor3 = Color3.fromRGB(150, 150, 150)
+            btn.Text = "✘ " .. item.label
+        end
+    end
+    updateBtn()
+    btn.MouseButton1Click:Connect(function()
+        baconEnabled[item.key] = not baconEnabled[item.key]
+        updateBtn()
+    end)
+end
+
+-- UFO Event Label
+local UfoLabel = Instance.new("TextLabel")
+UfoLabel.Size = UDim2.new(1, -20, 0, 20)
+UfoLabel.Position = UDim2.new(0, 10, 0, 256)
+UfoLabel.BackgroundTransparency = 1
+UfoLabel.Text = "🛸 UFO Event"
+UfoLabel.TextColor3 = Color3.fromRGB(100, 200, 255)
+UfoLabel.TextSize = 11
+UfoLabel.Font = Enum.Font.GothamBold
+UfoLabel.TextXAlignment = Enum.TextXAlignment.Left
+UfoLabel.Parent = MainFrame
+
+local UFO_LIST = {
+    {key = "Girafa Celeste",    label = "Girafa"},
+    {key = "Guerriro Digitale", label = "Guerriro"},
+    {key = "SWAG SODA",         label = "SWAG SODA"},
+    {key = "Cacto Hipopotamo",  label = "Cacto"},
+}
+
+for i, item in ipairs(UFO_LIST) do
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(0, 115, 0, 24)
+    local col = (i-1) % 2
+    local row = math.floor((i-1) / 2)
+    btn.Position = UDim2.new(0, 10 + col * 128, 0, 278 + row * 28)
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 9
+    btn.BorderSizePixel = 0
+    btn.Parent = MainFrame
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
+
+    local function updateBtn()
+        if ufoEnabled[item.key] then
+            btn.BackgroundColor3 = Color3.fromRGB(100, 200, 255)
+            btn.TextColor3 = Color3.fromRGB(20, 20, 20)
+            btn.Text = "✔ " .. item.label
+        else
+            btn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+            btn.TextColor3 = Color3.fromRGB(150, 150, 150)
+            btn.Text = "✘ " .. item.label
+        end
+    end
+    updateBtn()
+    btn.MouseButton1Click:Connect(function()
+        ufoEnabled[item.key] = not ufoEnabled[item.key]
+        updateBtn()
+    end)
+end
+
 -- ================== LOGIC ==================
 local KICK_POS = Vector3.new(704.0, 3.2, 237.6)
 local SAFE_POS = Vector3.new(701.9, 4.2, 229.5)
@@ -296,6 +423,11 @@ local function getFlySpeed()
 end
 
 local function isValidBrainrot(obj)
+    -- cek bacon event override
+    if BACON_EVENT[obj.Name] and baconEnabled[obj.Name] then return true end
+    -- cek ufo event override
+    if UFO_EVENT[obj.Name] and ufoEnabled[obj.Name] then return true end
+
     local mutation = obj:GetAttribute("Mutation")
     local mutKey = mutation and tostring(mutation) or "None"
     local basePrice = BASE_PRICE[obj.Name]
