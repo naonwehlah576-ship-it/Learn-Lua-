@@ -17,7 +17,7 @@ ScreenGui.Parent = parentUI
 
 -- ================== GUI ==================
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 260, 0, 370)
+MainFrame.Size = UDim2.new(0, 260, 0, 400)
 MainFrame.Position = UDim2.new(0.5, -120, 0.5, -80)
 MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 MainFrame.BorderSizePixel = 0
@@ -127,6 +127,31 @@ FlySpeedBox.ClearTextOnFocus = false
 FlySpeedBox.BorderSizePixel = 0
 FlySpeedBox.Parent = MainFrame
 Instance.new("UICorner", FlySpeedBox).CornerRadius = UDim.new(0, 4)
+
+-- Kick Power
+local KickLabel = Instance.new("TextLabel")
+KickLabel.Size = UDim2.new(0, 110, 0, 22)
+KickLabel.Position = UDim2.new(0, 10, 0, 168)
+KickLabel.BackgroundTransparency = 1
+KickLabel.Text = "Kick Power:"
+KickLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+KickLabel.TextSize = 10
+KickLabel.Font = Enum.Font.GothamBold
+KickLabel.TextXAlignment = Enum.TextXAlignment.Left
+KickLabel.Parent = MainFrame
+
+local KickPowerBox = Instance.new("TextBox")
+KickPowerBox.Size = UDim2.new(0, 90, 0, 22)
+KickPowerBox.Position = UDim2.new(0, 130, 0, 168)
+KickPowerBox.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+KickPowerBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+KickPowerBox.Text = "0.9"
+KickPowerBox.TextSize = 11
+KickPowerBox.Font = Enum.Font.GothamBold
+KickPowerBox.ClearTextOnFocus = false
+KickPowerBox.BorderSizePixel = 0
+KickPowerBox.Parent = MainFrame
+Instance.new("UICorner", KickPowerBox).CornerRadius = UDim.new(0, 4)
 
 -- ================== EVENT TOGGLES ==================
 local BACON_EVENT = {
@@ -289,7 +314,7 @@ local BASE_PRICE = {
 -- Bacon Event Label
 local BaconLabel = Instance.new("TextLabel")
 BaconLabel.Size = UDim2.new(1, -20, 0, 20)
-BaconLabel.Position = UDim2.new(0, 10, 0, 172)
+BaconLabel.Position = UDim2.new(0, 10, 0, 198)
 BaconLabel.BackgroundTransparency = 1
 BaconLabel.Text = "🥓 Bacon Event"
 BaconLabel.TextColor3 = Color3.fromRGB(255, 180, 50)
@@ -310,7 +335,7 @@ for i, item in ipairs(BACON_LIST) do
     btn.Size = UDim2.new(0, 115, 0, 24)
     local col = (i-1) % 2
     local row = math.floor((i-1) / 2)
-    btn.Position = UDim2.new(0, 10 + col * 128, 0, 194 + row * 28)
+    btn.Position = UDim2.new(0, 10 + col * 128, 0, 220 + row * 28)
     btn.Font = Enum.Font.GothamBold
     btn.TextSize = 9
     btn.BorderSizePixel = 0
@@ -338,7 +363,7 @@ end
 -- UFO Event Label
 local UfoLabel = Instance.new("TextLabel")
 UfoLabel.Size = UDim2.new(1, -20, 0, 20)
-UfoLabel.Position = UDim2.new(0, 10, 0, 256)
+UfoLabel.Position = UDim2.new(0, 10, 0, 282)
 UfoLabel.BackgroundTransparency = 1
 UfoLabel.Text = "🛸 UFO Event"
 UfoLabel.TextColor3 = Color3.fromRGB(100, 200, 255)
@@ -359,7 +384,7 @@ for i, item in ipairs(UFO_LIST) do
     btn.Size = UDim2.new(0, 115, 0, 24)
     local col = (i-1) % 2
     local row = math.floor((i-1) / 2)
-    btn.Position = UDim2.new(0, 10 + col * 128, 0, 278 + row * 28)
+    btn.Position = UDim2.new(0, 10 + col * 128, 0, 304 + row * 28)
     btn.Font = Enum.Font.GothamBold
     btn.TextSize = 9
     btn.BorderSizePixel = 0
@@ -416,6 +441,12 @@ local function getMinHarga()
     return val * 1000000 -- convert M/s ke angka
 end
 
+local function getKickPower()
+    local val = tonumber(KickPowerBox.Text)
+    if not val or val <= 0 then return 0.9 end
+    return val
+end
+
 local function getFlySpeed()
     local val = tonumber(FlySpeedBox.Text)
     if not val or val <= 0 then return 2000 end
@@ -455,7 +486,7 @@ local function runLoop()
 
         -- STEP 2: Fire kick
         setStatus("Nge-kick...", Color3.fromRGB(255, 150, 50))
-        pcall(function() kickEvent:FireServer(1) end)
+        pcall(function() local args = {getKickPower(), 0} game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Packages"):WaitForChild("Network"):WaitForChild("rev_KickEvent"):FireServer(unpack(args)) end)
 
         if not running then break end
 
