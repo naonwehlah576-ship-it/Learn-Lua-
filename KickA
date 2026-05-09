@@ -153,6 +153,31 @@ KickPowerBox.BorderSizePixel = 0
 KickPowerBox.Parent = MainFrame
 Instance.new("UICorner", KickPowerBox).CornerRadius = UDim.new(0, 4)
 
+-- Kick Arg 2
+local KickArg2Label = Instance.new("TextLabel")
+KickArg2Label.Size = UDim2.new(0, 110, 0, 22)
+KickArg2Label.Position = UDim2.new(0, 10, 0, 194)
+KickArg2Label.BackgroundTransparency = 1
+KickArg2Label.Text = "Kick Power:"
+KickArg2Label.TextColor3 = Color3.fromRGB(180, 180, 180)
+KickArg2Label.TextSize = 10
+KickArg2Label.Font = Enum.Font.GothamBold
+KickArg2Label.TextXAlignment = Enum.TextXAlignment.Left
+KickArg2Label.Parent = MainFrame
+
+local KickArg2Box = Instance.new("TextBox")
+KickArg2Box.Size = UDim2.new(0, 90, 0, 22)
+KickArg2Box.Position = UDim2.new(0, 130, 0, 194)
+KickArg2Box.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+KickArg2Box.TextColor3 = Color3.fromRGB(255, 255, 255)
+KickArg2Box.Text = "30000000"
+KickArg2Box.TextSize = 11
+KickArg2Box.Font = Enum.Font.GothamBold
+KickArg2Box.ClearTextOnFocus = false
+KickArg2Box.BorderSizePixel = 0
+KickArg2Box.Parent = MainFrame
+Instance.new("UICorner", KickArg2Box).CornerRadius = UDim.new(0, 4)
+
 -- ================== EVENT TOGGLES ==================
 local BACON_EVENT = {
     ["Chicleteira Bicicleteira"] = true,
@@ -447,6 +472,12 @@ local function getKickPower()
     return val
 end
 
+local function getKickArg2()
+    local val = tonumber(KickArg2Box.Text)
+    if not val or val <= 0 then return 0 end
+    return val / 3814310157
+end
+
 local function getFlySpeed()
     local val = tonumber(FlySpeedBox.Text)
     if not val or val <= 0 then return 2000 end
@@ -486,7 +517,7 @@ local function runLoop()
 
         -- STEP 2: Fire kick
         setStatus("Nge-kick...", Color3.fromRGB(255, 150, 50))
-        pcall(function() local args = {getKickPower(), 0} game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Packages"):WaitForChild("Network"):WaitForChild("rev_KickEvent"):FireServer(unpack(args)) end)
+        pcall(function() local args = {getKickPower(), getKickArg2()} game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Packages"):WaitForChild("Network"):WaitForChild("rev_KickEvent"):FireServer(unpack(args)) end)
 
         if not running then break end
 
