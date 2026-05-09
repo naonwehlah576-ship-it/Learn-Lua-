@@ -143,6 +143,7 @@ local MULTIPLIER = {
     ["Electrified"] = 16,
     ["Rainbow"]     = 30,
     ["Alien"]       = 10,
+    ["Enchanted"]   = 10,
 }
 
 local BASE_PRICE = {
