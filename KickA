@@ -468,7 +468,7 @@ local function runLoop()
             task.wait(0.1)
             elapsed = elapsed + 0.1
             local r = getRoot()
-            if r and r.Position.X < -2500 then
+            if r and r.Position.X < 690 then
                 kicked = true
                 break
             end
