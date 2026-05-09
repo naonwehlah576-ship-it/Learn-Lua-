@@ -543,7 +543,7 @@ local function runLoop()
             continue
         end
 
-        -- STEP 5: Nunggu removed
+        -- STEP 5: Nunggu removed sambil jalan ke safe zone
         local mutVal = brainrot:GetAttribute("Mutation") or "None"
         local basePrice = BASE_PRICE[brainrot.Name] or 0
         local multiplier = MULTIPLIER[mutVal] or 1
@@ -557,15 +557,24 @@ local function runLoop()
             end
         end)
 
-        while not isRemoved and running do
-            if not brainrot.Parent then isRemoved = true break end
-            task.wait(0.1)
+        -- jalan ke safe zone sambil nunggu removed
+        local char5 = player.Character
+        if char5 then
+            local hum5 = char5:FindFirstChild("Humanoid")
+            if hum5 then
+                while not isRemoved and running do
+                    if not brainrot.Parent then isRemoved = true break end
+                    hum5:MoveTo(SAFE_POS)
+                    task.wait(7)
+                end
+            end
         end
         removedConn:Disconnect()
 
         if not running then break end
 
-        setStatus("Brainrot selesai! Ulang...", Color3.fromRGB(100, 220, 100))
+        -- langsung TP ke kick spot dan tendang
+        setStatus("Brainrot selesai! Langsung kick...", Color3.fromRGB(100, 220, 100))
         task.wait(0.5)
     end
 
