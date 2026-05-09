@@ -142,6 +142,7 @@ local MULTIPLIER = {
     ["Virus"]       = 10,
     ["Electrified"] = 16,
     ["Rainbow"]     = 30,
+    ["Alien"]       = 10,
 }
 
 local BASE_PRICE = {
