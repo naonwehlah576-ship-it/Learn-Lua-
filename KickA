@@ -913,10 +913,17 @@ local function runLoop()
         if char5 then
             local hum5 = char5:FindFirstChild("Humanoid")
             if hum5 then
+                local moveTimer = 0
+                hum5:MoveTo(SAFE_POS)
                 while not isRemoved and running do
                     if not brainrot.Parent then isRemoved = true break end
-                    hum5:MoveTo(SAFE_POS)
-                    task.wait(7)
+                    task.wait(0.1)
+                    moveTimer = moveTimer + 0.1
+                    -- refresh MoveTo tiap 7 detik biar gak timeout
+                    if moveTimer >= 7 then
+                        moveTimer = 0
+                        hum5:MoveTo(SAFE_POS)
+                    end
                 end
             end
         end
