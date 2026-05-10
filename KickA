@@ -17,7 +17,7 @@ ScreenGui.Parent = parentUI
 
 -- ================== GUI ==================
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 260, 0, 440)
+MainFrame.Size = UDim2.new(0, 260, 0, 460)
 MainFrame.Position = UDim2.new(0.5, -120, 0.5, -80)
 MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 MainFrame.BorderSizePixel = 0
@@ -446,7 +446,7 @@ local BASE_PRICE = {
 -- Bacon Event Label
 local BaconLabel = Instance.new("TextLabel")
 BaconLabel.Size = UDim2.new(1, -20, 0, 20)
-BaconLabel.Position = UDim2.new(0, 10, 0, 198)
+BaconLabel.Position = UDim2.new(0, 10, 0, 254)
 BaconLabel.BackgroundTransparency = 1
 BaconLabel.Text = "🥓 Bacon Event"
 BaconLabel.TextColor3 = Color3.fromRGB(255, 180, 50)
@@ -467,7 +467,7 @@ for i, item in ipairs(BACON_LIST) do
     btn.Size = UDim2.new(0, 115, 0, 24)
     local col = (i-1) % 2
     local row = math.floor((i-1) / 2)
-    btn.Position = UDim2.new(0, 10 + col * 128, 0, 220 + row * 28)
+    btn.Position = UDim2.new(0, 10 + col * 128, 0, 276 + row * 28)
     btn.Font = Enum.Font.GothamBold
     btn.TextSize = 9
     btn.BorderSizePixel = 0
@@ -495,7 +495,7 @@ end
 -- UFO Event Label
 local UfoLabel = Instance.new("TextLabel")
 UfoLabel.Size = UDim2.new(1, -20, 0, 20)
-UfoLabel.Position = UDim2.new(0, 10, 0, 282)
+UfoLabel.Position = UDim2.new(0, 10, 0, 338)
 UfoLabel.BackgroundTransparency = 1
 UfoLabel.Text = "🛸 UFO Event"
 UfoLabel.TextColor3 = Color3.fromRGB(100, 200, 255)
@@ -516,7 +516,7 @@ for i, item in ipairs(UFO_LIST) do
     btn.Size = UDim2.new(0, 115, 0, 24)
     local col = (i-1) % 2
     local row = math.floor((i-1) / 2)
-    btn.Position = UDim2.new(0, 10 + col * 128, 0, 304 + row * 28)
+    btn.Position = UDim2.new(0, 10 + col * 128, 0, 360 + row * 28)
     btn.Font = Enum.Font.GothamBold
     btn.TextSize = 9
     btn.BorderSizePixel = 0
