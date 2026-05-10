@@ -37,7 +37,7 @@ local TitleLabel = Instance.new("TextLabel")
 TitleLabel.Size = UDim2.new(1, -80, 1, 0)
 TitleLabel.Position = UDim2.new(0, 10, 0, 0)
 TitleLabel.BackgroundTransparency = 1
-TitleLabel.Text = "🧠 Brainrot Farm v1.3 | Dafa Goreng"
+TitleLabel.Text = "🧠 Brainrot Farm v1.9 | Dafa Goreng"
 TitleLabel.TextColor3 = Color3.fromRGB(255, 215, 0)
 TitleLabel.TextSize = 11
 TitleLabel.Font = Enum.Font.GothamBold
@@ -277,7 +277,7 @@ KickArg2Box.Size = UDim2.new(0, 90, 0, 22)
 KickArg2Box.Position = UDim2.new(0, 130, 0, 224)
 KickArg2Box.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
 KickArg2Box.TextColor3 = Color3.fromRGB(255, 255, 255)
-KickArg2Box.Text = tostring(getMaxKickPower())
+KickArg2Box.Text = "3800000000"
 KickArg2Box.TextSize = 11
 KickArg2Box.Font = Enum.Font.GothamBold
 KickArg2Box.ClearTextOnFocus = false
@@ -984,14 +984,14 @@ local function autoSetKickPower()
     -- kalau UFO lagi aktif (timer bukan 00:00) -> max power, gak cari brainrot
     if not isUFOExpired() then
         KickPowerBox.Text = "1"
-        KickArg2Box.Text = tostring(getMaxKickPower())
+        KickArg2Box.Text = "3800000000"
         return
     end
 
     -- UFO tidak aktif, kalau semua brainrot ada -> aktifin UFO
     if hasAllUFOBrainrots() then
         KickPowerBox.Text = "1"
-        KickArg2Box.Text = tostring(getMaxKickPower())
+        KickArg2Box.Text = "3800000000"
         tryActivateUFO()
         return
     end
