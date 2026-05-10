@@ -17,7 +17,7 @@ ScreenGui.Parent = parentUI
 
 -- ================== GUI ==================
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 260, 0, 490)
+MainFrame.Size = UDim2.new(0, 260, 0, 520)
 MainFrame.Position = UDim2.new(0.5, -120, 0.5, -80)
 MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 MainFrame.BorderSizePixel = 0
@@ -310,6 +310,19 @@ MinFavBox.BorderSizePixel = 0
 MinFavBox.Parent = MainFrame
 Instance.new("UICorner", MinFavBox).CornerRadius = UDim.new(0, 4)
 
+-- Auto Fav Toggle
+local FavToggleBtn = Instance.new("TextButton")
+FavToggleBtn.Size = UDim2.new(1, -20, 0, 26)
+FavToggleBtn.Position = UDim2.new(0, 10, 0, 276)
+FavToggleBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+FavToggleBtn.Text = "⭐ Auto Fav: OFF"
+FavToggleBtn.TextColor3 = Color3.fromRGB(150, 150, 150)
+FavToggleBtn.TextSize = 10
+FavToggleBtn.Font = Enum.Font.GothamBold
+FavToggleBtn.BorderSizePixel = 0
+FavToggleBtn.Parent = MainFrame
+Instance.new("UICorner", FavToggleBtn).CornerRadius = UDim.new(0, 4)
+
 -- ================== EVENT TOGGLES ==================
 local BACON_EVENT = {
     ["Chicleteira Bicicleteira"] = true,
@@ -471,7 +484,7 @@ local BASE_PRICE = {
 -- Bacon Event Label
 local BaconLabel = Instance.new("TextLabel")
 BaconLabel.Size = UDim2.new(1, -20, 0, 20)
-BaconLabel.Position = UDim2.new(0, 10, 0, 280)
+BaconLabel.Position = UDim2.new(0, 10, 0, 310)
 BaconLabel.BackgroundTransparency = 1
 BaconLabel.Text = "🥓 Bacon Event"
 BaconLabel.TextColor3 = Color3.fromRGB(255, 180, 50)
@@ -492,7 +505,7 @@ for i, item in ipairs(BACON_LIST) do
     btn.Size = UDim2.new(0, 115, 0, 24)
     local col = (i-1) % 2
     local row = math.floor((i-1) / 2)
-    btn.Position = UDim2.new(0, 10 + col * 128, 0, 302 + row * 28)
+    btn.Position = UDim2.new(0, 10 + col * 128, 0, 332 + row * 28)
     btn.Font = Enum.Font.GothamBold
     btn.TextSize = 9
     btn.BorderSizePixel = 0
@@ -520,7 +533,7 @@ end
 -- UFO Event Label
 local UfoLabel = Instance.new("TextLabel")
 UfoLabel.Size = UDim2.new(1, -20, 0, 20)
-UfoLabel.Position = UDim2.new(0, 10, 0, 364)
+UfoLabel.Position = UDim2.new(0, 10, 0, 394)
 UfoLabel.BackgroundTransparency = 1
 UfoLabel.Text = "🛸 UFO Event"
 UfoLabel.TextColor3 = Color3.fromRGB(100, 200, 255)
@@ -541,7 +554,7 @@ for i, item in ipairs(UFO_LIST) do
     btn.Size = UDim2.new(0, 115, 0, 24)
     local col = (i-1) % 2
     local row = math.floor((i-1) / 2)
-    btn.Position = UDim2.new(0, 10 + col * 128, 0, 386 + row * 28)
+    btn.Position = UDim2.new(0, 10 + col * 128, 0, 416 + row * 28)
     btn.Font = Enum.Font.GothamBold
     btn.TextSize = 9
     btn.BorderSizePixel = 0
@@ -824,28 +837,45 @@ local function getMinFav()
     return val * 1000000
 end
 
--- Auto favorite loop (terus-terusan tanpa track)
+local favAutoRunning = false
+
+-- Auto favorite loop
 task.spawn(function()
     while true do
         task.wait(0.1)
-        pcall(function()
-            local backpack = player.Backpack
-            for _, item in ipairs(backpack:GetChildren()) do
-                local guid = item:GetAttribute("GUID")
-                if guid then
-                    local mutation = item:GetAttribute("Mutation") or "None"
-                    local basePrice = BASE_PRICE[item.Name] or 0
-                    local multiplier = MULTIPLIER[mutation] or 1
-                    local actualPrice = basePrice * multiplier
-                    if actualPrice >= getMinFav() then
-                        pcall(function()
-                            local args = {guid}
-                            game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Packages"):WaitForChild("Network"):WaitForChild("rev_ToggleFav"):FireServer(unpack(args))
-                        end)
+        if favAutoRunning then
+            pcall(function()
+                local backpack = player.Backpack
+                for _, item in ipairs(backpack:GetChildren()) do
+                    local guid = item:GetAttribute("GUID")
+                    if guid then
+                        local mutation = item:GetAttribute("Mutation") or "None"
+                        local basePrice = BASE_PRICE[item.Name] or 0
+                        local multiplier = MULTIPLIER[mutation] or 1
+                        local actualPrice = basePrice * multiplier
+                        if actualPrice >= getMinFav() then
+                            pcall(function()
+                                local args = {guid}
+                                game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Packages"):WaitForChild("Network"):WaitForChild("rev_ToggleFav"):FireServer(unpack(args))
+                            end)
+                        end
                     end
                 end
-            end
-        end)
+            end)
+        end
+    end
+end)
+
+FavToggleBtn.MouseButton1Click:Connect(function()
+    favAutoRunning = not favAutoRunning
+    if favAutoRunning then
+        FavToggleBtn.Text = "⭐ Auto Fav: ON"
+        FavToggleBtn.BackgroundColor3 = Color3.fromRGB(255, 200, 0)
+        FavToggleBtn.TextColor3 = Color3.fromRGB(20, 20, 20)
+    else
+        FavToggleBtn.Text = "⭐ Auto Fav: OFF"
+        FavToggleBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+        FavToggleBtn.TextColor3 = Color3.fromRGB(150, 150, 150)
     end
 end)
 
