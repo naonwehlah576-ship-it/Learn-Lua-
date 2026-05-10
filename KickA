@@ -10,6 +10,34 @@ if parentUI:FindFirstChild("BrainrotFarmGUI") then
     parentUI.BrainrotFarmGUI:Destroy()
 end
 
+-- ================== HELPER FUNCTIONS (early) ==================
+local function parseKickPower(text)
+    local num = string.match(text, "([%d%.]+)([KMB]?)")
+    if not num then return 1000000000 end
+    local val = tonumber(num) or 0
+    local suffix = string.match(text, "%d[%.%d]*([KMBkmb])")
+    if suffix then
+        suffix = string.upper(suffix)
+        if suffix == "K" then val = val * 1000
+        elseif suffix == "M" then val = val * 1000000
+        elseif suffix == "B" then val = val * 1000000000
+        end
+    end
+    return val
+end
+
+local function getMaxKickPower()
+    local ok, label = pcall(function()
+        return game:GetService("Players").LocalPlayer.PlayerGui.HUD.BottomLeft.KickLevel.TextLabel
+    end)
+    if not ok or not label then return 1000000000 end
+    return parseKickPower(label.Text)
+end
+
+local favAutoRunning = true
+local autoUFORunning = true
+
+
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "BrainrotFarmGUI"
 ScreenGui.ResetOnSpawn = false
@@ -260,6 +288,22 @@ KickPowerBox.BorderSizePixel = 0
 KickPowerBox.Parent = MainFrame
 Instance.new("UICorner", KickPowerBox).CornerRadius = UDim.new(0, 4)
 
+local KickMaxBtn = Instance.new("TextButton")
+KickMaxBtn.Size = UDim2.new(0, 40, 0, 22)
+KickMaxBtn.Position = UDim2.new(0, 224, 0, 198)
+KickMaxBtn.BackgroundColor3 = Color3.fromRGB(255, 100, 50)
+KickMaxBtn.Text = "MAX"
+KickMaxBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+KickMaxBtn.TextSize = 9
+KickMaxBtn.Font = Enum.Font.GothamBold
+KickMaxBtn.BorderSizePixel = 0
+KickMaxBtn.Parent = MainFrame
+Instance.new("UICorner", KickMaxBtn).CornerRadius = UDim.new(0, 4)
+
+KickMaxBtn.MouseButton1Click:Connect(function()
+    KickPowerBox.Text = tostring(getMaxKickPower())
+end)
+
 -- Kick Arg 2
 local KickArg2Label = Instance.new("TextLabel")
 KickArg2Label.Size = UDim2.new(0, 110, 0, 22)
@@ -284,6 +328,22 @@ KickArg2Box.ClearTextOnFocus = false
 KickArg2Box.BorderSizePixel = 0
 KickArg2Box.Parent = MainFrame
 Instance.new("UICorner", KickArg2Box).CornerRadius = UDim.new(0, 4)
+
+local KickArg2MaxBtn = Instance.new("TextButton")
+KickArg2MaxBtn.Size = UDim2.new(0, 40, 0, 22)
+KickArg2MaxBtn.Position = UDim2.new(0, 224, 0, 224)
+KickArg2MaxBtn.BackgroundColor3 = Color3.fromRGB(255, 100, 50)
+KickArg2MaxBtn.Text = "MAX"
+KickArg2MaxBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+KickArg2MaxBtn.TextSize = 9
+KickArg2MaxBtn.Font = Enum.Font.GothamBold
+KickArg2MaxBtn.BorderSizePixel = 0
+KickArg2MaxBtn.Parent = MainFrame
+Instance.new("UICorner", KickArg2MaxBtn).CornerRadius = UDim.new(0, 4)
+
+KickArg2MaxBtn.MouseButton1Click:Connect(function()
+    KickArg2Box.Text = tostring(getMaxKickPower())
+end)
 
 -- Min Fav
 local MinFavLabel = Instance.new("TextLabel")
@@ -834,30 +894,6 @@ local function getMinHarga()
     return val * 1000000 -- convert M/s ke angka
 end
 
-local function parseKickPower(text)
-    -- parse "186.3K Kick Power" -> angka
-    local num = string.match(text, "([%d%.]+)([KMB]?)")
-    if not num then return 3800000000 end
-    local val = tonumber(num) or 0
-    local suffix = string.match(text, "%d[%.%d]*([KMBkmb])")
-    if suffix then
-        suffix = string.upper(suffix)
-        if suffix == "K" then val = val * 1000
-        elseif suffix == "M" then val = val * 1000000
-        elseif suffix == "B" then val = val * 1000000000
-        end
-    end
-    return val
-end
-
-local function getMaxKickPower()
-    local ok, label = pcall(function()
-        return player.PlayerGui.HUD.BottomLeft.KickLevel.TextLabel
-    end)
-    if not ok or not label then return 3800000000 end
-    return parseKickPower(label.Text)
-end
-
 local function getKickPower()
     local val = tonumber(KickPowerBox.Text)
     if not val or val <= 0 then return 0.9 end
@@ -902,8 +938,6 @@ local function getMinFav()
     return val * 1000000
 end
 
-local favAutoRunning = true
-local autoUFORunning = true
 
 -- Auto favorite loop
 task.spawn(function()
