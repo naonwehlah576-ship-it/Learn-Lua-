@@ -1067,6 +1067,7 @@ local function runLoop()
         if char4 then
             local hum4 = char4:FindFirstChild("Humanoid")
             if hum4 then
+                local moveTimer4 = 0
                 hum4:MoveTo(SAFE_POS)
                 task.wait(2)
                 while running do
@@ -1088,9 +1089,14 @@ local function runLoop()
                         setStatus("Valid! $" .. math.floor(actualPrice/1000) .. "K/s - " .. brainrot.Name, Color3.fromRGB(100, 220, 100))
                     end
 
+                    if brainrot and not brainrot.Parent then break end
                     if (r2.Position - SAFE_POS).Magnitude < 5 then break end
-                    hum4:MoveTo(SAFE_POS)
-                    task.wait(7)
+                    task.wait(0.1)
+                    moveTimer4 = moveTimer4 + 0.1
+                    if moveTimer4 >= 7 then
+                        moveTimer4 = 0
+                        hum4:MoveTo(SAFE_POS)
+                    end
                 end
             end
         end
