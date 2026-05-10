@@ -839,7 +839,7 @@ end
 local function getKickArg2()
     local val = tonumber(KickArg2Box.Text)
     if not val or val <= 0 then return 0 end
-    return val / 3814310157
+    return val / getMaxKickPower()
 end
 
 local function getFlySpeed()
