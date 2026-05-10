@@ -45,7 +45,7 @@ ScreenGui.Parent = parentUI
 
 -- ================== GUI ==================
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 260, 0, 550)
+MainFrame.Size = UDim2.new(0, 260, 0, 580)
 MainFrame.Position = UDim2.new(0.5, -120, 0.5, -80)
 MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 MainFrame.BorderSizePixel = 0
@@ -65,7 +65,7 @@ local TitleLabel = Instance.new("TextLabel")
 TitleLabel.Size = UDim2.new(1, -80, 1, 0)
 TitleLabel.Position = UDim2.new(0, 10, 0, 0)
 TitleLabel.BackgroundTransparency = 1
-TitleLabel.Text = "🧠 Brainrot Farm v1.9 | Dafa Goreng"
+TitleLabel.Text = "🧠 Brainrot Farm v2.6 | Dafa Goreng"
 TitleLabel.TextColor3 = Color3.fromRGB(255, 215, 0)
 TitleLabel.TextSize = 11
 TitleLabel.Font = Enum.Font.GothamBold
@@ -370,10 +370,35 @@ MinFavBox.BorderSizePixel = 0
 MinFavBox.Parent = MainFrame
 Instance.new("UICorner", MinFavBox).CornerRadius = UDim.new(0, 4)
 
+-- Speed Boost
+local SpeedBoostLabel = Instance.new("TextLabel")
+SpeedBoostLabel.Size = UDim2.new(0, 110, 0, 22)
+SpeedBoostLabel.Position = UDim2.new(0, 10, 0, 302)
+SpeedBoostLabel.BackgroundTransparency = 1
+SpeedBoostLabel.Text = "Speed Boost:"
+SpeedBoostLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+SpeedBoostLabel.TextSize = 10
+SpeedBoostLabel.Font = Enum.Font.GothamBold
+SpeedBoostLabel.TextXAlignment = Enum.TextXAlignment.Left
+SpeedBoostLabel.Parent = MainFrame
+
+local SpeedBoostBox = Instance.new("TextBox")
+SpeedBoostBox.Size = UDim2.new(0, 90, 0, 22)
+SpeedBoostBox.Position = UDim2.new(0, 130, 0, 302)
+SpeedBoostBox.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+SpeedBoostBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+SpeedBoostBox.Text = "0"
+SpeedBoostBox.TextSize = 11
+SpeedBoostBox.Font = Enum.Font.GothamBold
+SpeedBoostBox.ClearTextOnFocus = false
+SpeedBoostBox.BorderSizePixel = 0
+SpeedBoostBox.Parent = MainFrame
+Instance.new("UICorner", SpeedBoostBox).CornerRadius = UDim.new(0, 4)
+
 -- Auto Fav Toggle
 local FavToggleBtn = Instance.new("TextButton")
 FavToggleBtn.Size = UDim2.new(1, -20, 0, 26)
-FavToggleBtn.Position = UDim2.new(0, 10, 0, 276)
+FavToggleBtn.Position = UDim2.new(0, 10, 0, 328)
 FavToggleBtn.BackgroundColor3 = Color3.fromRGB(255, 200, 0)
 FavToggleBtn.Text = "⭐ Auto Fav: ON"
 FavToggleBtn.TextColor3 = Color3.fromRGB(20, 20, 20)
@@ -386,7 +411,7 @@ Instance.new("UICorner", FavToggleBtn).CornerRadius = UDim.new(0, 4)
 -- Auto UFO Toggle
 local UFOToggleBtn = Instance.new("TextButton")
 UFOToggleBtn.Size = UDim2.new(1, -20, 0, 26)
-UFOToggleBtn.Position = UDim2.new(0, 10, 0, 306)
+UFOToggleBtn.Position = UDim2.new(0, 10, 0, 358)
 UFOToggleBtn.BackgroundColor3 = Color3.fromRGB(100, 200, 255)
 UFOToggleBtn.Text = "🛸 Auto UFO: ON"
 UFOToggleBtn.TextColor3 = Color3.fromRGB(20, 20, 20)
@@ -557,7 +582,7 @@ local BASE_PRICE = {
 -- Bacon Event Label
 local BaconLabel = Instance.new("TextLabel")
 BaconLabel.Size = UDim2.new(1, -20, 0, 20)
-BaconLabel.Position = UDim2.new(0, 10, 0, 340)
+BaconLabel.Position = UDim2.new(0, 10, 0, 392)
 BaconLabel.BackgroundTransparency = 1
 BaconLabel.Text = "🥓 Bacon Event"
 BaconLabel.TextColor3 = Color3.fromRGB(255, 180, 50)
@@ -578,7 +603,7 @@ for i, item in ipairs(BACON_LIST) do
     btn.Size = UDim2.new(0, 115, 0, 24)
     local col = (i-1) % 2
     local row = math.floor((i-1) / 2)
-    btn.Position = UDim2.new(0, 10 + col * 128, 0, 362 + row * 28)
+    btn.Position = UDim2.new(0, 10 + col * 128, 0, 414 + row * 28)
     btn.Font = Enum.Font.GothamBold
     btn.TextSize = 9
     btn.BorderSizePixel = 0
@@ -606,7 +631,7 @@ end
 -- UFO Event Label
 local UfoLabel = Instance.new("TextLabel")
 UfoLabel.Size = UDim2.new(1, -20, 0, 20)
-UfoLabel.Position = UDim2.new(0, 10, 0, 424)
+UfoLabel.Position = UDim2.new(0, 10, 0, 476)
 UfoLabel.BackgroundTransparency = 1
 UfoLabel.Text = "🛸 UFO Event"
 UfoLabel.TextColor3 = Color3.fromRGB(100, 200, 255)
@@ -627,7 +652,7 @@ for i, item in ipairs(UFO_LIST) do
     btn.Size = UDim2.new(0, 115, 0, 24)
     local col = (i-1) % 2
     local row = math.floor((i-1) / 2)
-    btn.Position = UDim2.new(0, 10 + col * 128, 0, 446 + row * 28)
+    btn.Position = UDim2.new(0, 10 + col * 128, 0, 498 + row * 28)
     btn.Font = Enum.Font.GothamBold
     btn.TextSize = 9
     btn.BorderSizePixel = 0
@@ -684,6 +709,7 @@ local function getCurrentSettings()
         kickPower = KickPowerBox.Text,
         kickArg2 = KickArg2Box.Text,
         minFav = MinFavBox.Text,
+        speedBoost = SpeedBoostBox.Text,
         favAutoRunning = favAutoRunning,
         autoUFORunning = autoUFORunning,
         bacon = {
@@ -707,6 +733,7 @@ local function applySettings(cfg)
     if cfg.kickPower then KickPowerBox.Text = cfg.kickPower end
     if cfg.kickArg2 then KickArg2Box.Text = cfg.kickArg2 end
     if cfg.minFav then MinFavBox.Text = cfg.minFav end
+    if cfg.speedBoost then SpeedBoostBox.Text = cfg.speedBoost end
     if cfg.favAutoRunning ~= nil then
         favAutoRunning = cfg.favAutoRunning
         if favAutoRunning then
@@ -930,6 +957,12 @@ local function isValidBrainrot(obj)
     local minHarga = getMinHarga()
 
     return actualPrice >= minHarga
+end
+
+local function getSpeedBoost()
+    local val = tonumber(SpeedBoostBox.Text)
+    if not val then return 0 end
+    return val
 end
 
 local function getMinFav()
@@ -1184,7 +1217,7 @@ local function runLoop()
 
                     -- update arah BodyVelocity tiap frame
                     local dir = (SAFE_POS - r2.Position).Unit
-                    local speed = hum4 and hum4.WalkSpeed or 16
+                    local speed = (hum4 and hum4.WalkSpeed or 16) + getSpeedBoost()
                     bv.Velocity = Vector3.new(dir.X * speed, 0, dir.Z * speed)
 
                     task.wait(0.1)
@@ -1234,7 +1267,7 @@ local function runLoop()
                     local r3 = getRoot()
                     if r3 then
                         local dir2 = (SAFE_POS - r3.Position).Unit
-                        local speed2 = hum5 and hum5.WalkSpeed or 16
+                        local speed2 = (hum5 and hum5.WalkSpeed or 16) + getSpeedBoost()
                         bv2.Velocity = Vector3.new(dir2.X * speed2, 0, dir2.Z * speed2)
                     end
                     task.wait(0.1)
