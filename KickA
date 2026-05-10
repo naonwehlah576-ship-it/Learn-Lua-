@@ -17,7 +17,7 @@ ScreenGui.Parent = parentUI
 
 -- ================== GUI ==================
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 260, 0, 520)
+MainFrame.Size = UDim2.new(0, 260, 0, 550)
 MainFrame.Position = UDim2.new(0.5, -120, 0.5, -80)
 MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 MainFrame.BorderSizePixel = 0
@@ -323,6 +323,19 @@ FavToggleBtn.BorderSizePixel = 0
 FavToggleBtn.Parent = MainFrame
 Instance.new("UICorner", FavToggleBtn).CornerRadius = UDim.new(0, 4)
 
+-- Auto UFO Toggle
+local UFOToggleBtn = Instance.new("TextButton")
+UFOToggleBtn.Size = UDim2.new(1, -20, 0, 26)
+UFOToggleBtn.Position = UDim2.new(0, 10, 0, 306)
+UFOToggleBtn.BackgroundColor3 = Color3.fromRGB(100, 200, 255)
+UFOToggleBtn.Text = "🛸 Auto UFO: ON"
+UFOToggleBtn.TextColor3 = Color3.fromRGB(20, 20, 20)
+UFOToggleBtn.TextSize = 10
+UFOToggleBtn.Font = Enum.Font.GothamBold
+UFOToggleBtn.BorderSizePixel = 0
+UFOToggleBtn.Parent = MainFrame
+Instance.new("UICorner", UFOToggleBtn).CornerRadius = UDim.new(0, 4)
+
 -- ================== EVENT TOGGLES ==================
 local BACON_EVENT = {
     ["Chicleteira Bicicleteira"] = true,
@@ -484,7 +497,7 @@ local BASE_PRICE = {
 -- Bacon Event Label
 local BaconLabel = Instance.new("TextLabel")
 BaconLabel.Size = UDim2.new(1, -20, 0, 20)
-BaconLabel.Position = UDim2.new(0, 10, 0, 310)
+BaconLabel.Position = UDim2.new(0, 10, 0, 340)
 BaconLabel.BackgroundTransparency = 1
 BaconLabel.Text = "🥓 Bacon Event"
 BaconLabel.TextColor3 = Color3.fromRGB(255, 180, 50)
@@ -505,7 +518,7 @@ for i, item in ipairs(BACON_LIST) do
     btn.Size = UDim2.new(0, 115, 0, 24)
     local col = (i-1) % 2
     local row = math.floor((i-1) / 2)
-    btn.Position = UDim2.new(0, 10 + col * 128, 0, 332 + row * 28)
+    btn.Position = UDim2.new(0, 10 + col * 128, 0, 362 + row * 28)
     btn.Font = Enum.Font.GothamBold
     btn.TextSize = 9
     btn.BorderSizePixel = 0
@@ -533,7 +546,7 @@ end
 -- UFO Event Label
 local UfoLabel = Instance.new("TextLabel")
 UfoLabel.Size = UDim2.new(1, -20, 0, 20)
-UfoLabel.Position = UDim2.new(0, 10, 0, 394)
+UfoLabel.Position = UDim2.new(0, 10, 0, 424)
 UfoLabel.BackgroundTransparency = 1
 UfoLabel.Text = "🛸 UFO Event"
 UfoLabel.TextColor3 = Color3.fromRGB(100, 200, 255)
@@ -554,7 +567,7 @@ for i, item in ipairs(UFO_LIST) do
     btn.Size = UDim2.new(0, 115, 0, 24)
     local col = (i-1) % 2
     local row = math.floor((i-1) / 2)
-    btn.Position = UDim2.new(0, 10 + col * 128, 0, 416 + row * 28)
+    btn.Position = UDim2.new(0, 10 + col * 128, 0, 446 + row * 28)
     btn.Font = Enum.Font.GothamBold
     btn.TextSize = 9
     btn.BorderSizePixel = 0
@@ -838,6 +851,7 @@ local function getMinFav()
 end
 
 local favAutoRunning = true
+local autoUFORunning = true
 
 -- Auto favorite loop
 task.spawn(function()
@@ -932,26 +946,6 @@ local function tryActivateUFO()
         game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Packages"):WaitForChild("Network"):WaitForChild("rev_sbe"):FireServer(unpack(args))
     end)
     setStatus("UFO Event diaktifkan! Max power!", Color3.fromRGB(100, 200, 255))
-    -- simpan nilai lama
-    local oldArg1 = KickPowerBox.Text
-    local oldArg2 = KickArg2Box.Text
-    -- set ke max selama event aktif
-    KickPowerBox.Text = "1"
-    KickArg2Box.Text = "3800000000"
-    -- detect timer sampai 00:00 baru balik
-    task.spawn(function()
-        -- tunggu dulu sampe timer muncul (bukan 00:00)
-        task.wait(3)
-        while true do
-            task.wait(5)
-            if isUFOExpired() then
-                KickPowerBox.Text = oldArg1
-                KickArg2Box.Text = oldArg2
-                setStatus("UFO Event selesai, power balik normal", Color3.fromRGB(200, 200, 200))
-                break
-            end
-        end
-    end)
 end
 
 -- Target kick power per brainrot UFO yang belum ada di backpack
@@ -963,7 +957,14 @@ local UFO_KICK_POWER = {
 }
 
 local function autoSetKickPower()
-    -- kalau semua ada di backpack, max power dan aktifin UFO
+    -- kalau UFO lagi aktif (timer bukan 00:00) -> max power, gak cari brainrot
+    if not isUFOExpired() then
+        KickPowerBox.Text = "1"
+        KickArg2Box.Text = "3800000000"
+        return
+    end
+
+    -- UFO tidak aktif, kalau semua brainrot ada -> aktifin UFO
     if hasAllUFOBrainrots() then
         KickPowerBox.Text = "1"
         KickArg2Box.Text = "3800000000"
@@ -986,10 +987,23 @@ end
 -- Loop auto activate UFO di background
 task.spawn(function()
     while true do
-        task.wait(10) -- cek tiap 10 detik
-        if running then
+        task.wait(10)
+        if running and autoUFORunning then
             autoSetKickPower()
         end
+    end
+end)
+
+UFOToggleBtn.MouseButton1Click:Connect(function()
+    autoUFORunning = not autoUFORunning
+    if autoUFORunning then
+        UFOToggleBtn.Text = "🛸 Auto UFO: ON"
+        UFOToggleBtn.BackgroundColor3 = Color3.fromRGB(100, 200, 255)
+        UFOToggleBtn.TextColor3 = Color3.fromRGB(20, 20, 20)
+    else
+        UFOToggleBtn.Text = "🛸 Auto UFO: OFF"
+        UFOToggleBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+        UFOToggleBtn.TextColor3 = Color3.fromRGB(150, 150, 150)
     end
 end)
 
