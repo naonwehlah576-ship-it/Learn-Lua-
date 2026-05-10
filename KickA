@@ -623,6 +623,9 @@ local function getCurrentSettings()
         flySpeed = FlySpeedBox.Text,
         kickPower = KickPowerBox.Text,
         kickArg2 = KickArg2Box.Text,
+        minFav = MinFavBox.Text,
+        favAutoRunning = favAutoRunning,
+        autoUFORunning = autoUFORunning,
         bacon = {
             ["Chicleteira Bicicleteira"] = baconEnabled["Chicleteira Bicicleteira"],
             ["Agarrini La Palini"]       = baconEnabled["Agarrini La Palini"],
@@ -643,6 +646,31 @@ local function applySettings(cfg)
     if cfg.flySpeed then FlySpeedBox.Text = cfg.flySpeed end
     if cfg.kickPower then KickPowerBox.Text = cfg.kickPower end
     if cfg.kickArg2 then KickArg2Box.Text = cfg.kickArg2 end
+    if cfg.minFav then MinFavBox.Text = cfg.minFav end
+    if cfg.favAutoRunning ~= nil then
+        favAutoRunning = cfg.favAutoRunning
+        if favAutoRunning then
+            FavToggleBtn.Text = "⭐ Auto Fav: ON"
+            FavToggleBtn.BackgroundColor3 = Color3.fromRGB(255, 200, 0)
+            FavToggleBtn.TextColor3 = Color3.fromRGB(20, 20, 20)
+        else
+            FavToggleBtn.Text = "⭐ Auto Fav: OFF"
+            FavToggleBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+            FavToggleBtn.TextColor3 = Color3.fromRGB(150, 150, 150)
+        end
+    end
+    if cfg.autoUFORunning ~= nil then
+        autoUFORunning = cfg.autoUFORunning
+        if autoUFORunning then
+            UFOToggleBtn.Text = "🛸 Auto UFO: ON"
+            UFOToggleBtn.BackgroundColor3 = Color3.fromRGB(100, 200, 255)
+            UFOToggleBtn.TextColor3 = Color3.fromRGB(20, 20, 20)
+        else
+            UFOToggleBtn.Text = "🛸 Auto UFO: OFF"
+            UFOToggleBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+            UFOToggleBtn.TextColor3 = Color3.fromRGB(150, 150, 150)
+        end
+    end
     if cfg.bacon then
         for k, v in pairs(cfg.bacon) do baconEnabled[k] = v end
     end
