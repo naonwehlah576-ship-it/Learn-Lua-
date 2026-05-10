@@ -17,7 +17,7 @@ ScreenGui.Parent = parentUI
 
 -- ================== GUI ==================
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 260, 0, 460)
+MainFrame.Size = UDim2.new(0, 260, 0, 490)
 MainFrame.Position = UDim2.new(0.5, -120, 0.5, -80)
 MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 MainFrame.BorderSizePixel = 0
@@ -285,6 +285,31 @@ KickArg2Box.BorderSizePixel = 0
 KickArg2Box.Parent = MainFrame
 Instance.new("UICorner", KickArg2Box).CornerRadius = UDim.new(0, 4)
 
+-- Min Fav
+local MinFavLabel = Instance.new("TextLabel")
+MinFavLabel.Size = UDim2.new(0, 110, 0, 22)
+MinFavLabel.Position = UDim2.new(0, 10, 0, 250)
+MinFavLabel.BackgroundTransparency = 1
+MinFavLabel.Text = "Min Fav (M/s):"
+MinFavLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+MinFavLabel.TextSize = 10
+MinFavLabel.Font = Enum.Font.GothamBold
+MinFavLabel.TextXAlignment = Enum.TextXAlignment.Left
+MinFavLabel.Parent = MainFrame
+
+local MinFavBox = Instance.new("TextBox")
+MinFavBox.Size = UDim2.new(0, 90, 0, 22)
+MinFavBox.Position = UDim2.new(0, 130, 0, 250)
+MinFavBox.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+MinFavBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+MinFavBox.Text = "4"
+MinFavBox.TextSize = 11
+MinFavBox.Font = Enum.Font.GothamBold
+MinFavBox.ClearTextOnFocus = false
+MinFavBox.BorderSizePixel = 0
+MinFavBox.Parent = MainFrame
+Instance.new("UICorner", MinFavBox).CornerRadius = UDim.new(0, 4)
+
 -- ================== EVENT TOGGLES ==================
 local BACON_EVENT = {
     ["Chicleteira Bicicleteira"] = true,
@@ -446,7 +471,7 @@ local BASE_PRICE = {
 -- Bacon Event Label
 local BaconLabel = Instance.new("TextLabel")
 BaconLabel.Size = UDim2.new(1, -20, 0, 20)
-BaconLabel.Position = UDim2.new(0, 10, 0, 254)
+BaconLabel.Position = UDim2.new(0, 10, 0, 280)
 BaconLabel.BackgroundTransparency = 1
 BaconLabel.Text = "🥓 Bacon Event"
 BaconLabel.TextColor3 = Color3.fromRGB(255, 180, 50)
@@ -467,7 +492,7 @@ for i, item in ipairs(BACON_LIST) do
     btn.Size = UDim2.new(0, 115, 0, 24)
     local col = (i-1) % 2
     local row = math.floor((i-1) / 2)
-    btn.Position = UDim2.new(0, 10 + col * 128, 0, 276 + row * 28)
+    btn.Position = UDim2.new(0, 10 + col * 128, 0, 302 + row * 28)
     btn.Font = Enum.Font.GothamBold
     btn.TextSize = 9
     btn.BorderSizePixel = 0
@@ -495,7 +520,7 @@ end
 -- UFO Event Label
 local UfoLabel = Instance.new("TextLabel")
 UfoLabel.Size = UDim2.new(1, -20, 0, 20)
-UfoLabel.Position = UDim2.new(0, 10, 0, 338)
+UfoLabel.Position = UDim2.new(0, 10, 0, 364)
 UfoLabel.BackgroundTransparency = 1
 UfoLabel.Text = "🛸 UFO Event"
 UfoLabel.TextColor3 = Color3.fromRGB(100, 200, 255)
@@ -516,7 +541,7 @@ for i, item in ipairs(UFO_LIST) do
     btn.Size = UDim2.new(0, 115, 0, 24)
     local col = (i-1) % 2
     local row = math.floor((i-1) / 2)
-    btn.Position = UDim2.new(0, 10 + col * 128, 0, 360 + row * 28)
+    btn.Position = UDim2.new(0, 10 + col * 128, 0, 386 + row * 28)
     btn.Font = Enum.Font.GothamBold
     btn.TextSize = 9
     btn.BorderSizePixel = 0
@@ -792,6 +817,40 @@ local function isValidBrainrot(obj)
 
     return actualPrice >= minHarga
 end
+
+local function getMinFav()
+    local val = tonumber(MinFavBox.Text)
+    if not val or val <= 0 then return 4000000 end
+    return val * 1000000
+end
+
+local favored = {} -- track yang udah di-favorite biar gak spam
+
+-- Auto favorite loop
+task.spawn(function()
+    while true do
+        task.wait(0.1)
+        pcall(function()
+            local backpack = player.Backpack
+            for _, item in ipairs(backpack:GetChildren()) do
+                local guid = item:GetAttribute("GUID")
+                if guid and not favored[guid] then
+                    local mutation = item:GetAttribute("Mutation") or "None"
+                    local basePrice = BASE_PRICE[item.Name] or 0
+                    local multiplier = MULTIPLIER[mutation] or 1
+                    local actualPrice = basePrice * multiplier
+                    if actualPrice >= getMinFav() then
+                        pcall(function()
+                            local args = {guid}
+                            game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Packages"):WaitForChild("Network"):WaitForChild("rev_ToggleFav"):FireServer(unpack(args))
+                        end)
+                        favored[guid] = true
+                    end
+                end
+            end
+        end)
+    end
+end)
 
 -- ================== UFO AUTO ACTIVATE ==================
 local UFO_REQUIRED = {
