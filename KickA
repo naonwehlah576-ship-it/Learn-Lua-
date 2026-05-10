@@ -37,7 +37,7 @@ local TitleLabel = Instance.new("TextLabel")
 TitleLabel.Size = UDim2.new(1, -80, 1, 0)
 TitleLabel.Position = UDim2.new(0, 10, 0, 0)
 TitleLabel.BackgroundTransparency = 1
-TitleLabel.Text = "🧠 Brainrot Farm | Dafa Goreng"
+TitleLabel.Text = "🧠 Brainrot Farm v1.1 | Dafa Goreng"
 TitleLabel.TextColor3 = Color3.fromRGB(255, 215, 0)
 TitleLabel.TextSize = 11
 TitleLabel.Font = Enum.Font.GothamBold
@@ -824,9 +824,7 @@ local function getMinFav()
     return val * 1000000
 end
 
-local favored = {} -- track yang udah di-favorite biar gak spam
-
--- Auto favorite loop
+-- Auto favorite loop (terus-terusan tanpa track)
 task.spawn(function()
     while true do
         task.wait(0.1)
@@ -834,7 +832,7 @@ task.spawn(function()
             local backpack = player.Backpack
             for _, item in ipairs(backpack:GetChildren()) do
                 local guid = item:GetAttribute("GUID")
-                if guid and not favored[guid] then
+                if guid then
                     local mutation = item:GetAttribute("Mutation") or "None"
                     local basePrice = BASE_PRICE[item.Name] or 0
                     local multiplier = MULTIPLIER[mutation] or 1
@@ -844,7 +842,6 @@ task.spawn(function()
                             local args = {guid}
                             game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Packages"):WaitForChild("Network"):WaitForChild("rev_ToggleFav"):FireServer(unpack(args))
                         end)
-                        favored[guid] = true
                     end
                 end
             end
