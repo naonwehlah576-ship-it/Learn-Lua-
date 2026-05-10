@@ -277,7 +277,7 @@ KickArg2Box.Size = UDim2.new(0, 90, 0, 22)
 KickArg2Box.Position = UDim2.new(0, 130, 0, 224)
 KickArg2Box.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
 KickArg2Box.TextColor3 = Color3.fromRGB(255, 255, 255)
-KickArg2Box.Text = "3800000000"
+KickArg2Box.Text = tostring(getMaxKickPower())
 KickArg2Box.TextSize = 11
 KickArg2Box.Font = Enum.Font.GothamBold
 KickArg2Box.ClearTextOnFocus = false
@@ -806,6 +806,30 @@ local function getMinHarga()
     return val * 1000000 -- convert M/s ke angka
 end
 
+local function parseKickPower(text)
+    -- parse "186.3K Kick Power" -> angka
+    local num = string.match(text, "([%d%.]+)([KMB]?)")
+    if not num then return 3800000000 end
+    local val = tonumber(num) or 0
+    local suffix = string.match(text, "%d[%.%d]*([KMBkmb])")
+    if suffix then
+        suffix = string.upper(suffix)
+        if suffix == "K" then val = val * 1000
+        elseif suffix == "M" then val = val * 1000000
+        elseif suffix == "B" then val = val * 1000000000
+        end
+    end
+    return val
+end
+
+local function getMaxKickPower()
+    local ok, label = pcall(function()
+        return player.PlayerGui.HUD.BottomLeft.KickLevel.TextLabel
+    end)
+    if not ok or not label then return 3800000000 end
+    return parseKickPower(label.Text)
+end
+
 local function getKickPower()
     local val = tonumber(KickPowerBox.Text)
     if not val or val <= 0 then return 0.9 end
@@ -951,7 +975,7 @@ end
 -- Target kick power per brainrot UFO yang belum ada di backpack
 local UFO_KICK_POWER = {
     ["Girafa Celeste"]    = 50000000,       -- 50M
-    ["Guerriro Digitale"] = 3800000000,     -- max
+    ["Guerriro Digitale"] = 0,              -- max (auto detect)
     ["SWAG SODA"]         = 50000000,       -- 50M
     ["Cacto Hipopotamo"]  = 250,            -- 250
 }
@@ -960,14 +984,14 @@ local function autoSetKickPower()
     -- kalau UFO lagi aktif (timer bukan 00:00) -> max power, gak cari brainrot
     if not isUFOExpired() then
         KickPowerBox.Text = "1"
-        KickArg2Box.Text = "3800000000"
+        KickArg2Box.Text = tostring(getMaxKickPower())
         return
     end
 
     -- UFO tidak aktif, kalau semua brainrot ada -> aktifin UFO
     if hasAllUFOBrainrots() then
         KickPowerBox.Text = "1"
-        KickArg2Box.Text = "3800000000"
+        KickArg2Box.Text = tostring(getMaxKickPower())
         tryActivateUFO()
         return
     end
@@ -975,7 +999,8 @@ local function autoSetKickPower()
     -- cari brainrot pertama yang belum ada, set kick power nya
     for _, name in ipairs(UFO_REQUIRED) do
         if not hasInBackpack(name) then
-            local targetPower = UFO_KICK_POWER[name] or 3800000000
+            local targetPower = UFO_KICK_POWER[name]
+if not targetPower or targetPower == 0 then targetPower = getMaxKickPower() end
             KickArg2Box.Text = tostring(targetPower)
             KickPowerBox.Text = "1"
             setStatus("Auto power: cari " .. name, Color3.fromRGB(255, 200, 50))
