@@ -17,7 +17,7 @@ ScreenGui.Parent = parentUI
 
 -- ================== GUI ==================
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 260, 0, 400)
+MainFrame.Size = UDim2.new(0, 260, 0, 440)
 MainFrame.Position = UDim2.new(0.5, -120, 0.5, -80)
 MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 MainFrame.BorderSizePixel = 0
@@ -78,10 +78,117 @@ ToggleBtn.BorderSizePixel = 0
 ToggleBtn.Parent = MainFrame
 Instance.new("UICorner", ToggleBtn).CornerRadius = UDim.new(0, 6)
 
+-- Save/Load buttons
+local SaveBtn = Instance.new("TextButton")
+SaveBtn.Size = UDim2.new(0, 115, 0, 26)
+SaveBtn.Position = UDim2.new(0, 10, 0, 112)
+SaveBtn.BackgroundColor3 = Color3.fromRGB(50, 150, 255)
+SaveBtn.Text = "💾 Save Config"
+SaveBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+SaveBtn.TextSize = 10
+SaveBtn.Font = Enum.Font.GothamBold
+SaveBtn.BorderSizePixel = 0
+SaveBtn.Parent = MainFrame
+Instance.new("UICorner", SaveBtn).CornerRadius = UDim.new(0, 4)
+
+local LoadBtn = Instance.new("TextButton")
+LoadBtn.Size = UDim2.new(0, 115, 0, 26)
+LoadBtn.Position = UDim2.new(0, 133, 0, 112)
+LoadBtn.BackgroundColor3 = Color3.fromRGB(100, 200, 100)
+LoadBtn.Text = "📂 Load Config"
+LoadBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+LoadBtn.TextSize = 10
+LoadBtn.Font = Enum.Font.GothamBold
+LoadBtn.BorderSizePixel = 0
+LoadBtn.Parent = MainFrame
+Instance.new("UICorner", LoadBtn).CornerRadius = UDim.new(0, 4)
+
+-- Config List Frame (hidden by default)
+local ConfigFrame = Instance.new("Frame")
+ConfigFrame.Size = UDim2.new(0, 240, 0, 200)
+ConfigFrame.Position = UDim2.new(0, 10, 0, 142)
+ConfigFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+ConfigFrame.BorderSizePixel = 0
+ConfigFrame.Visible = false
+ConfigFrame.ZIndex = 10
+ConfigFrame.Parent = MainFrame
+Instance.new("UICorner", ConfigFrame).CornerRadius = UDim.new(0, 6)
+
+local ConfigTitle = Instance.new("TextLabel")
+ConfigTitle.Size = UDim2.new(1, -40, 0, 28)
+ConfigTitle.Position = UDim2.new(0, 8, 0, 4)
+ConfigTitle.BackgroundTransparency = 1
+ConfigTitle.Text = "Config List"
+ConfigTitle.TextColor3 = Color3.fromRGB(255, 215, 0)
+ConfigTitle.TextSize = 11
+ConfigTitle.Font = Enum.Font.GothamBold
+ConfigTitle.TextXAlignment = Enum.TextXAlignment.Left
+ConfigTitle.ZIndex = 10
+ConfigTitle.Parent = ConfigFrame
+
+local ConfigCloseBtn = Instance.new("TextButton")
+ConfigCloseBtn.Size = UDim2.new(0, 24, 0, 24)
+ConfigCloseBtn.Position = UDim2.new(1, -28, 0, 4)
+ConfigCloseBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+ConfigCloseBtn.Text = "✕"
+ConfigCloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+ConfigCloseBtn.TextSize = 10
+ConfigCloseBtn.Font = Enum.Font.GothamBold
+ConfigCloseBtn.ZIndex = 10
+ConfigCloseBtn.Parent = ConfigFrame
+Instance.new("UICorner", ConfigCloseBtn).CornerRadius = UDim.new(0, 4)
+
+-- Name input untuk save
+local NameInput = Instance.new("TextBox")
+NameInput.Size = UDim2.new(1, -16, 0, 26)
+NameInput.Position = UDim2.new(0, 8, 0, 34)
+NameInput.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+NameInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+NameInput.PlaceholderText = "Nama config..."
+NameInput.Text = ""
+NameInput.TextSize = 10
+NameInput.Font = Enum.Font.Gotham
+NameInput.ClearTextOnFocus = false
+NameInput.BorderSizePixel = 0
+NameInput.ZIndex = 10
+NameInput.Visible = false
+NameInput.Parent = ConfigFrame
+Instance.new("UICorner", NameInput).CornerRadius = UDim.new(0, 4)
+
+local ConfirmSaveBtn = Instance.new("TextButton")
+ConfirmSaveBtn.Size = UDim2.new(1, -16, 0, 26)
+ConfirmSaveBtn.Position = UDim2.new(0, 8, 0, 64)
+ConfirmSaveBtn.BackgroundColor3 = Color3.fromRGB(50, 150, 255)
+ConfirmSaveBtn.Text = "✔ Simpan"
+ConfirmSaveBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+ConfirmSaveBtn.TextSize = 10
+ConfirmSaveBtn.Font = Enum.Font.GothamBold
+ConfirmSaveBtn.BorderSizePixel = 0
+ConfirmSaveBtn.ZIndex = 10
+ConfirmSaveBtn.Visible = false
+ConfirmSaveBtn.Parent = ConfigFrame
+Instance.new("UICorner", ConfirmSaveBtn).CornerRadius = UDim.new(0, 4)
+
+-- Scroll untuk list config
+local ScrollFrame = Instance.new("ScrollingFrame")
+ScrollFrame.Size = UDim2.new(1, -16, 0, 150)
+ScrollFrame.Position = UDim2.new(0, 8, 0, 34)
+ScrollFrame.BackgroundTransparency = 1
+ScrollFrame.BorderSizePixel = 0
+ScrollFrame.ScrollBarThickness = 4
+ScrollFrame.ZIndex = 10
+ScrollFrame.Visible = true
+ScrollFrame.Parent = ConfigFrame
+
+local ListLayout = Instance.new("UIListLayout")
+ListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+ListLayout.Padding = UDim.new(0, 4)
+ListLayout.Parent = ScrollFrame
+
 -- Min Harga
 local MinLabel = Instance.new("TextLabel")
 MinLabel.Size = UDim2.new(0, 110, 0, 22)
-MinLabel.Position = UDim2.new(0, 10, 0, 116)
+MinLabel.Position = UDim2.new(0, 10, 0, 146)
 MinLabel.BackgroundTransparency = 1
 MinLabel.Text = "Min Harga (M/s):"
 MinLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
@@ -92,7 +199,7 @@ MinLabel.Parent = MainFrame
 
 local MinBox = Instance.new("TextBox")
 MinBox.Size = UDim2.new(0, 90, 0, 22)
-MinBox.Position = UDim2.new(0, 130, 0, 116)
+MinBox.Position = UDim2.new(0, 130, 0, 146)
 MinBox.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
 MinBox.TextColor3 = Color3.fromRGB(255, 255, 255)
 MinBox.Text = "3.3"
@@ -106,7 +213,7 @@ Instance.new("UICorner", MinBox).CornerRadius = UDim.new(0, 4)
 -- Fly Speed
 local FlyLabel = Instance.new("TextLabel")
 FlyLabel.Size = UDim2.new(0, 110, 0, 22)
-FlyLabel.Position = UDim2.new(0, 10, 0, 142)
+FlyLabel.Position = UDim2.new(0, 10, 0, 172)
 FlyLabel.BackgroundTransparency = 1
 FlyLabel.Text = "Fly Speed:"
 FlyLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
@@ -117,7 +224,7 @@ FlyLabel.Parent = MainFrame
 
 local FlySpeedBox = Instance.new("TextBox")
 FlySpeedBox.Size = UDim2.new(0, 90, 0, 22)
-FlySpeedBox.Position = UDim2.new(0, 130, 0, 142)
+FlySpeedBox.Position = UDim2.new(0, 130, 0, 172)
 FlySpeedBox.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
 FlySpeedBox.TextColor3 = Color3.fromRGB(255, 255, 255)
 FlySpeedBox.Text = "2000"
@@ -131,7 +238,7 @@ Instance.new("UICorner", FlySpeedBox).CornerRadius = UDim.new(0, 4)
 -- Kick Power
 local KickLabel = Instance.new("TextLabel")
 KickLabel.Size = UDim2.new(0, 110, 0, 22)
-KickLabel.Position = UDim2.new(0, 10, 0, 168)
+KickLabel.Position = UDim2.new(0, 10, 0, 198)
 KickLabel.BackgroundTransparency = 1
 KickLabel.Text = "Kick Power:"
 KickLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
@@ -142,7 +249,7 @@ KickLabel.Parent = MainFrame
 
 local KickPowerBox = Instance.new("TextBox")
 KickPowerBox.Size = UDim2.new(0, 90, 0, 22)
-KickPowerBox.Position = UDim2.new(0, 130, 0, 168)
+KickPowerBox.Position = UDim2.new(0, 130, 0, 198)
 KickPowerBox.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
 KickPowerBox.TextColor3 = Color3.fromRGB(255, 255, 255)
 KickPowerBox.Text = "1"
@@ -156,7 +263,7 @@ Instance.new("UICorner", KickPowerBox).CornerRadius = UDim.new(0, 4)
 -- Kick Arg 2
 local KickArg2Label = Instance.new("TextLabel")
 KickArg2Label.Size = UDim2.new(0, 110, 0, 22)
-KickArg2Label.Position = UDim2.new(0, 10, 0, 194)
+KickArg2Label.Position = UDim2.new(0, 10, 0, 224)
 KickArg2Label.BackgroundTransparency = 1
 KickArg2Label.Text = "Kick Power:"
 KickArg2Label.TextColor3 = Color3.fromRGB(180, 180, 180)
@@ -167,7 +274,7 @@ KickArg2Label.Parent = MainFrame
 
 local KickArg2Box = Instance.new("TextBox")
 KickArg2Box.Size = UDim2.new(0, 90, 0, 22)
-KickArg2Box.Position = UDim2.new(0, 130, 0, 194)
+KickArg2Box.Position = UDim2.new(0, 130, 0, 224)
 KickArg2Box.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
 KickArg2Box.TextColor3 = Color3.fromRGB(255, 255, 255)
 KickArg2Box.Text = "3800000000"
@@ -441,6 +548,188 @@ local SAFE_POS = Vector3.new(701.9, 4.2, 229.5)
 local running = false
 local network   = ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Packages"):WaitForChild("Network")
 local kickEvent = network:WaitForChild("rev_KickEvent")
+
+-- ================== CONFIG SYSTEM ==================
+local CONFIG_FILE = "BrainrotConfigs.json"
+local isSaveMode = false
+
+local function getConfigs()
+    local ok, data = pcall(readfile, CONFIG_FILE)
+    if not ok or not data or data == "" then return {} end
+    local ok2, parsed = pcall(game:GetService("HttpService").JSONDecode, game:GetService("HttpService"), data)
+    if not ok2 then return {} end
+    return parsed
+end
+
+local function saveConfigs(configs)
+    local ok, data = pcall(game:GetService("HttpService").JSONEncode, game:GetService("HttpService"), configs)
+    if ok then pcall(writefile, CONFIG_FILE, data) end
+end
+
+local function getCurrentSettings()
+    return {
+        minHarga = MinBox.Text,
+        flySpeed = FlySpeedBox.Text,
+        kickPower = KickPowerBox.Text,
+        kickArg2 = KickArg2Box.Text,
+        bacon = {
+            ["Chicleteira Bicicleteira"] = baconEnabled["Chicleteira Bicicleteira"],
+            ["Agarrini La Palini"]       = baconEnabled["Agarrini La Palini"],
+            ["Trippi Troppi"]            = baconEnabled["Trippi Troppi"],
+            ["Strawberry Elephant"]      = baconEnabled["Strawberry Elephant"],
+        },
+        ufo = {
+            ["Girafa Celeste"]    = ufoEnabled["Girafa Celeste"],
+            ["Guerriro Digitale"] = ufoEnabled["Guerriro Digitale"],
+            ["SWAG SODA"]         = ufoEnabled["SWAG SODA"],
+            ["Cacto Hipopotamo"]  = ufoEnabled["Cacto Hipopotamo"],
+        }
+    }
+end
+
+local function applySettings(cfg)
+    if cfg.minHarga then MinBox.Text = cfg.minHarga end
+    if cfg.flySpeed then FlySpeedBox.Text = cfg.flySpeed end
+    if cfg.kickPower then KickPowerBox.Text = cfg.kickPower end
+    if cfg.kickArg2 then KickArg2Box.Text = cfg.kickArg2 end
+    if cfg.bacon then
+        for k, v in pairs(cfg.bacon) do baconEnabled[k] = v end
+    end
+    if cfg.ufo then
+        for k, v in pairs(cfg.ufo) do ufoEnabled[k] = v end
+    end
+end
+
+local function refreshConfigList(mode)
+    -- hapus semua item lama
+    for _, child in ipairs(ScrollFrame:GetChildren()) do
+        if child:IsA("TextButton") or child:IsA("Frame") then child:Destroy() end
+    end
+
+    local configs = getConfigs()
+    local count = 0
+    for name, _ in pairs(configs) do
+        count = count + 1
+        local row = Instance.new("Frame")
+        row.Size = UDim2.new(1, 0, 0, 28)
+        row.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+        row.BorderSizePixel = 0
+        row.ZIndex = 10
+        row.Parent = ScrollFrame
+        Instance.new("UICorner", row).CornerRadius = UDim.new(0, 4)
+
+        local nameBtn = Instance.new("TextButton")
+        nameBtn.Size = UDim2.new(1, -32, 1, 0)
+        nameBtn.Position = UDim2.new(0, 4, 0, 0)
+        nameBtn.BackgroundTransparency = 1
+        nameBtn.Text = name
+        nameBtn.TextColor3 = Color3.fromRGB(220, 220, 220)
+        nameBtn.TextSize = 10
+        nameBtn.Font = Enum.Font.Gotham
+        nameBtn.TextXAlignment = Enum.TextXAlignment.Left
+        nameBtn.ZIndex = 11
+        nameBtn.Parent = row
+
+        local delBtn = Instance.new("TextButton")
+        delBtn.Size = UDim2.new(0, 24, 0, 24)
+        delBtn.Position = UDim2.new(1, -28, 0, 2)
+        delBtn.BackgroundColor3 = Color3.fromRGB(180, 40, 40)
+        delBtn.Text = "🗑"
+        delBtn.TextSize = 10
+        delBtn.Font = Enum.Font.GothamBold
+        delBtn.ZIndex = 11
+        delBtn.Parent = row
+        Instance.new("UICorner", delBtn).CornerRadius = UDim.new(0, 4)
+
+        local capturedName = name
+        nameBtn.MouseButton1Click:Connect(function()
+            if mode == "load" then
+                local cfgs = getConfigs()
+                if cfgs[capturedName] then
+                    applySettings(cfgs[capturedName])
+                    -- save sebagai last config
+                    local meta = getConfigs()
+                    meta["__last"] = capturedName
+                    saveConfigs(meta)
+                    ConfigTitle.Text = "Loaded: " .. capturedName
+                    task.wait(1)
+                    ConfigFrame.Visible = false
+                end
+            end
+        end)
+
+        delBtn.MouseButton1Click:Connect(function()
+            local cfgs = getConfigs()
+            cfgs[capturedName] = nil
+            saveConfigs(cfgs)
+            refreshConfigList(mode)
+        end)
+    end
+
+    if count == 0 then
+        local empty = Instance.new("TextLabel")
+        empty.Size = UDim2.new(1, 0, 0, 28)
+        empty.BackgroundTransparency = 1
+        empty.Text = "Belum ada config"
+        empty.TextColor3 = Color3.fromRGB(150, 150, 150)
+        empty.TextSize = 10
+        empty.Font = Enum.Font.Gotham
+        empty.ZIndex = 10
+        empty.Parent = ScrollFrame
+    end
+
+    ScrollFrame.CanvasSize = UDim2.new(0, 0, 0, count * 32)
+end
+
+-- Auto load last config
+task.spawn(function()
+    task.wait(0.5)
+    local configs = getConfigs()
+    local lastName = configs["__last"]
+    if lastName and configs[lastName] then
+        applySettings(configs[lastName])
+    end
+end)
+
+-- Save button
+SaveBtn.MouseButton1Click:Connect(function()
+    isSaveMode = true
+    ConfigTitle.Text = "Nama Config:"
+    NameInput.Visible = true
+    NameInput.Text = ""
+    ConfirmSaveBtn.Visible = true
+    ScrollFrame.Visible = false
+    ConfigFrame.Visible = true
+end)
+
+-- Load button
+LoadBtn.MouseButton1Click:Connect(function()
+    isSaveMode = false
+    ConfigTitle.Text = "Pilih Config:"
+    NameInput.Visible = false
+    ConfirmSaveBtn.Visible = false
+    ScrollFrame.Visible = true
+    refreshConfigList("load")
+    ConfigFrame.Visible = true
+end)
+
+-- Confirm save
+ConfirmSaveBtn.MouseButton1Click:Connect(function()
+    local name = NameInput.Text
+    if name == "" then return end
+    local configs = getConfigs()
+    configs[name] = getCurrentSettings()
+    configs["__last"] = name
+    saveConfigs(configs)
+    ConfigTitle.Text = "Saved: " .. name
+    task.wait(1)
+    ConfigFrame.Visible = false
+end)
+
+-- Close config frame
+ConfigCloseBtn.MouseButton1Click:Connect(function()
+    ConfigFrame.Visible = false
+end)
 
 local function setStatus(text, color)
     StatusLabel.Text = "Status: " .. text
