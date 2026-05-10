@@ -1120,8 +1120,11 @@ local function runLoop()
         if char4 then
             local hum4 = char4:FindFirstChild("Humanoid")
             if hum4 then
-                local moveTimer4 = 0
-                hum4:MoveTo(SAFE_POS)
+                -- pake BodyVelocity biar jalan terus tanpa timeout
+                local bv = Instance.new("BodyVelocity")
+                bv.MaxForce = Vector3.new(1e5, 0, 1e5)
+                bv.Parent = char4:FindFirstChild("HumanoidRootPart")
+
                 task.wait(2)
                 while running do
                     local r2 = getRoot()
@@ -1144,13 +1147,15 @@ local function runLoop()
 
                     if brainrot and not brainrot.Parent then break end
                     if (r2.Position - SAFE_POS).Magnitude < 5 then break end
+
+                    -- update arah BodyVelocity tiap frame
+                    local dir = (SAFE_POS - r2.Position).Unit
+                    local speed = hum4 and hum4.WalkSpeed or 16
+                    bv.Velocity = Vector3.new(dir.X * speed, 0, dir.Z * speed)
+
                     task.wait(0.1)
-                    moveTimer4 = moveTimer4 + 0.1
-                    if moveTimer4 >= 7 then
-                        moveTimer4 = 0
-                        hum4:MoveTo(SAFE_POS)
-                    end
                 end
+                bv:Destroy()
             end
         end
 
@@ -1186,18 +1191,21 @@ local function runLoop()
         if char5 then
             local hum5 = char5:FindFirstChild("Humanoid")
             if hum5 then
-                local moveTimer = 0
-                hum5:MoveTo(SAFE_POS)
+                local bv2 = Instance.new("BodyVelocity")
+                bv2.MaxForce = Vector3.new(1e5, 0, 1e5)
+                bv2.Parent = char5:FindFirstChild("HumanoidRootPart")
+
                 while not isRemoved and running do
                     if not brainrot.Parent then isRemoved = true break end
-                    task.wait(0.1)
-                    moveTimer = moveTimer + 0.1
-                    -- refresh MoveTo tiap 7 detik biar gak timeout
-                    if moveTimer >= 7 then
-                        moveTimer = 0
-                        hum5:MoveTo(SAFE_POS)
+                    local r3 = getRoot()
+                    if r3 then
+                        local dir2 = (SAFE_POS - r3.Position).Unit
+                        local speed2 = hum5 and hum5.WalkSpeed or 16
+                        bv2.Velocity = Vector3.new(dir2.X * speed2, 0, dir2.Z * speed2)
                     end
+                    task.wait(0.1)
                 end
+                bv2:Destroy()
             end
         end
         removedConn:Disconnect()
