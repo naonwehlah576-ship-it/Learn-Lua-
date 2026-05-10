@@ -849,6 +849,8 @@ task.spawn(function()
                 for _, item in ipairs(backpack:GetChildren()) do
                     local guid = item:GetAttribute("GUID")
                     if guid then
+                        local isFav = item:GetAttribute("Favorite")
+                        if isFav then continue end -- udah favorite, skip
                         local mutation = item:GetAttribute("Mutation") or "None"
                         local basePrice = BASE_PRICE[item.Name] or 0
                         local multiplier = MULTIPLIER[mutation] or 1
