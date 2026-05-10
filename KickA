@@ -793,6 +793,118 @@ local function isValidBrainrot(obj)
     return actualPrice >= minHarga
 end
 
+-- ================== UFO AUTO ACTIVATE ==================
+local UFO_REQUIRED = {
+    "Girafa Celeste",
+    "Guerriro Digitale",
+    "SWAG SODA",
+    "Cacto Hipopotamo",
+}
+
+local function hasInBackpack(name)
+    -- cek backpack
+    for _, item in ipairs(player.Backpack:GetChildren()) do
+        if item.Name == name then return true end
+    end
+    -- cek character
+    if player.Character then
+        for _, item in ipairs(player.Character:GetChildren()) do
+            if item.Name == name then return true end
+        end
+    end
+    return false
+end
+
+local function getUFOTimer()
+    local ok, timerLabel = pcall(function()
+        return player.PlayerGui.TimersGui.TimedUpgrades.Alien.TimeLabel
+    end)
+    if not ok or not timerLabel then return nil end
+    return timerLabel.Text
+end
+
+local function isUFOExpired()
+    local timer = getUFOTimer()
+    if not timer then return true end -- gak ada timer = bisa aktifkan
+    return timer == "00:00"
+end
+
+local function hasAllUFOBrainrots()
+    for _, name in ipairs(UFO_REQUIRED) do
+        if not hasInBackpack(name) then return false end
+    end
+    return true
+end
+
+local function tryActivateUFO()
+    if not isUFOExpired() then return end
+    if not hasAllUFOBrainrots() then return end
+    pcall(function()
+        local args = {"UFO"}
+        game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Packages"):WaitForChild("Network"):WaitForChild("rev_sbe"):FireServer(unpack(args))
+    end)
+    setStatus("UFO Event diaktifkan! Max power!", Color3.fromRGB(100, 200, 255))
+    -- simpan nilai lama
+    local oldArg1 = KickPowerBox.Text
+    local oldArg2 = KickArg2Box.Text
+    -- set ke max selama event aktif
+    KickPowerBox.Text = "1"
+    KickArg2Box.Text = "3800000000"
+    -- detect timer sampai 00:00 baru balik
+    task.spawn(function()
+        -- tunggu dulu sampe timer muncul (bukan 00:00)
+        task.wait(3)
+        while true do
+            task.wait(5)
+            if isUFOExpired() then
+                KickPowerBox.Text = oldArg1
+                KickArg2Box.Text = oldArg2
+                setStatus("UFO Event selesai, power balik normal", Color3.fromRGB(200, 200, 200))
+                break
+            end
+        end
+    end)
+end
+
+-- Target kick power per brainrot UFO yang belum ada di backpack
+local UFO_KICK_POWER = {
+    ["Girafa Celeste"]    = 50000000,       -- 50M
+    ["Guerriro Digitale"] = 3800000000,     -- max
+    ["SWAG SODA"]         = 50000000,       -- 50M
+    ["Cacto Hipopotamo"]  = 250,            -- 250
+}
+
+local function autoSetKickPower()
+    -- kalau semua ada di backpack, max power dan aktifin UFO
+    if hasAllUFOBrainrots() then
+        KickPowerBox.Text = "1"
+        KickArg2Box.Text = "3800000000"
+        tryActivateUFO()
+        return
+    end
+
+    -- cari brainrot pertama yang belum ada, set kick power nya
+    for _, name in ipairs(UFO_REQUIRED) do
+        if not hasInBackpack(name) then
+            local targetPower = UFO_KICK_POWER[name] or 3800000000
+            KickArg2Box.Text = tostring(targetPower)
+            KickPowerBox.Text = "1"
+            setStatus("Auto power: cari " .. name, Color3.fromRGB(255, 200, 50))
+            return
+        end
+    end
+end
+
+-- Loop auto activate UFO di background
+task.spawn(function()
+    while true do
+        task.wait(10) -- cek tiap 10 detik
+        if running then
+            autoSetKickPower()
+        end
+    end
+end)
+
 local function runLoop()
     while running do
         -- STEP 1: TP ke kick spot
