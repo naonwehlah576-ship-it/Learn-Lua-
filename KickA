@@ -89,7 +89,7 @@ local TitleLabel = Instance.new("TextLabel")
 TitleLabel.Size = UDim2.new(1, -80, 1, 0)
 TitleLabel.Position = UDim2.new(0, 10, 0, 0)
 TitleLabel.BackgroundTransparency = 1
-TitleLabel.Text = "🧠 Brainrot Farm v3.5 | Dafa Goreng"
+TitleLabel.Text = "🧠 Brainrot Farm v3.6 | Dafa Goreng"
 TitleLabel.TextColor3 = Color3.fromRGB(255, 215, 0)
 TitleLabel.TextSize = 11
 TitleLabel.Font = Enum.Font.GothamBold
@@ -1158,6 +1158,14 @@ local BACON_REQUIRED_LIST = {
     "Strawberry Elephant",
 }
 
+-- UPDATE KICK POWER UNTUK MASING-MASING ITEM BACON EVENT
+local BACON_KICK_POWER = {
+    ["Chicleteira Bicicleteira"] = 0,           -- max
+    ["Agarrini La Palini"]       = 50000000,    -- 50 Juta
+    ["Trippi Troppi"]            = 10,          -- 10
+    ["Strawberry Elephant"]      = 0,           -- max
+}
+
 local function isBaconExpired()
     local ok, label = pcall(function()
         return player.PlayerGui.TimersGui.TimedUpgrades.Bacon.TimeLabel
@@ -1183,6 +1191,7 @@ local function tryActivateBacon()
     setStatus("Bacon Event diaktifkan!", Color3.fromRGB(255, 180, 50))
 end
 
+-- FUNGSI DIPERBAIKI BIAR BACA TABEL BACON_KICK_POWER DENGAN BENAR
 local function autoSetBaconKickPower()
     if not isBaconExpired() then
         KickPowerBox.Text = "1"
@@ -1197,7 +1206,10 @@ local function autoSetBaconKickPower()
     end
     for _, name in ipairs(BACON_REQUIRED_LIST) do
         if not hasInBackpack(name) then
-            KickArg2Box.Text = tostring(getMaxKickPower())
+            local targetPower = BACON_KICK_POWER[name]
+            if not targetPower or targetPower == 0 then targetPower = getMaxKickPower() end
+            
+            KickArg2Box.Text = tostring(targetPower)
             KickPowerBox.Text = "1"
             setStatus("Bacon auto power: cari " .. name, Color3.fromRGB(255, 180, 50))
             return
