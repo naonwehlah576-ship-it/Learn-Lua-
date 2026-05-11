@@ -984,7 +984,7 @@ local function sendDiscordNotif(name, mutation, price)
     local HttpService = game:GetService("HttpService")
     local httprequest = http_request or request or (syn and syn.request) or (http and http.request) or (fluxus and fluxus.request)
     if not httprequest then return end
-    local msg = "🚨 **BRAINROT LANGKA!**\n**Nama:** " .. name .. "\n**Mutasi:** " .. mutation .. "\n**Harga:** $" .. math.floor(price/1000) .. "K/s"
+    local msg = "🚨 **BRAINROT LANGKA!**\n👤 **Akun:** " .. player.Name .. "\n📦 **Item:** " .. name .. "\n🧬 **Mutasi:** " .. mutation .. "\n💰 **Harga:** $" .. math.floor(price/1000) .. "K/s"
     local data = HttpService:JSONEncode({content = msg})
     pcall(function()
         httprequest({
