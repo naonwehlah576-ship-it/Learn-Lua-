@@ -34,12 +34,10 @@ local function getMaxKickPower()
     return parseKickPower(label.Text)
 end
 
--- FUNGSI INI DIPINDAH KE ATAS BIAR BISA DIBACA OLEH BACON DAN UFO
+-- FUNGSI BADAK: Anti-Crash saat karakter Bundir / Inventory hilang sejenak
 local function hasInBackpack(name)
     local found = false
-    -- Pakai pcall sebagai pelindung anti-crash saat karakter bundir/respawn
     pcall(function()
-        -- Cek di tas (Backpack) kalau ada
         if player:FindFirstChild("Backpack") then
             for _, item in ipairs(player.Backpack:GetChildren()) do
                 if item.Name == name then 
@@ -48,7 +46,6 @@ local function hasInBackpack(name)
                 end
             end
         end
-        -- Cek di tangan (Character) kalau itemnya lagi dipegang
         if player.Character then
             for _, item in ipairs(player.Character:GetChildren()) do
                 if item.Name == name then 
@@ -92,7 +89,7 @@ local TitleLabel = Instance.new("TextLabel")
 TitleLabel.Size = UDim2.new(1, -80, 1, 0)
 TitleLabel.Position = UDim2.new(0, 10, 0, 0)
 TitleLabel.BackgroundTransparency = 1
-TitleLabel.Text = "🧠 Brainrot Farm v3.3 | Dafa Goreng"
+TitleLabel.Text = "🧠 Brainrot Farm v3.5 | Dafa Goreng"
 TitleLabel.TextColor3 = Color3.fromRGB(255, 215, 0)
 TitleLabel.TextSize = 11
 TitleLabel.Font = Enum.Font.GothamBold
@@ -489,8 +486,6 @@ TestPingBtn.BorderSizePixel = 0
 TestPingBtn.Parent = MainFrame
 Instance.new("UICorner", TestPingBtn).CornerRadius = UDim.new(0, 4)
 
-
-
 -- ================== EVENT TOGGLES ==================
 local BACON_EVENT = {
     ["Chicleteira Bicicleteira"] = true,
@@ -519,6 +514,9 @@ local ufoEnabled = {
     ["SWAG SODA"]        = true,
     ["Cacto Hipopotamo"] = true,
 }
+
+local updateBaconUI = {}
+local updateUFOUI = {}
 
 -- ================== DATA ==================
 local MULTIPLIER = {
@@ -692,6 +690,8 @@ for i, item in ipairs(BACON_LIST) do
         end
     end
     updateBtn()
+    table.insert(updateBaconUI, updateBtn)
+    
     btn.MouseButton1Click:Connect(function()
         baconEnabled[item.key] = not baconEnabled[item.key]
         updateBtn()
@@ -741,6 +741,8 @@ for i, item in ipairs(UFO_LIST) do
         end
     end
     updateBtn()
+    table.insert(updateUFOUI, updateBtn)
+    
     btn.MouseButton1Click:Connect(function()
         ufoEnabled[item.key] = not ufoEnabled[item.key]
         updateBtn()
@@ -842,16 +844,18 @@ local function applySettings(cfg)
             BaconToggleBtn.TextColor3 = Color3.fromRGB(150, 150, 150)
         end
     end
+    
     if cfg.bacon then
         for k, v in pairs(cfg.bacon) do baconEnabled[k] = v end
+        for _, fn in ipairs(updateBaconUI) do fn() end
     end
     if cfg.ufo then
         for k, v in pairs(cfg.ufo) do ufoEnabled[k] = v end
+        for _, fn in ipairs(updateUFOUI) do fn() end
     end
 end
 
 local function refreshConfigList(mode)
-    -- hapus semua item lama
     for _, child in ipairs(ScrollFrame:GetChildren()) do
         if child:IsA("TextButton") or child:IsA("Frame") then child:Destroy() end
     end
@@ -897,7 +901,6 @@ local function refreshConfigList(mode)
                 local cfgs = getConfigs()
                 if cfgs[capturedName] then
                     applySettings(cfgs[capturedName])
-                    -- save sebagai last config
                     local meta = getConfigs()
                     meta["__last"] = capturedName
                     saveConfigs(meta)
@@ -931,7 +934,6 @@ local function refreshConfigList(mode)
     ScrollFrame.CanvasSize = UDim2.new(0, 0, 0, count * 32)
 end
 
--- Auto load last config
 task.spawn(function()
     task.wait(0.5)
     local configs = getConfigs()
@@ -941,7 +943,6 @@ task.spawn(function()
     end
 end)
 
--- Save button
 SaveBtn.MouseButton1Click:Connect(function()
     isSaveMode = true
     ConfigTitle.Text = "Nama Config:"
@@ -952,7 +953,6 @@ SaveBtn.MouseButton1Click:Connect(function()
     ConfigFrame.Visible = true
 end)
 
--- Load button
 LoadBtn.MouseButton1Click:Connect(function()
     isSaveMode = false
     ConfigTitle.Text = "Pilih Config:"
@@ -963,7 +963,6 @@ LoadBtn.MouseButton1Click:Connect(function()
     ConfigFrame.Visible = true
 end)
 
--- Confirm save
 ConfirmSaveBtn.MouseButton1Click:Connect(function()
     local name = NameInput.Text
     if name == "" then return end
@@ -976,7 +975,6 @@ ConfirmSaveBtn.MouseButton1Click:Connect(function()
     ConfigFrame.Visible = false
 end)
 
--- Close config frame
 ConfigCloseBtn.MouseButton1Click:Connect(function()
     ConfigFrame.Visible = false
 end)
@@ -1026,13 +1024,11 @@ local function checkNotifBackpack()
     end)
 end
 
--- TestPingBtn click dipasang setelah sendDiscordNotif didefinisikan
 TestPingBtn.MouseButton1Click:Connect(function()
     sendDiscordNotif("Test Ping", "None", 0)
     setStatus("Test ping dikirim!", Color3.fromRGB(88, 101, 242))
 end)
 
--- Loop cek notif backpack
 task.spawn(function()
     while true do
         task.wait(1)
@@ -1061,7 +1057,7 @@ end
 local function getMinHarga()
     local val = tonumber(MinBox.Text)
     if not val or val <= 0 then return 4 end
-    return val * 1000000 -- convert M/s ke angka
+    return val * 1000000 
 end
 
 local function getKickPower()
@@ -1083,16 +1079,13 @@ local function getFlySpeed()
 end
 
 local function isValidBrainrot(obj)
-    -- cek bacon event override
     if BACON_EVENT[obj.Name] and baconEnabled[obj.Name] then return true end
-    -- cek ufo event override
     if UFO_EVENT[obj.Name] and ufoEnabled[obj.Name] then return true end
 
     local mutation = obj:GetAttribute("Mutation")
     local mutKey = mutation and tostring(mutation) or "None"
     local basePrice = BASE_PRICE[obj.Name]
 
-    -- kalau nama tidak ada di list, bundir
     if not basePrice then return false end
 
     local multiplier = MULTIPLIER[mutKey] or 1
@@ -1126,7 +1119,7 @@ task.spawn(function()
                     local guid = item:GetAttribute("GUID")
                     if guid then
                         local isFav = item:GetAttribute("Favorite")
-                        if isFav then continue end -- udah favorite, skip
+                        if isFav then continue end 
                         local mutation = item:GetAttribute("Mutation") or "None"
                         local basePrice = BASE_PRICE[item.Name] or 0
                         local multiplier = MULTIPLIER[mutation] or 1
@@ -1163,13 +1156,6 @@ local BACON_REQUIRED_LIST = {
     "Agarrini La Palini",
     "Trippi Troppi",
     "Strawberry Elephant",
-}
-
-local BACON_KICK_POWER = {
-    ["Chicleteira Bicicleteira"] = 0,    -- max
-    ["Agarrini La Palini"]       = 0,    -- max
-    ["Trippi Troppi"]            = 0,    -- max
-    ["Strawberry Elephant"]      = 0,    -- max
 }
 
 local function isBaconExpired()
@@ -1237,7 +1223,7 @@ end
 
 local function isUFOExpired()
     local timer = getUFOTimer()
-    if not timer then return true end -- gak ada timer = bisa aktifkan
+    if not timer then return true end
     return timer == "00:00"
 end
 
@@ -1258,23 +1244,20 @@ local function tryActivateUFO()
     setStatus("UFO Event diaktifkan! Max power!", Color3.fromRGB(100, 200, 255))
 end
 
--- Target kick power per brainrot UFO yang belum ada di backpack
 local UFO_KICK_POWER = {
-    ["Girafa Celeste"]    = 50000000,       -- 50M
-    ["Guerriro Digitale"] = 0,              -- max (auto detect)
-    ["SWAG SODA"]         = 50000000,       -- 50M
-    ["Cacto Hipopotamo"]  = 250,            -- 250
+    ["Girafa Celeste"]    = 50000000,
+    ["Guerriro Digitale"] = 0,
+    ["SWAG SODA"]         = 50000000,
+    ["Cacto Hipopotamo"]  = 250,
 }
 
 local function autoSetKickPower()
-    -- kalau UFO lagi aktif (timer bukan 00:00) -> max power, gak cari brainrot
     if not isUFOExpired() then
         KickPowerBox.Text = "1"
         KickArg2Box.Text = "3800000000"
         return
     end
 
-    -- UFO tidak aktif, kalau semua brainrot ada -> aktifin UFO
     if hasAllUFOBrainrots() then
         KickPowerBox.Text = "1"
         KickArg2Box.Text = "3800000000"
@@ -1282,11 +1265,10 @@ local function autoSetKickPower()
         return
     end
 
-    -- cari brainrot pertama yang belum ada, set kick power nya
     for _, name in ipairs(UFO_REQUIRED) do
         if not hasInBackpack(name) then
             local targetPower = UFO_KICK_POWER[name]
-if not targetPower or targetPower == 0 then targetPower = getMaxKickPower() end
+            if not targetPower or targetPower == 0 then targetPower = getMaxKickPower() end
             KickArg2Box.Text = tostring(targetPower)
             KickPowerBox.Text = "1"
             setStatus("Auto power: cari " .. name, Color3.fromRGB(255, 200, 50))
@@ -1295,7 +1277,6 @@ if not targetPower or targetPower == 0 then targetPower = getMaxKickPower() end
     end
 end
 
--- Loop auto activate Bacon di background
 task.spawn(function()
     while true do
         task.wait(2)
@@ -1305,7 +1286,6 @@ task.spawn(function()
     end
 end)
 
--- Loop auto activate UFO di background
 task.spawn(function()
     while true do
         task.wait(2)
@@ -1345,7 +1325,7 @@ local function runLoop()
 
         if not running then break end
 
-        -- STEP 3: Nunggu kena kick (X < -2500)
+        -- STEP 3: Nunggu kena kick (X < 690 artinya melayang)
         setStatus("Nunggu kena kick...", Color3.fromRGB(200, 100, 255))
         local timeout = 30
         local elapsed = 0
@@ -1369,15 +1349,30 @@ local function runLoop()
         if not running then break end
 
         -- STEP 4: Jalan ke safe zone + scan brainrot
-        setStatus("Jalan ke safe zone + scanning...", Color3.fromRGB(100, 220, 100))
+        setStatus("Mendarat! Nunggu brainrot spawn...", Color3.fromRGB(100, 220, 100))
         local debris = workspace:WaitForChild("Debris")
         local brainrot = nil
 
+        -- FUNGSI BARU: RADAR JARAK (MAGNITUDE)
         local function findBrainrot()
+            local r = getRoot()
+            if not r then return nil end
+
+            local closestBrainrot = nil
+            local shortestDistance = math.huge
+
             for _, child in ipairs(debris:GetChildren()) do
                 if child:IsA("Model") and child.PrimaryPart and child.PrimaryPart.Name == "Root" then
-                    return child
+                    local dist = (child.PrimaryPart.Position - r.Position).Magnitude
+                    if dist < shortestDistance then
+                        shortestDistance = dist
+                        closestBrainrot = child
+                    end
                 end
+            end
+
+            if closestBrainrot and shortestDistance < 150 then
+                return closestBrainrot
             end
             return nil
         end
@@ -1388,12 +1383,15 @@ local function runLoop()
         if char4 then
             local hum4 = char4:FindFirstChild("Humanoid")
             if hum4 then
-                -- pake BodyVelocity biar jalan terus tanpa timeout
+                -- NUNGGU 2 DETIK DI TEMPAT MENDARAT BUAT RADAR SCAN
+                task.wait(2)
+                
+                setStatus("Jalan ke safe zone + scanning...", Color3.fromRGB(100, 220, 100))
+                -- BARU PASANG MESIN JALAN BALIK
                 local bv = Instance.new("BodyVelocity")
                 bv.MaxForce = Vector3.new(1e5, 0, 1e5)
                 bv.Parent = char4:FindFirstChild("HumanoidRootPart")
 
-                task.wait(2)
                 while running do
                     local r2 = getRoot()
                     if not r2 then break end
@@ -1416,7 +1414,6 @@ local function runLoop()
                     if brainrot and not brainrot.Parent then break end
                     if (r2.Position - SAFE_POS).Magnitude < 5 then break end
 
-                    -- update arah BodyVelocity tiap frame
                     local dir = (SAFE_POS - r2.Position).Unit
                     local speed = (hum4 and hum4.WalkSpeed or 16) + getSpeedBoost()
                     bv.Velocity = Vector3.new(dir.X * speed, 0, dir.Z * speed)
@@ -1454,7 +1451,6 @@ local function runLoop()
             end
         end)
 
-        -- jalan ke safe zone sambil nunggu removed
         local char5 = player.Character
         if char5 then
             local hum5 = char5:FindFirstChild("Humanoid")
@@ -1480,7 +1476,6 @@ local function runLoop()
 
         if not running then break end
 
-        -- langsung TP ke kick spot dan tendang
         setStatus("Brainrot selesai! Langsung kick...", Color3.fromRGB(100, 220, 100))
         task.wait(0.5)
     end
