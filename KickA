@@ -34,6 +34,21 @@ local function getMaxKickPower()
     return parseKickPower(label.Text)
 end
 
+-- FUNGSI INI DIPINDAH KE ATAS BIAR BISA DIBACA OLEH BACON DAN UFO
+local function hasInBackpack(name)
+    -- cek backpack
+    for _, item in ipairs(player.Backpack:GetChildren()) do
+        if item.Name == name then return true end
+    end
+    -- cek character
+    if player.Character then
+        for _, item in ipairs(player.Character:GetChildren()) do
+            if item.Name == name then return true end
+        end
+    end
+    return false
+end
+
 local favAutoRunning = true
 local autoUFORunning = true
 
@@ -45,7 +60,7 @@ ScreenGui.Parent = parentUI
 
 -- ================== GUI ==================
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 260, 0, 610)
+MainFrame.Size = UDim2.new(0, 260, 0, 640)
 MainFrame.Position = UDim2.new(0.5, -120, 0.5, -80)
 MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 MainFrame.BorderSizePixel = 0
@@ -65,7 +80,7 @@ local TitleLabel = Instance.new("TextLabel")
 TitleLabel.Size = UDim2.new(1, -80, 1, 0)
 TitleLabel.Position = UDim2.new(0, 10, 0, 0)
 TitleLabel.BackgroundTransparency = 1
-TitleLabel.Text = "🧠 Brainrot Farm v3.0 | Dafa Goreng"
+TitleLabel.Text = "🧠 Brainrot Farm v3.3 | Dafa Goreng"
 TitleLabel.TextColor3 = Color3.fromRGB(255, 215, 0)
 TitleLabel.TextSize = 11
 TitleLabel.Font = Enum.Font.GothamBold
@@ -426,7 +441,7 @@ local autoBaconRunning = true
 
 local BaconToggleBtn = Instance.new("TextButton")
 BaconToggleBtn.Size = UDim2.new(1, -20, 0, 26)
-BaconToggleBtn.Position = UDim2.new(0, 10, 0, 388)
+BaconToggleBtn.Position = UDim2.new(0, 10, 0, 418)
 BaconToggleBtn.BackgroundColor3 = Color3.fromRGB(255, 150, 30)
 BaconToggleBtn.Text = "🥓 Auto Bacon: ON"
 BaconToggleBtn.TextColor3 = Color3.fromRGB(20, 20, 20)
@@ -448,6 +463,21 @@ BaconToggleBtn.MouseButton1Click:Connect(function()
         BaconToggleBtn.TextColor3 = Color3.fromRGB(150, 150, 150)
     end
 end)
+
+-- Test Ping Discord
+local TestPingBtn = Instance.new("TextButton")
+TestPingBtn.Size = UDim2.new(1, -20, 0, 26)
+TestPingBtn.Position = UDim2.new(0, 10, 0, 388)
+TestPingBtn.BackgroundColor3 = Color3.fromRGB(88, 101, 242)
+TestPingBtn.Text = "🔔 Test Ping Discord"
+TestPingBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+TestPingBtn.TextSize = 10
+TestPingBtn.Font = Enum.Font.GothamBold
+TestPingBtn.BorderSizePixel = 0
+TestPingBtn.Parent = MainFrame
+Instance.new("UICorner", TestPingBtn).CornerRadius = UDim.new(0, 4)
+
+
 
 -- ================== EVENT TOGGLES ==================
 local BACON_EVENT = {
@@ -610,7 +640,7 @@ local BASE_PRICE = {
 -- Bacon Event Label
 local BaconLabel = Instance.new("TextLabel")
 BaconLabel.Size = UDim2.new(1, -20, 0, 20)
-BaconLabel.Position = UDim2.new(0, 10, 0, 422)
+BaconLabel.Position = UDim2.new(0, 10, 0, 452)
 BaconLabel.BackgroundTransparency = 1
 BaconLabel.Text = "🥓 Bacon Event"
 BaconLabel.TextColor3 = Color3.fromRGB(255, 180, 50)
@@ -631,7 +661,7 @@ for i, item in ipairs(BACON_LIST) do
     btn.Size = UDim2.new(0, 115, 0, 24)
     local col = (i-1) % 2
     local row = math.floor((i-1) / 2)
-    btn.Position = UDim2.new(0, 10 + col * 128, 0, 444 + row * 28)
+    btn.Position = UDim2.new(0, 10 + col * 128, 0, 474 + row * 28)
     btn.Font = Enum.Font.GothamBold
     btn.TextSize = 9
     btn.BorderSizePixel = 0
@@ -659,7 +689,7 @@ end
 -- UFO Event Label
 local UfoLabel = Instance.new("TextLabel")
 UfoLabel.Size = UDim2.new(1, -20, 0, 20)
-UfoLabel.Position = UDim2.new(0, 10, 0, 506)
+UfoLabel.Position = UDim2.new(0, 10, 0, 536)
 UfoLabel.BackgroundTransparency = 1
 UfoLabel.Text = "🛸 UFO Event"
 UfoLabel.TextColor3 = Color3.fromRGB(100, 200, 255)
@@ -680,7 +710,7 @@ for i, item in ipairs(UFO_LIST) do
     btn.Size = UDim2.new(0, 115, 0, 24)
     local col = (i-1) % 2
     local row = math.floor((i-1) / 2)
-    btn.Position = UDim2.new(0, 10 + col * 128, 0, 528 + row * 28)
+    btn.Position = UDim2.new(0, 10 + col * 128, 0, 558 + row * 28)
     btn.Font = Enum.Font.GothamBold
     btn.TextSize = 9
     btn.BorderSizePixel = 0
@@ -952,7 +982,7 @@ local notifiedGuids = {}
 
 local function sendDiscordNotif(name, mutation, price)
     local HttpService = game:GetService("HttpService")
-    local httprequest = (syn and syn.request) or (http and http.request) or http_request or (fluxus and fluxus.request) or request
+    local httprequest = http_request or request or (syn and syn.request) or (http and http.request) or (fluxus and fluxus.request)
     if not httprequest then return end
     local msg = "🚨 **BRAINROT LANGKA!**\n**Nama:** " .. name .. "\n**Mutasi:** " .. mutation .. "\n**Harga:** $" .. math.floor(price/1000) .. "K/s"
     local data = HttpService:JSONEncode({content = msg})
@@ -965,6 +995,7 @@ local function sendDiscordNotif(name, mutation, price)
         })
     end)
 end
+
 local function checkNotifBackpack()
     pcall(function()
         for _, item in ipairs(player.Backpack:GetChildren()) do
@@ -982,6 +1013,12 @@ local function checkNotifBackpack()
         end
     end)
 end
+
+-- TestPingBtn click dipasang setelah sendDiscordNotif didefinisikan
+TestPingBtn.MouseButton1Click:Connect(function()
+    sendDiscordNotif("Test Ping", "None", 0)
+    setStatus("Test ping dikirim!", Color3.fromRGB(88, 101, 242))
+end)
 
 -- Loop cek notif backpack
 task.spawn(function()
@@ -1178,20 +1215,6 @@ local UFO_REQUIRED = {
     "Cacto Hipopotamo",
 }
 
-local function hasInBackpack(name)
-    -- cek backpack
-    for _, item in ipairs(player.Backpack:GetChildren()) do
-        if item.Name == name then return true end
-    end
-    -- cek character
-    if player.Character then
-        for _, item in ipairs(player.Character:GetChildren()) do
-            if item.Name == name then return true end
-        end
-    end
-    return false
-end
-
 local function getUFOTimer()
     local ok, timerLabel = pcall(function()
         return player.PlayerGui.TimersGui.TimedUpgrades.Alien.TimeLabel
@@ -1263,7 +1286,7 @@ end
 -- Loop auto activate Bacon di background
 task.spawn(function()
     while true do
-        task.wait(10)
+        task.wait(2)
         if running and autoBaconRunning then
             autoSetBaconKickPower()
         end
@@ -1273,7 +1296,7 @@ end)
 -- Loop auto activate UFO di background
 task.spawn(function()
     while true do
-        task.wait(10)
+        task.wait(2)
         if running and autoUFORunning then
             autoSetKickPower()
         end
