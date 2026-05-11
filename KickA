@@ -1257,7 +1257,7 @@ local function tryActivateUFO()
 end
 
 local UFO_KICK_POWER = {
-    ["Girafa Celeste"]    = 50000000,
+    ["Girafa Celeste"]    = 14000000,
     ["Guerriro Digitale"] = 0,
     ["SWAG SODA"]         = 50000000,
     ["Cacto Hipopotamo"]  = 250,
