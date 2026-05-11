@@ -45,7 +45,7 @@ ScreenGui.Parent = parentUI
 
 -- ================== GUI ==================
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 260, 0, 580)
+MainFrame.Size = UDim2.new(0, 260, 0, 610)
 MainFrame.Position = UDim2.new(0.5, -120, 0.5, -80)
 MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 MainFrame.BorderSizePixel = 0
@@ -65,7 +65,7 @@ local TitleLabel = Instance.new("TextLabel")
 TitleLabel.Size = UDim2.new(1, -80, 1, 0)
 TitleLabel.Position = UDim2.new(0, 10, 0, 0)
 TitleLabel.BackgroundTransparency = 1
-TitleLabel.Text = "🧠 Brainrot Farm v2.6 | Dafa Goreng"
+TitleLabel.Text = "🧠 Brainrot Farm v2.8 | Dafa Goreng"
 TitleLabel.TextColor3 = Color3.fromRGB(255, 215, 0)
 TitleLabel.TextSize = 11
 TitleLabel.Font = Enum.Font.GothamBold
@@ -421,6 +421,34 @@ UFOToggleBtn.BorderSizePixel = 0
 UFOToggleBtn.Parent = MainFrame
 Instance.new("UICorner", UFOToggleBtn).CornerRadius = UDim.new(0, 4)
 
+-- Auto Bacon Toggle
+local autoBaconRunning = true
+
+local BaconToggleBtn = Instance.new("TextButton")
+BaconToggleBtn.Size = UDim2.new(1, -20, 0, 26)
+BaconToggleBtn.Position = UDim2.new(0, 10, 0, 388)
+BaconToggleBtn.BackgroundColor3 = Color3.fromRGB(255, 150, 30)
+BaconToggleBtn.Text = "🥓 Auto Bacon: ON"
+BaconToggleBtn.TextColor3 = Color3.fromRGB(20, 20, 20)
+BaconToggleBtn.TextSize = 10
+BaconToggleBtn.Font = Enum.Font.GothamBold
+BaconToggleBtn.BorderSizePixel = 0
+BaconToggleBtn.Parent = MainFrame
+Instance.new("UICorner", BaconToggleBtn).CornerRadius = UDim.new(0, 4)
+
+BaconToggleBtn.MouseButton1Click:Connect(function()
+    autoBaconRunning = not autoBaconRunning
+    if autoBaconRunning then
+        BaconToggleBtn.Text = "🥓 Auto Bacon: ON"
+        BaconToggleBtn.BackgroundColor3 = Color3.fromRGB(255, 150, 30)
+        BaconToggleBtn.TextColor3 = Color3.fromRGB(20, 20, 20)
+    else
+        BaconToggleBtn.Text = "🥓 Auto Bacon: OFF"
+        BaconToggleBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+        BaconToggleBtn.TextColor3 = Color3.fromRGB(150, 150, 150)
+    end
+end)
+
 -- ================== EVENT TOGGLES ==================
 local BACON_EVENT = {
     ["Chicleteira Bicicleteira"] = true,
@@ -582,7 +610,7 @@ local BASE_PRICE = {
 -- Bacon Event Label
 local BaconLabel = Instance.new("TextLabel")
 BaconLabel.Size = UDim2.new(1, -20, 0, 20)
-BaconLabel.Position = UDim2.new(0, 10, 0, 392)
+BaconLabel.Position = UDim2.new(0, 10, 0, 422)
 BaconLabel.BackgroundTransparency = 1
 BaconLabel.Text = "🥓 Bacon Event"
 BaconLabel.TextColor3 = Color3.fromRGB(255, 180, 50)
@@ -603,7 +631,7 @@ for i, item in ipairs(BACON_LIST) do
     btn.Size = UDim2.new(0, 115, 0, 24)
     local col = (i-1) % 2
     local row = math.floor((i-1) / 2)
-    btn.Position = UDim2.new(0, 10 + col * 128, 0, 414 + row * 28)
+    btn.Position = UDim2.new(0, 10 + col * 128, 0, 444 + row * 28)
     btn.Font = Enum.Font.GothamBold
     btn.TextSize = 9
     btn.BorderSizePixel = 0
@@ -631,7 +659,7 @@ end
 -- UFO Event Label
 local UfoLabel = Instance.new("TextLabel")
 UfoLabel.Size = UDim2.new(1, -20, 0, 20)
-UfoLabel.Position = UDim2.new(0, 10, 0, 476)
+UfoLabel.Position = UDim2.new(0, 10, 0, 506)
 UfoLabel.BackgroundTransparency = 1
 UfoLabel.Text = "🛸 UFO Event"
 UfoLabel.TextColor3 = Color3.fromRGB(100, 200, 255)
@@ -652,7 +680,7 @@ for i, item in ipairs(UFO_LIST) do
     btn.Size = UDim2.new(0, 115, 0, 24)
     local col = (i-1) % 2
     local row = math.floor((i-1) / 2)
-    btn.Position = UDim2.new(0, 10 + col * 128, 0, 498 + row * 28)
+    btn.Position = UDim2.new(0, 10 + col * 128, 0, 528 + row * 28)
     btn.Font = Enum.Font.GothamBold
     btn.TextSize = 9
     btn.BorderSizePixel = 0
@@ -712,6 +740,7 @@ local function getCurrentSettings()
         speedBoost = SpeedBoostBox.Text,
         favAutoRunning = favAutoRunning,
         autoUFORunning = autoUFORunning,
+        autoBaconRunning = autoBaconRunning,
         bacon = {
             ["Chicleteira Bicicleteira"] = baconEnabled["Chicleteira Bicicleteira"],
             ["Agarrini La Palini"]       = baconEnabled["Agarrini La Palini"],
@@ -756,6 +785,18 @@ local function applySettings(cfg)
             UFOToggleBtn.Text = "🛸 Auto UFO: OFF"
             UFOToggleBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
             UFOToggleBtn.TextColor3 = Color3.fromRGB(150, 150, 150)
+        end
+    end
+    if cfg.autoBaconRunning ~= nil then
+        autoBaconRunning = cfg.autoBaconRunning
+        if autoBaconRunning then
+            BaconToggleBtn.Text = "🥓 Auto Bacon: ON"
+            BaconToggleBtn.BackgroundColor3 = Color3.fromRGB(255, 150, 30)
+            BaconToggleBtn.TextColor3 = Color3.fromRGB(20, 20, 20)
+        else
+            BaconToggleBtn.Text = "🥓 Auto Bacon: OFF"
+            BaconToggleBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+            BaconToggleBtn.TextColor3 = Color3.fromRGB(150, 150, 150)
         end
     end
     if cfg.bacon then
@@ -897,6 +938,67 @@ ConfigCloseBtn.MouseButton1Click:Connect(function()
     ConfigFrame.Visible = false
 end)
 
+-- ================== DISCORD WEBHOOK ==================
+local WEBHOOK_URL = "https://discord.com/api/webhooks/1503234885425561710/W8PrUsqF2Z_FPQeXi_CJiGxqqeTbxKVCruqvk2rArn3rDbc4lnyKTnW79-Z9y4sts7FT"
+
+local NOTIF_BRAINROTS = {
+    ["Strawberry Elephant"]      = {["Alien"] = true, ["Bacon"] = true},
+    ["Chicleteira Bicicleteira"] = {["Alien"] = true, ["Bacon"] = true},
+    ["Guerriro Digitale"]        = {["Alien"] = true, ["Bacon"] = true},
+}
+
+local notifiedGuids = {}
+
+local function sendDiscordNotif(name, mutation, price)
+    local HttpService = game:GetService("HttpService")
+    local httprequest = (syn and syn.request) or (http and http.request) or http_request or (fluxus and fluxus.request) or request
+    if not httprequest then return end
+
+    local msg = "🚨 **BRAINROT LANGKA!**
+" ..
+                "**Nama:** " .. name .. "
+" ..
+                "**Mutasi:** " .. mutation .. "
+" ..
+                "**Harga:** $" .. math.floor(price/1000) .. "K/s"
+
+    local data = HttpService:JSONEncode({content = msg})
+    pcall(function()
+        httprequest({
+            Url = WEBHOOK_URL,
+            Method = "POST",
+            Headers = {["Content-Type"] = "application/json"},
+            Body = data
+        })
+    end)
+end
+
+local function checkNotifBackpack()
+    pcall(function()
+        for _, item in ipairs(player.Backpack:GetChildren()) do
+            local guid = item:GetAttribute("GUID")
+            if not guid or notifiedGuids[guid] then continue end
+            local mutation = item:GetAttribute("Mutation") or "None"
+            local notifMutations = NOTIF_BRAINROTS[item.Name]
+            if notifMutations and notifMutations[mutation] then
+                local basePrice = BASE_PRICE[item.Name] or 0
+                local multiplier = MULTIPLIER[mutation] or 1
+                local actualPrice = basePrice * multiplier
+                sendDiscordNotif(item.Name, mutation, actualPrice)
+                notifiedGuids[guid] = true
+            end
+        end
+    end)
+end
+
+-- Loop cek notif backpack
+task.spawn(function()
+    while true do
+        task.wait(1)
+        checkNotifBackpack()
+    end
+end)
+
 local function setStatus(text, color)
     StatusLabel.Text = "Status: " .. text
     StatusLabel.TextColor3 = color or Color3.fromRGB(200, 200, 200)
@@ -1014,6 +1116,68 @@ FavToggleBtn.MouseButton1Click:Connect(function()
     end
 end)
 
+-- ================== BACON AUTO ACTIVATE ==================
+local BACON_REQUIRED_LIST = {
+    "Chicleteira Bicicleteira",
+    "Agarrini La Palini",
+    "Trippi Troppi",
+    "Strawberry Elephant",
+}
+
+local BACON_KICK_POWER = {
+    ["Chicleteira Bicicleteira"] = 0,    -- max
+    ["Agarrini La Palini"]       = 0,    -- max
+    ["Trippi Troppi"]            = 0,    -- max
+    ["Strawberry Elephant"]      = 0,    -- max
+}
+
+local function isBaconExpired()
+    local ok, label = pcall(function()
+        return player.PlayerGui.TimersGui.TimedUpgrades.Bacon.TimeLabel
+    end)
+    if not ok or not label then return true end
+    return label.Text == "00:00"
+end
+
+local function hasAllBaconBrainrots()
+    for _, name in ipairs(BACON_REQUIRED_LIST) do
+        if not hasInBackpack(name) then return false end
+    end
+    return true
+end
+
+local function tryActivateBacon()
+    if not isBaconExpired() then return end
+    if not hasAllBaconBrainrots() then return end
+    pcall(function()
+        local args = {"BACON"}
+        game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Packages"):WaitForChild("Network"):WaitForChild("rev_sbe"):FireServer(unpack(args))
+    end)
+    setStatus("Bacon Event diaktifkan!", Color3.fromRGB(255, 180, 50))
+end
+
+local function autoSetBaconKickPower()
+    if not isBaconExpired() then
+        KickPowerBox.Text = "1"
+        KickArg2Box.Text = tostring(getMaxKickPower())
+        return
+    end
+    if hasAllBaconBrainrots() then
+        KickPowerBox.Text = "1"
+        KickArg2Box.Text = tostring(getMaxKickPower())
+        tryActivateBacon()
+        return
+    end
+    for _, name in ipairs(BACON_REQUIRED_LIST) do
+        if not hasInBackpack(name) then
+            KickArg2Box.Text = tostring(getMaxKickPower())
+            KickPowerBox.Text = "1"
+            setStatus("Bacon auto power: cari " .. name, Color3.fromRGB(255, 180, 50))
+            return
+        end
+    end
+end
+
 -- ================== UFO AUTO ACTIVATE ==================
 local UFO_REQUIRED = {
     "Girafa Celeste",
@@ -1103,6 +1267,16 @@ if not targetPower or targetPower == 0 then targetPower = getMaxKickPower() end
         end
     end
 end
+
+-- Loop auto activate Bacon di background
+task.spawn(function()
+    while true do
+        task.wait(10)
+        if running and autoBaconRunning then
+            autoSetBaconKickPower()
+        end
+    end
+end)
 
 -- Loop auto activate UFO di background
 task.spawn(function()
