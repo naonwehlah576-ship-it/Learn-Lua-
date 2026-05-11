@@ -36,17 +36,29 @@ end
 
 -- FUNGSI INI DIPINDAH KE ATAS BIAR BISA DIBACA OLEH BACON DAN UFO
 local function hasInBackpack(name)
-    -- cek backpack
-    for _, item in ipairs(player.Backpack:GetChildren()) do
-        if item.Name == name then return true end
-    end
-    -- cek character
-    if player.Character then
-        for _, item in ipairs(player.Character:GetChildren()) do
-            if item.Name == name then return true end
+    local found = false
+    -- Pakai pcall sebagai pelindung anti-crash saat karakter bundir/respawn
+    pcall(function()
+        -- Cek di tas (Backpack) kalau ada
+        if player:FindFirstChild("Backpack") then
+            for _, item in ipairs(player.Backpack:GetChildren()) do
+                if item.Name == name then 
+                    found = true 
+                    return
+                end
+            end
         end
-    end
-    return false
+        -- Cek di tangan (Character) kalau itemnya lagi dipegang
+        if player.Character then
+            for _, item in ipairs(player.Character:GetChildren()) do
+                if item.Name == name then 
+                    found = true 
+                    return
+                end
+            end
+        end
+    end)
+    return found
 end
 
 local favAutoRunning = true
