@@ -65,7 +65,7 @@ local TitleLabel = Instance.new("TextLabel")
 TitleLabel.Size = UDim2.new(1, -80, 1, 0)
 TitleLabel.Position = UDim2.new(0, 10, 0, 0)
 TitleLabel.BackgroundTransparency = 1
-TitleLabel.Text = "🧠 Brainrot Farm v2.8 | Dafa Goreng"
+TitleLabel.Text = "🧠 Brainrot Farm v3.0 | Dafa Goreng"
 TitleLabel.TextColor3 = Color3.fromRGB(255, 215, 0)
 TitleLabel.TextSize = 11
 TitleLabel.Font = Enum.Font.GothamBold
@@ -757,12 +757,13 @@ local function getCurrentSettings()
 end
 
 local function applySettings(cfg)
-    if cfg.minHarga then MinBox.Text = cfg.minHarga end
-    if cfg.flySpeed then FlySpeedBox.Text = cfg.flySpeed end
-    if cfg.kickPower then KickPowerBox.Text = cfg.kickPower end
-    if cfg.kickArg2 then KickArg2Box.Text = cfg.kickArg2 end
-    if cfg.minFav then MinFavBox.Text = cfg.minFav end
-    if cfg.speedBoost then SpeedBoostBox.Text = cfg.speedBoost end
+    if not cfg then return end
+    pcall(function() if cfg.minHarga then MinBox.Text = cfg.minHarga end end)
+    pcall(function() if cfg.flySpeed then FlySpeedBox.Text = cfg.flySpeed end end)
+    pcall(function() if cfg.kickPower then KickPowerBox.Text = cfg.kickPower end end)
+    pcall(function() if cfg.kickArg2 then KickArg2Box.Text = cfg.kickArg2 end end)
+    pcall(function() if cfg.minFav then MinFavBox.Text = cfg.minFav end end)
+    pcall(function() if cfg.speedBoost then SpeedBoostBox.Text = cfg.speedBoost end end)
     if cfg.favAutoRunning ~= nil then
         favAutoRunning = cfg.favAutoRunning
         if favAutoRunning then
@@ -953,15 +954,7 @@ local function sendDiscordNotif(name, mutation, price)
     local HttpService = game:GetService("HttpService")
     local httprequest = (syn and syn.request) or (http and http.request) or http_request or (fluxus and fluxus.request) or request
     if not httprequest then return end
-
-    local msg = "🚨 **BRAINROT LANGKA!**
-" ..
-                "**Nama:** " .. name .. "
-" ..
-                "**Mutasi:** " .. mutation .. "
-" ..
-                "**Harga:** $" .. math.floor(price/1000) .. "K/s"
-
+    local msg = "🚨 **BRAINROT LANGKA!**\n**Nama:** " .. name .. "\n**Mutasi:** " .. mutation .. "\n**Harga:** $" .. math.floor(price/1000) .. "K/s"
     local data = HttpService:JSONEncode({content = msg})
     pcall(function()
         httprequest({
@@ -972,7 +965,6 @@ local function sendDiscordNotif(name, mutation, price)
         })
     end)
 end
-
 local function checkNotifBackpack()
     pcall(function()
         for _, item in ipairs(player.Backpack:GetChildren()) do
