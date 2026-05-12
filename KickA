@@ -89,7 +89,7 @@ local TitleLabel = Instance.new("TextLabel")
 TitleLabel.Size = UDim2.new(1, -80, 1, 0)
 TitleLabel.Position = UDim2.new(0, 10, 0, 0)
 TitleLabel.BackgroundTransparency = 1
-TitleLabel.Text = "🧠 Brainrot Farm v3.6 | Dafa Goreng"
+TitleLabel.Text = "🧠 Brainrot Farm v3.7 | Dafa Goreng"
 TitleLabel.TextColor3 = Color3.fromRGB(255, 215, 0)
 TitleLabel.TextSize = 11
 TitleLabel.Font = Enum.Font.GothamBold
@@ -1191,7 +1191,7 @@ local function tryActivateBacon()
     setStatus("Bacon Event diaktifkan!", Color3.fromRGB(255, 180, 50))
 end
 
--- FUNGSI DIPERBAIKI BIAR BACA TABEL BACON_KICK_POWER DENGAN BENAR
+-- FUNGSI PENCARI BACON KICK POWER
 local function autoSetBaconKickPower()
     if not isBaconExpired() then
         KickPowerBox.Text = "1"
@@ -1263,6 +1263,7 @@ local UFO_KICK_POWER = {
     ["Cacto Hipopotamo"]  = 250,
 }
 
+-- FUNGSI PENCARI UFO KICK POWER
 local function autoSetKickPower()
     if not isUFOExpired() then
         KickPowerBox.Text = "1"
@@ -1289,24 +1290,6 @@ local function autoSetKickPower()
     end
 end
 
-task.spawn(function()
-    while true do
-        task.wait(2)
-        if running and autoBaconRunning then
-            autoSetBaconKickPower()
-        end
-    end
-end)
-
-task.spawn(function()
-    while true do
-        task.wait(2)
-        if running and autoUFORunning then
-            autoSetKickPower()
-        end
-    end
-end)
-
 UFOToggleBtn.MouseButton1Click:Connect(function()
     autoUFORunning = not autoUFORunning
     if autoUFORunning then
@@ -1322,6 +1305,15 @@ end)
 
 local function runLoop()
     while running do
+        
+        -- STEP 0: SYNC KICK POWER DULU SEBELUM NGAPA-NGAPAIN
+        if autoBaconRunning then
+            autoSetBaconKickPower()
+        end
+        if autoUFORunning then
+            autoSetKickPower()
+        end
+
         -- STEP 1: TP ke kick spot
         setStatus("TP ke kick spot...", Color3.fromRGB(100, 180, 255))
         local root = getRoot()
@@ -1365,7 +1357,7 @@ local function runLoop()
         local debris = workspace:WaitForChild("Debris")
         local brainrot = nil
 
-        -- FUNGSI BARU: RADAR JARAK (MAGNITUDE)
+        -- FUNGSI RADAR JARAK (MAGNITUDE)
         local function findBrainrot()
             local r = getRoot()
             if not r then return nil end
