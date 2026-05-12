@@ -89,7 +89,7 @@ local TitleLabel = Instance.new("TextLabel")
 TitleLabel.Size = UDim2.new(1, -80, 1, 0)
 TitleLabel.Position = UDim2.new(0, 10, 0, 0)
 TitleLabel.BackgroundTransparency = 1
-TitleLabel.Text = "🧠 Brainrot Farm v3.7 | Dafa Goreng"
+TitleLabel.Text = "🧠 Brainrot Farm v3.8 | Dafa Goreng"
 TitleLabel.TextColor3 = Color3.fromRGB(255, 215, 0)
 TitleLabel.TextSize = 11
 TitleLabel.Font = Enum.Font.GothamBold
@@ -1191,16 +1191,18 @@ local function tryActivateBacon()
     setStatus("Bacon Event diaktifkan!", Color3.fromRGB(255, 180, 50))
 end
 
--- FUNGSI PENCARI BACON KICK POWER
+-- FUNGSI PENCARI BACON KICK POWER DENGAN UI UPDATE
 local function autoSetBaconKickPower()
     if not isBaconExpired() then
         KickPowerBox.Text = "1"
         KickArg2Box.Text = tostring(getMaxKickPower())
+        BaconLabel.Text = "🥓 Bacon Event (Sedang Aktif!)"
         return
     end
     if hasAllBaconBrainrots() then
         KickPowerBox.Text = "1"
         KickArg2Box.Text = tostring(getMaxKickPower())
+        BaconLabel.Text = "🥓 Bacon Event (Ready & Aktifasi...)"
         tryActivateBacon()
         return
     end
@@ -1211,10 +1213,11 @@ local function autoSetBaconKickPower()
             
             KickArg2Box.Text = tostring(targetPower)
             KickPowerBox.Text = "1"
-            setStatus("Bacon auto power: cari " .. name, Color3.fromRGB(255, 180, 50))
+            BaconLabel.Text = "🥓 Bacon Event (Cari: " .. name .. ")"
             return
         end
     end
+    BaconLabel.Text = "🥓 Bacon Event"
 end
 
 -- ================== UFO AUTO ACTIVATE ==================
@@ -1263,17 +1266,19 @@ local UFO_KICK_POWER = {
     ["Cacto Hipopotamo"]  = 250,
 }
 
--- FUNGSI PENCARI UFO KICK POWER
+-- FUNGSI PENCARI UFO KICK POWER DENGAN UI UPDATE
 local function autoSetKickPower()
     if not isUFOExpired() then
         KickPowerBox.Text = "1"
         KickArg2Box.Text = "3800000000"
+        UfoLabel.Text = "🛸 UFO Event (Sedang Aktif!)"
         return
     end
 
     if hasAllUFOBrainrots() then
         KickPowerBox.Text = "1"
         KickArg2Box.Text = "3800000000"
+        UfoLabel.Text = "🛸 UFO Event (Ready & Aktifasi...)"
         tryActivateUFO()
         return
     end
@@ -1284,10 +1289,11 @@ local function autoSetKickPower()
             if not targetPower or targetPower == 0 then targetPower = getMaxKickPower() end
             KickArg2Box.Text = tostring(targetPower)
             KickPowerBox.Text = "1"
-            setStatus("Auto power: cari " .. name, Color3.fromRGB(255, 200, 50))
+            UfoLabel.Text = "🛸 UFO Event (Cari: " .. name .. ")"
             return
         end
     end
+    UfoLabel.Text = "🛸 UFO Event"
 end
 
 UFOToggleBtn.MouseButton1Click:Connect(function()
