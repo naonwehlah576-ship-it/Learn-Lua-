@@ -34,24 +34,17 @@ local function getMaxKickPower()
     return parseKickPower(label.Text)
 end
 
--- FUNGSI BADAK: Anti-Crash saat karakter Bundir / Inventory hilang sejenak
 local function hasInBackpack(name)
     local found = false
     pcall(function()
         if player:FindFirstChild("Backpack") then
             for _, item in ipairs(player.Backpack:GetChildren()) do
-                if item.Name == name then 
-                    found = true 
-                    return
-                end
+                if item.Name == name then found = true return end
             end
         end
         if player.Character then
             for _, item in ipairs(player.Character:GetChildren()) do
-                if item.Name == name then 
-                    found = true 
-                    return
-                end
+                if item.Name == name then found = true return end
             end
         end
     end)
@@ -61,7 +54,6 @@ end
 local favAutoRunning = true
 local autoUFORunning = true
 
-
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "BrainrotFarmGUI"
 ScreenGui.ResetOnSpawn = false
@@ -69,7 +61,7 @@ ScreenGui.Parent = parentUI
 
 -- ================== GUI ==================
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 260, 0, 640)
+MainFrame.Size = UDim2.new(0, 260, 0, 660)
 MainFrame.Position = UDim2.new(0.5, -120, 0.5, -80)
 MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 MainFrame.BorderSizePixel = 0
@@ -89,7 +81,7 @@ local TitleLabel = Instance.new("TextLabel")
 TitleLabel.Size = UDim2.new(1, -80, 1, 0)
 TitleLabel.Position = UDim2.new(0, 10, 0, 0)
 TitleLabel.BackgroundTransparency = 1
-TitleLabel.Text = "🧠 Brainrot Farm v3.8 | Dafa Goreng"
+TitleLabel.Text = "🧠 Brainrot Farm v3.9 | Dafa Goreng"
 TitleLabel.TextColor3 = Color3.fromRGB(255, 215, 0)
 TitleLabel.TextSize = 11
 TitleLabel.Font = Enum.Font.GothamBold
@@ -107,8 +99,9 @@ CloseBtn.Font = Enum.Font.GothamBold
 CloseBtn.Parent = TitleBar
 Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 4)
 
+-- Status Label utama
 local StatusLabel = Instance.new("TextLabel")
-StatusLabel.Size = UDim2.new(1, -20, 0, 24)
+StatusLabel.Size = UDim2.new(1, -20, 0, 20)
 StatusLabel.Position = UDim2.new(0, 10, 0, 44)
 StatusLabel.BackgroundTransparency = 1
 StatusLabel.Text = "Status: Idle"
@@ -118,9 +111,22 @@ StatusLabel.Font = Enum.Font.Gotham
 StatusLabel.TextXAlignment = Enum.TextXAlignment.Left
 StatusLabel.Parent = MainFrame
 
+-- Info Label kedua (bacon/ufo status)
+local InfoLabel = Instance.new("TextLabel")
+InfoLabel.Size = UDim2.new(1, -20, 0, 18)
+InfoLabel.Position = UDim2.new(0, 10, 0, 64)
+InfoLabel.BackgroundTransparency = 1
+InfoLabel.Text = ""
+InfoLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
+InfoLabel.TextSize = 9
+InfoLabel.Font = Enum.Font.Gotham
+InfoLabel.TextXAlignment = Enum.TextXAlignment.Left
+InfoLabel.TextTruncate = Enum.TextTruncate.AtEnd
+InfoLabel.Parent = MainFrame
+
 local ToggleBtn = Instance.new("TextButton")
 ToggleBtn.Size = UDim2.new(1, -20, 0, 34)
-ToggleBtn.Position = UDim2.new(0, 10, 0, 72)
+ToggleBtn.Position = UDim2.new(0, 10, 0, 84)
 ToggleBtn.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
 ToggleBtn.Text = "▶ START"
 ToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -133,7 +139,7 @@ Instance.new("UICorner", ToggleBtn).CornerRadius = UDim.new(0, 6)
 -- Save/Load buttons
 local SaveBtn = Instance.new("TextButton")
 SaveBtn.Size = UDim2.new(0, 115, 0, 26)
-SaveBtn.Position = UDim2.new(0, 10, 0, 112)
+SaveBtn.Position = UDim2.new(0, 10, 0, 124)
 SaveBtn.BackgroundColor3 = Color3.fromRGB(50, 150, 255)
 SaveBtn.Text = "💾 Save Config"
 SaveBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -145,7 +151,7 @@ Instance.new("UICorner", SaveBtn).CornerRadius = UDim.new(0, 4)
 
 local LoadBtn = Instance.new("TextButton")
 LoadBtn.Size = UDim2.new(0, 115, 0, 26)
-LoadBtn.Position = UDim2.new(0, 133, 0, 112)
+LoadBtn.Position = UDim2.new(0, 133, 0, 124)
 LoadBtn.BackgroundColor3 = Color3.fromRGB(100, 200, 100)
 LoadBtn.Text = "📂 Load Config"
 LoadBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -155,10 +161,10 @@ LoadBtn.BorderSizePixel = 0
 LoadBtn.Parent = MainFrame
 Instance.new("UICorner", LoadBtn).CornerRadius = UDim.new(0, 4)
 
--- Config List Frame (hidden by default)
+-- Config List Frame
 local ConfigFrame = Instance.new("Frame")
 ConfigFrame.Size = UDim2.new(0, 240, 0, 200)
-ConfigFrame.Position = UDim2.new(0, 10, 0, 142)
+ConfigFrame.Position = UDim2.new(0, 10, 0, 154)
 ConfigFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 ConfigFrame.BorderSizePixel = 0
 ConfigFrame.Visible = false
@@ -190,7 +196,6 @@ ConfigCloseBtn.ZIndex = 10
 ConfigCloseBtn.Parent = ConfigFrame
 Instance.new("UICorner", ConfigCloseBtn).CornerRadius = UDim.new(0, 4)
 
--- Name input untuk save
 local NameInput = Instance.new("TextBox")
 NameInput.Size = UDim2.new(1, -16, 0, 26)
 NameInput.Position = UDim2.new(0, 8, 0, 34)
@@ -221,7 +226,6 @@ ConfirmSaveBtn.Visible = false
 ConfirmSaveBtn.Parent = ConfigFrame
 Instance.new("UICorner", ConfirmSaveBtn).CornerRadius = UDim.new(0, 4)
 
--- Scroll untuk list config
 local ScrollFrame = Instance.new("ScrollingFrame")
 ScrollFrame.Size = UDim2.new(1, -16, 0, 150)
 ScrollFrame.Position = UDim2.new(0, 8, 0, 34)
@@ -240,7 +244,7 @@ ListLayout.Parent = ScrollFrame
 -- Min Harga
 local MinLabel = Instance.new("TextLabel")
 MinLabel.Size = UDim2.new(0, 110, 0, 22)
-MinLabel.Position = UDim2.new(0, 10, 0, 146)
+MinLabel.Position = UDim2.new(0, 10, 0, 158)
 MinLabel.BackgroundTransparency = 1
 MinLabel.Text = "Min Harga (M/s):"
 MinLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
@@ -251,7 +255,7 @@ MinLabel.Parent = MainFrame
 
 local MinBox = Instance.new("TextBox")
 MinBox.Size = UDim2.new(0, 90, 0, 22)
-MinBox.Position = UDim2.new(0, 130, 0, 146)
+MinBox.Position = UDim2.new(0, 130, 0, 158)
 MinBox.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
 MinBox.TextColor3 = Color3.fromRGB(255, 255, 255)
 MinBox.Text = "3.3"
@@ -265,7 +269,7 @@ Instance.new("UICorner", MinBox).CornerRadius = UDim.new(0, 4)
 -- Fly Speed
 local FlyLabel = Instance.new("TextLabel")
 FlyLabel.Size = UDim2.new(0, 110, 0, 22)
-FlyLabel.Position = UDim2.new(0, 10, 0, 172)
+FlyLabel.Position = UDim2.new(0, 10, 0, 184)
 FlyLabel.BackgroundTransparency = 1
 FlyLabel.Text = "Fly Speed:"
 FlyLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
@@ -276,7 +280,7 @@ FlyLabel.Parent = MainFrame
 
 local FlySpeedBox = Instance.new("TextBox")
 FlySpeedBox.Size = UDim2.new(0, 90, 0, 22)
-FlySpeedBox.Position = UDim2.new(0, 130, 0, 172)
+FlySpeedBox.Position = UDim2.new(0, 130, 0, 184)
 FlySpeedBox.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
 FlySpeedBox.TextColor3 = Color3.fromRGB(255, 255, 255)
 FlySpeedBox.Text = "2000"
@@ -287,10 +291,10 @@ FlySpeedBox.BorderSizePixel = 0
 FlySpeedBox.Parent = MainFrame
 Instance.new("UICorner", FlySpeedBox).CornerRadius = UDim.new(0, 4)
 
--- Kick Power
+-- Kick Power arg1
 local KickLabel = Instance.new("TextLabel")
 KickLabel.Size = UDim2.new(0, 110, 0, 22)
-KickLabel.Position = UDim2.new(0, 10, 0, 198)
+KickLabel.Position = UDim2.new(0, 10, 0, 210)
 KickLabel.BackgroundTransparency = 1
 KickLabel.Text = "Kick Power:"
 KickLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
@@ -301,7 +305,7 @@ KickLabel.Parent = MainFrame
 
 local KickPowerBox = Instance.new("TextBox")
 KickPowerBox.Size = UDim2.new(0, 90, 0, 22)
-KickPowerBox.Position = UDim2.new(0, 130, 0, 198)
+KickPowerBox.Position = UDim2.new(0, 130, 0, 210)
 KickPowerBox.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
 KickPowerBox.TextColor3 = Color3.fromRGB(255, 255, 255)
 KickPowerBox.Text = "1"
@@ -314,7 +318,7 @@ Instance.new("UICorner", KickPowerBox).CornerRadius = UDim.new(0, 4)
 
 local KickMaxBtn = Instance.new("TextButton")
 KickMaxBtn.Size = UDim2.new(0, 40, 0, 22)
-KickMaxBtn.Position = UDim2.new(0, 224, 0, 198)
+KickMaxBtn.Position = UDim2.new(0, 224, 0, 210)
 KickMaxBtn.BackgroundColor3 = Color3.fromRGB(255, 100, 50)
 KickMaxBtn.Text = "MAX"
 KickMaxBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -328,12 +332,12 @@ KickMaxBtn.MouseButton1Click:Connect(function()
     KickPowerBox.Text = tostring(getMaxKickPower())
 end)
 
--- Kick Arg 2
+-- Kick Power arg2
 local KickArg2Label = Instance.new("TextLabel")
 KickArg2Label.Size = UDim2.new(0, 110, 0, 22)
-KickArg2Label.Position = UDim2.new(0, 10, 0, 224)
+KickArg2Label.Position = UDim2.new(0, 10, 0, 236)
 KickArg2Label.BackgroundTransparency = 1
-KickArg2Label.Text = "Kick Power:"
+KickArg2Label.Text = "Kick Power 2:"
 KickArg2Label.TextColor3 = Color3.fromRGB(180, 180, 180)
 KickArg2Label.TextSize = 10
 KickArg2Label.Font = Enum.Font.GothamBold
@@ -342,7 +346,7 @@ KickArg2Label.Parent = MainFrame
 
 local KickArg2Box = Instance.new("TextBox")
 KickArg2Box.Size = UDim2.new(0, 90, 0, 22)
-KickArg2Box.Position = UDim2.new(0, 130, 0, 224)
+KickArg2Box.Position = UDim2.new(0, 130, 0, 236)
 KickArg2Box.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
 KickArg2Box.TextColor3 = Color3.fromRGB(255, 255, 255)
 KickArg2Box.Text = "3800000000"
@@ -355,7 +359,7 @@ Instance.new("UICorner", KickArg2Box).CornerRadius = UDim.new(0, 4)
 
 local KickArg2MaxBtn = Instance.new("TextButton")
 KickArg2MaxBtn.Size = UDim2.new(0, 40, 0, 22)
-KickArg2MaxBtn.Position = UDim2.new(0, 224, 0, 224)
+KickArg2MaxBtn.Position = UDim2.new(0, 224, 0, 236)
 KickArg2MaxBtn.BackgroundColor3 = Color3.fromRGB(255, 100, 50)
 KickArg2MaxBtn.Text = "MAX"
 KickArg2MaxBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -372,7 +376,7 @@ end)
 -- Min Fav
 local MinFavLabel = Instance.new("TextLabel")
 MinFavLabel.Size = UDim2.new(0, 110, 0, 22)
-MinFavLabel.Position = UDim2.new(0, 10, 0, 250)
+MinFavLabel.Position = UDim2.new(0, 10, 0, 262)
 MinFavLabel.BackgroundTransparency = 1
 MinFavLabel.Text = "Min Fav (M/s):"
 MinFavLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
@@ -383,7 +387,7 @@ MinFavLabel.Parent = MainFrame
 
 local MinFavBox = Instance.new("TextBox")
 MinFavBox.Size = UDim2.new(0, 90, 0, 22)
-MinFavBox.Position = UDim2.new(0, 130, 0, 250)
+MinFavBox.Position = UDim2.new(0, 130, 0, 262)
 MinFavBox.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
 MinFavBox.TextColor3 = Color3.fromRGB(255, 255, 255)
 MinFavBox.Text = "4"
@@ -397,7 +401,7 @@ Instance.new("UICorner", MinFavBox).CornerRadius = UDim.new(0, 4)
 -- Speed Boost
 local SpeedBoostLabel = Instance.new("TextLabel")
 SpeedBoostLabel.Size = UDim2.new(0, 110, 0, 22)
-SpeedBoostLabel.Position = UDim2.new(0, 10, 0, 302)
+SpeedBoostLabel.Position = UDim2.new(0, 10, 0, 288)
 SpeedBoostLabel.BackgroundTransparency = 1
 SpeedBoostLabel.Text = "Speed Boost:"
 SpeedBoostLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
@@ -408,7 +412,7 @@ SpeedBoostLabel.Parent = MainFrame
 
 local SpeedBoostBox = Instance.new("TextBox")
 SpeedBoostBox.Size = UDim2.new(0, 90, 0, 22)
-SpeedBoostBox.Position = UDim2.new(0, 130, 0, 302)
+SpeedBoostBox.Position = UDim2.new(0, 130, 0, 288)
 SpeedBoostBox.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
 SpeedBoostBox.TextColor3 = Color3.fromRGB(255, 255, 255)
 SpeedBoostBox.Text = "0"
@@ -422,7 +426,7 @@ Instance.new("UICorner", SpeedBoostBox).CornerRadius = UDim.new(0, 4)
 -- Auto Fav Toggle
 local FavToggleBtn = Instance.new("TextButton")
 FavToggleBtn.Size = UDim2.new(1, -20, 0, 26)
-FavToggleBtn.Position = UDim2.new(0, 10, 0, 328)
+FavToggleBtn.Position = UDim2.new(0, 10, 0, 314)
 FavToggleBtn.BackgroundColor3 = Color3.fromRGB(255, 200, 0)
 FavToggleBtn.Text = "⭐ Auto Fav: ON"
 FavToggleBtn.TextColor3 = Color3.fromRGB(20, 20, 20)
@@ -435,7 +439,7 @@ Instance.new("UICorner", FavToggleBtn).CornerRadius = UDim.new(0, 4)
 -- Auto UFO Toggle
 local UFOToggleBtn = Instance.new("TextButton")
 UFOToggleBtn.Size = UDim2.new(1, -20, 0, 26)
-UFOToggleBtn.Position = UDim2.new(0, 10, 0, 358)
+UFOToggleBtn.Position = UDim2.new(0, 10, 0, 344)
 UFOToggleBtn.BackgroundColor3 = Color3.fromRGB(100, 200, 255)
 UFOToggleBtn.Text = "🛸 Auto UFO: ON"
 UFOToggleBtn.TextColor3 = Color3.fromRGB(20, 20, 20)
@@ -445,12 +449,25 @@ UFOToggleBtn.BorderSizePixel = 0
 UFOToggleBtn.Parent = MainFrame
 Instance.new("UICorner", UFOToggleBtn).CornerRadius = UDim.new(0, 4)
 
+-- Test Ping Discord
+local TestPingBtn = Instance.new("TextButton")
+TestPingBtn.Size = UDim2.new(1, -20, 0, 26)
+TestPingBtn.Position = UDim2.new(0, 10, 0, 374)
+TestPingBtn.BackgroundColor3 = Color3.fromRGB(88, 101, 242)
+TestPingBtn.Text = "🔔 Test Ping Discord"
+TestPingBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+TestPingBtn.TextSize = 10
+TestPingBtn.Font = Enum.Font.GothamBold
+TestPingBtn.BorderSizePixel = 0
+TestPingBtn.Parent = MainFrame
+Instance.new("UICorner", TestPingBtn).CornerRadius = UDim.new(0, 4)
+
 -- Auto Bacon Toggle
 local autoBaconRunning = true
 
 local BaconToggleBtn = Instance.new("TextButton")
 BaconToggleBtn.Size = UDim2.new(1, -20, 0, 26)
-BaconToggleBtn.Position = UDim2.new(0, 10, 0, 418)
+BaconToggleBtn.Position = UDim2.new(0, 10, 0, 404)
 BaconToggleBtn.BackgroundColor3 = Color3.fromRGB(255, 150, 30)
 BaconToggleBtn.Text = "🥓 Auto Bacon: ON"
 BaconToggleBtn.TextColor3 = Color3.fromRGB(20, 20, 20)
@@ -473,19 +490,6 @@ BaconToggleBtn.MouseButton1Click:Connect(function()
     end
 end)
 
--- Test Ping Discord
-local TestPingBtn = Instance.new("TextButton")
-TestPingBtn.Size = UDim2.new(1, -20, 0, 26)
-TestPingBtn.Position = UDim2.new(0, 10, 0, 388)
-TestPingBtn.BackgroundColor3 = Color3.fromRGB(88, 101, 242)
-TestPingBtn.Text = "🔔 Test Ping Discord"
-TestPingBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-TestPingBtn.TextSize = 10
-TestPingBtn.Font = Enum.Font.GothamBold
-TestPingBtn.BorderSizePixel = 0
-TestPingBtn.Parent = MainFrame
-Instance.new("UICorner", TestPingBtn).CornerRadius = UDim.new(0, 4)
-
 -- ================== EVENT TOGGLES ==================
 local BACON_EVENT = {
     ["Chicleteira Bicicleteira"] = true,
@@ -495,10 +499,10 @@ local BACON_EVENT = {
 }
 
 local UFO_EVENT = {
-    ["Girafa Celeste"]   = true,
+    ["Girafa Celeste"]    = true,
     ["Guerriro Digitale"] = true,
-    ["SWAG SODA"]        = true,
-    ["Cacto Hipopotamo"] = true,
+    ["SWAG SODA"]         = true,
+    ["Cacto Hipopotamo"]  = true,
 }
 
 local baconEnabled = {
@@ -509,10 +513,10 @@ local baconEnabled = {
 }
 
 local ufoEnabled = {
-    ["Girafa Celeste"]   = true,
+    ["Girafa Celeste"]    = true,
     ["Guerriro Digitale"] = true,
-    ["SWAG SODA"]        = true,
-    ["Cacto Hipopotamo"] = true,
+    ["SWAG SODA"]         = true,
+    ["Cacto Hipopotamo"]  = true,
 }
 
 local updateBaconUI = {}
@@ -647,10 +651,10 @@ local BASE_PRICE = {
     ["Ketupat Kepat"]              = 1000000,
 }
 
--- Bacon Event Label
+-- Bacon Event buttons
 local BaconLabel = Instance.new("TextLabel")
 BaconLabel.Size = UDim2.new(1, -20, 0, 20)
-BaconLabel.Position = UDim2.new(0, 10, 0, 452)
+BaconLabel.Position = UDim2.new(0, 10, 0, 438)
 BaconLabel.BackgroundTransparency = 1
 BaconLabel.Text = "🥓 Bacon Event"
 BaconLabel.TextColor3 = Color3.fromRGB(255, 180, 50)
@@ -671,7 +675,7 @@ for i, item in ipairs(BACON_LIST) do
     btn.Size = UDim2.new(0, 115, 0, 24)
     local col = (i-1) % 2
     local row = math.floor((i-1) / 2)
-    btn.Position = UDim2.new(0, 10 + col * 128, 0, 474 + row * 28)
+    btn.Position = UDim2.new(0, 10 + col * 128, 0, 460 + row * 28)
     btn.Font = Enum.Font.GothamBold
     btn.TextSize = 9
     btn.BorderSizePixel = 0
@@ -691,17 +695,16 @@ for i, item in ipairs(BACON_LIST) do
     end
     updateBtn()
     table.insert(updateBaconUI, updateBtn)
-    
     btn.MouseButton1Click:Connect(function()
         baconEnabled[item.key] = not baconEnabled[item.key]
         updateBtn()
     end)
 end
 
--- UFO Event Label
+-- UFO Event buttons
 local UfoLabel = Instance.new("TextLabel")
 UfoLabel.Size = UDim2.new(1, -20, 0, 20)
-UfoLabel.Position = UDim2.new(0, 10, 0, 536)
+UfoLabel.Position = UDim2.new(0, 10, 0, 522)
 UfoLabel.BackgroundTransparency = 1
 UfoLabel.Text = "🛸 UFO Event"
 UfoLabel.TextColor3 = Color3.fromRGB(100, 200, 255)
@@ -722,7 +725,7 @@ for i, item in ipairs(UFO_LIST) do
     btn.Size = UDim2.new(0, 115, 0, 24)
     local col = (i-1) % 2
     local row = math.floor((i-1) / 2)
-    btn.Position = UDim2.new(0, 10 + col * 128, 0, 558 + row * 28)
+    btn.Position = UDim2.new(0, 10 + col * 128, 0, 544 + row * 28)
     btn.Font = Enum.Font.GothamBold
     btn.TextSize = 9
     btn.BorderSizePixel = 0
@@ -742,7 +745,6 @@ for i, item in ipairs(UFO_LIST) do
     end
     updateBtn()
     table.insert(updateUFOUI, updateBtn)
-    
     btn.MouseButton1Click:Connect(function()
         ufoEnabled[item.key] = not ufoEnabled[item.key]
         updateBtn()
@@ -844,7 +846,6 @@ local function applySettings(cfg)
             BaconToggleBtn.TextColor3 = Color3.fromRGB(150, 150, 150)
         end
     end
-    
     if cfg.bacon then
         for k, v in pairs(cfg.bacon) do baconEnabled[k] = v end
         for _, fn in ipairs(updateBaconUI) do fn() end
@@ -859,10 +860,10 @@ local function refreshConfigList(mode)
     for _, child in ipairs(ScrollFrame:GetChildren()) do
         if child:IsA("TextButton") or child:IsA("Frame") then child:Destroy() end
     end
-
     local configs = getConfigs()
     local count = 0
     for name, _ in pairs(configs) do
+        if name == "__last" then continue end
         count = count + 1
         local row = Instance.new("Frame")
         row.Size = UDim2.new(1, 0, 0, 28)
@@ -930,7 +931,6 @@ local function refreshConfigList(mode)
         empty.ZIndex = 10
         empty.Parent = ScrollFrame
     end
-
     ScrollFrame.CanvasSize = UDim2.new(0, 0, 0, count * 32)
 end
 
@@ -1036,9 +1036,15 @@ task.spawn(function()
     end
 end)
 
+-- ================== HELPER LOGIC ==================
 local function setStatus(text, color)
     StatusLabel.Text = "Status: " .. text
     StatusLabel.TextColor3 = color or Color3.fromRGB(200, 200, 200)
+end
+
+local function setInfo(text, color)
+    InfoLabel.Text = text
+    InfoLabel.TextColor3 = color or Color3.fromRGB(150, 150, 150)
 end
 
 local function getRoot()
@@ -1057,12 +1063,12 @@ end
 local function getMinHarga()
     local val = tonumber(MinBox.Text)
     if not val or val <= 0 then return 4 end
-    return val * 1000000 
+    return val * 1000000
 end
 
 local function getKickPower()
     local val = tonumber(KickPowerBox.Text)
-    if not val or val <= 0 then return 0.9 end
+    if not val or val <= 0 then return 1 end
     return val
 end
 
@@ -1078,23 +1084,6 @@ local function getFlySpeed()
     return val
 end
 
-local function isValidBrainrot(obj)
-    if BACON_EVENT[obj.Name] and baconEnabled[obj.Name] then return true end
-    if UFO_EVENT[obj.Name] and ufoEnabled[obj.Name] then return true end
-
-    local mutation = obj:GetAttribute("Mutation")
-    local mutKey = mutation and tostring(mutation) or "None"
-    local basePrice = BASE_PRICE[obj.Name]
-
-    if not basePrice then return false end
-
-    local multiplier = MULTIPLIER[mutKey] or 1
-    local actualPrice = basePrice * multiplier
-    local minHarga = getMinHarga()
-
-    return actualPrice >= minHarga
-end
-
 local function getSpeedBoost()
     local val = tonumber(SpeedBoostBox.Text)
     if not val then return 0 end
@@ -1107,6 +1096,17 @@ local function getMinFav()
     return val * 1000000
 end
 
+local function isValidBrainrot(obj)
+    if BACON_EVENT[obj.Name] and baconEnabled[obj.Name] then return true end
+    if UFO_EVENT[obj.Name] and ufoEnabled[obj.Name] then return true end
+    local mutation = obj:GetAttribute("Mutation")
+    local mutKey = mutation and tostring(mutation) or "None"
+    local basePrice = BASE_PRICE[obj.Name]
+    if not basePrice then return false end
+    local multiplier = MULTIPLIER[mutKey] or 1
+    local actualPrice = basePrice * multiplier
+    return actualPrice >= getMinHarga()
+end
 
 -- Auto favorite loop
 task.spawn(function()
@@ -1114,17 +1114,15 @@ task.spawn(function()
         task.wait(0.1)
         if favAutoRunning then
             pcall(function()
-                local backpack = player.Backpack
-                for _, item in ipairs(backpack:GetChildren()) do
+                for _, item in ipairs(player.Backpack:GetChildren()) do
                     local guid = item:GetAttribute("GUID")
                     if guid then
                         local isFav = item:GetAttribute("Favorite")
-                        if isFav then continue end 
+                        if isFav then continue end
                         local mutation = item:GetAttribute("Mutation") or "None"
                         local basePrice = BASE_PRICE[item.Name] or 0
                         local multiplier = MULTIPLIER[mutation] or 1
-                        local actualPrice = basePrice * multiplier
-                        if actualPrice >= getMinFav() then
+                        if (basePrice * multiplier) >= getMinFav() then
                             pcall(function()
                                 local args = {guid}
                                 game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Packages"):WaitForChild("Network"):WaitForChild("rev_ToggleFav"):FireServer(unpack(args))
@@ -1158,12 +1156,11 @@ local BACON_REQUIRED_LIST = {
     "Strawberry Elephant",
 }
 
--- UPDATE KICK POWER UNTUK MASING-MASING ITEM BACON EVENT
 local BACON_KICK_POWER = {
-    ["Chicleteira Bicicleteira"] = 0,           -- max
-    ["Agarrini La Palini"]       = 50000000,    -- 50 Juta
-    ["Trippi Troppi"]            = 10,          -- 10
-    ["Strawberry Elephant"]      = 0,           -- max
+    ["Chicleteira Bicicleteira"] = 0,
+    ["Agarrini La Palini"]       = 50000000,
+    ["Trippi Troppi"]            = 10,
+    ["Strawberry Elephant"]      = 0,
 }
 
 local function isBaconExpired()
@@ -1191,18 +1188,17 @@ local function tryActivateBacon()
     setStatus("Bacon Event diaktifkan!", Color3.fromRGB(255, 180, 50))
 end
 
--- FUNGSI PENCARI BACON KICK POWER DENGAN UI UPDATE
 local function autoSetBaconKickPower()
     if not isBaconExpired() then
         KickPowerBox.Text = "1"
         KickArg2Box.Text = tostring(getMaxKickPower())
-        BaconLabel.Text = "🥓 Bacon Event (Sedang Aktif!)"
+        setInfo("🥓 Bacon: Sedang Aktif!", Color3.fromRGB(255, 180, 50))
         return
     end
     if hasAllBaconBrainrots() then
         KickPowerBox.Text = "1"
         KickArg2Box.Text = tostring(getMaxKickPower())
-        BaconLabel.Text = "🥓 Bacon Event (Ready & Aktifasi...)"
+        setInfo("🥓 Bacon: Ready, aktifasi...", Color3.fromRGB(255, 220, 50))
         tryActivateBacon()
         return
     end
@@ -1210,14 +1206,13 @@ local function autoSetBaconKickPower()
         if not hasInBackpack(name) then
             local targetPower = BACON_KICK_POWER[name]
             if not targetPower or targetPower == 0 then targetPower = getMaxKickPower() end
-            
             KickArg2Box.Text = tostring(targetPower)
             KickPowerBox.Text = "1"
-            BaconLabel.Text = "🥓 Bacon Event (Cari: " .. name .. ")"
+            setInfo("🥓 Bacon: Cari " .. name, Color3.fromRGB(255, 150, 50))
             return
         end
     end
-    BaconLabel.Text = "🥓 Bacon Event"
+    setInfo("🥓 Bacon: Idle", Color3.fromRGB(150, 150, 150))
 end
 
 -- ================== UFO AUTO ACTIVATE ==================
@@ -1228,18 +1223,19 @@ local UFO_REQUIRED = {
     "Cacto Hipopotamo",
 }
 
-local function getUFOTimer()
-    local ok, timerLabel = pcall(function()
-        return player.PlayerGui.TimersGui.TimedUpgrades.Alien.TimeLabel
-    end)
-    if not ok or not timerLabel then return nil end
-    return timerLabel.Text
-end
+local UFO_KICK_POWER = {
+    ["Girafa Celeste"]    = 14000000,
+    ["Guerriro Digitale"] = 0,
+    ["SWAG SODA"]         = 50000000,
+    ["Cacto Hipopotamo"]  = 250,
+}
 
 local function isUFOExpired()
-    local timer = getUFOTimer()
-    if not timer then return true end
-    return timer == "00:00"
+    local ok, label = pcall(function()
+        return player.PlayerGui.TimersGui.TimedUpgrades.Alien.TimeLabel
+    end)
+    if not ok or not label then return true end
+    return label.Text == "00:00"
 end
 
 local function hasAllUFOBrainrots()
@@ -1256,44 +1252,34 @@ local function tryActivateUFO()
         local args = {"UFO"}
         game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Packages"):WaitForChild("Network"):WaitForChild("rev_sbe"):FireServer(unpack(args))
     end)
-    setStatus("UFO Event diaktifkan! Max power!", Color3.fromRGB(100, 200, 255))
+    setStatus("UFO Event diaktifkan!", Color3.fromRGB(100, 200, 255))
 end
 
-local UFO_KICK_POWER = {
-    ["Girafa Celeste"]    = 14000000,
-    ["Guerriro Digitale"] = 0,
-    ["SWAG SODA"]         = 50000000,
-    ["Cacto Hipopotamo"]  = 250,
-}
-
--- FUNGSI PENCARI UFO KICK POWER DENGAN UI UPDATE
 local function autoSetKickPower()
     if not isUFOExpired() then
         KickPowerBox.Text = "1"
-        KickArg2Box.Text = "3800000000"
-        UfoLabel.Text = "🛸 UFO Event (Sedang Aktif!)"
+        KickArg2Box.Text = tostring(getMaxKickPower())
+        setInfo("🛸 UFO: Sedang Aktif!", Color3.fromRGB(100, 200, 255))
         return
     end
-
     if hasAllUFOBrainrots() then
         KickPowerBox.Text = "1"
-        KickArg2Box.Text = "3800000000"
-        UfoLabel.Text = "🛸 UFO Event (Ready & Aktifasi...)"
+        KickArg2Box.Text = tostring(getMaxKickPower())
+        setInfo("🛸 UFO: Ready, aktifasi...", Color3.fromRGB(150, 220, 255))
         tryActivateUFO()
         return
     end
-
     for _, name in ipairs(UFO_REQUIRED) do
         if not hasInBackpack(name) then
             local targetPower = UFO_KICK_POWER[name]
             if not targetPower or targetPower == 0 then targetPower = getMaxKickPower() end
             KickArg2Box.Text = tostring(targetPower)
             KickPowerBox.Text = "1"
-            UfoLabel.Text = "🛸 UFO Event (Cari: " .. name .. ")"
+            setInfo("🛸 UFO: Cari " .. name, Color3.fromRGB(100, 200, 255))
             return
         end
     end
-    UfoLabel.Text = "🛸 UFO Event"
+    setInfo("🛸 UFO: Idle", Color3.fromRGB(150, 150, 150))
 end
 
 UFOToggleBtn.MouseButton1Click:Connect(function()
@@ -1306,19 +1292,16 @@ UFOToggleBtn.MouseButton1Click:Connect(function()
         UFOToggleBtn.Text = "🛸 Auto UFO: OFF"
         UFOToggleBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
         UFOToggleBtn.TextColor3 = Color3.fromRGB(150, 150, 150)
+        setInfo("", Color3.fromRGB(150, 150, 150))
     end
 end)
 
+-- ================== MAIN LOOP ==================
 local function runLoop()
     while running do
-        
-        -- STEP 0: SYNC KICK POWER DULU SEBELUM NGAPA-NGAPAIN
-        if autoBaconRunning then
-            autoSetBaconKickPower()
-        end
-        if autoUFORunning then
-            autoSetKickPower()
-        end
+        -- STEP 0: Sync kick power
+        if autoBaconRunning then autoSetBaconKickPower() end
+        if autoUFORunning then autoSetKickPower() end
 
         -- STEP 1: TP ke kick spot
         setStatus("TP ke kick spot...", Color3.fromRGB(100, 180, 255))
@@ -1331,11 +1314,14 @@ local function runLoop()
 
         -- STEP 2: Fire kick
         setStatus("Nge-kick...", Color3.fromRGB(255, 150, 50))
-        pcall(function() local args = {getKickPower(), getKickArg2()} game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Packages"):WaitForChild("Network"):WaitForChild("rev_KickEvent"):FireServer(unpack(args)) end)
+        pcall(function()
+            local args = {getKickPower(), getKickArg2()}
+            game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Packages"):WaitForChild("Network"):WaitForChild("rev_KickEvent"):FireServer(unpack(args))
+        end)
 
         if not running then break end
 
-        -- STEP 3: Nunggu kena kick (X < 690 artinya melayang)
+        -- STEP 3: Nunggu kena kick
         setStatus("Nunggu kena kick...", Color3.fromRGB(200, 100, 255))
         local timeout = 30
         local elapsed = 0
@@ -1358,32 +1344,26 @@ local function runLoop()
 
         if not running then break end
 
-        -- STEP 4: Jalan ke safe zone + scan brainrot
+        -- STEP 4: Scan + jalan ke safe zone
         setStatus("Mendarat! Nunggu brainrot spawn...", Color3.fromRGB(100, 220, 100))
         local debris = workspace:WaitForChild("Debris")
         local brainrot = nil
 
-        -- FUNGSI RADAR JARAK (MAGNITUDE)
         local function findBrainrot()
             local r = getRoot()
             if not r then return nil end
-
-            local closestBrainrot = nil
-            local shortestDistance = math.huge
-
+            local closest = nil
+            local shortestDist = math.huge
             for _, child in ipairs(debris:GetChildren()) do
                 if child:IsA("Model") and child.PrimaryPart and child.PrimaryPart.Name == "Root" then
                     local dist = (child.PrimaryPart.Position - r.Position).Magnitude
-                    if dist < shortestDistance then
-                        shortestDistance = dist
-                        closestBrainrot = child
+                    if dist < shortestDist then
+                        shortestDist = dist
+                        closest = child
                     end
                 end
             end
-
-            if closestBrainrot and shortestDistance < 150 then
-                return closestBrainrot
-            end
+            if closest and shortestDist < 150 then return closest end
             return nil
         end
 
@@ -1393,11 +1373,8 @@ local function runLoop()
         if char4 then
             local hum4 = char4:FindFirstChild("Humanoid")
             if hum4 then
-                -- NUNGGU 2 DETIK DI TEMPAT MENDARAT BUAT RADAR SCAN
                 task.wait(2)
-                
                 setStatus("Jalan ke safe zone + scanning...", Color3.fromRGB(100, 220, 100))
-                -- BARU PASANG MESIN JALAN BALIK
                 local bv = Instance.new("BodyVelocity")
                 bv.MaxForce = Vector3.new(1e5, 0, 1e5)
                 bv.Parent = char4:FindFirstChild("HumanoidRootPart")
@@ -1427,7 +1404,6 @@ local function runLoop()
                     local dir = (SAFE_POS - r2.Position).Unit
                     local speed = (hum4 and hum4.WalkSpeed or 16) + getSpeedBoost()
                     bv.Velocity = Vector3.new(dir.X * speed, 0, dir.Z * speed)
-
                     task.wait(0.1)
                 end
                 bv:Destroy()
@@ -1447,7 +1423,7 @@ local function runLoop()
             continue
         end
 
-        -- STEP 5: Nunggu removed sambil jalan ke safe zone
+        -- STEP 5: Nunggu removed
         local mutVal = brainrot:GetAttribute("Mutation") or "None"
         local basePrice = BASE_PRICE[brainrot.Name] or 0
         local multiplier = MULTIPLIER[mutVal] or 1
@@ -1456,9 +1432,7 @@ local function runLoop()
 
         local isRemoved = false
         local removedConn = brainrot.AncestryChanged:Connect(function()
-            if not brainrot.Parent then
-                isRemoved = true
-            end
+            if not brainrot.Parent then isRemoved = true end
         end)
 
         local char5 = player.Character
@@ -1491,6 +1465,7 @@ local function runLoop()
     end
 
     setStatus("Idle", Color3.fromRGB(200, 200, 200))
+    setInfo("", Color3.fromRGB(150, 150, 150))
 end
 
 -- ================== BUTTON EVENTS ==================
