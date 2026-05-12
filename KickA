@@ -1097,14 +1097,29 @@ local function getMinFav()
 end
 
 local function isValidBrainrot(obj)
-    if BACON_EVENT[obj.Name] and baconEnabled[obj.Name] then return true end
-    if UFO_EVENT[obj.Name] and ufoEnabled[obj.Name] then return true end
     local mutation = obj:GetAttribute("Mutation")
     local mutKey = mutation and tostring(mutation) or "None"
     local basePrice = BASE_PRICE[obj.Name]
     if not basePrice then return false end
     local multiplier = MULTIPLIER[mutKey] or 1
     local actualPrice = basePrice * multiplier
+
+    -- Cek status timer UI buat tau event lagi jalan atau nggak
+    local ufoActive = false
+    pcall(function() ufoActive = (player.PlayerGui.TimersGui.TimedUpgrades.Alien.TimeLabel.Text ~= "00:00") end)
+    
+    local baconActive = false
+    pcall(function() baconActive = (player.PlayerGui.TimersGui.TimedUpgrades.Bacon.TimeLabel.Text ~= "00:00") end)
+
+    -- KALAU EVENT LAGI JALAN: Fokus 100% ke Min Harga (M/s)
+    if ufoActive or baconActive then
+        return actualPrice >= getMinHarga()
+    end
+
+    -- KALAU EVENT GAK JALAN: Ambil tumbal buat nyalain event (Bypass M/s)
+    if BACON_EVENT[obj.Name] and baconEnabled[obj.Name] then return true end
+    if UFO_EVENT[obj.Name] and ufoEnabled[obj.Name] then return true end
+    
     return actualPrice >= getMinHarga()
 end
 
