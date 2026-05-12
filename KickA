@@ -1299,6 +1299,20 @@ end)
 -- ================== MAIN LOOP ==================
 local function runLoop()
     while running do
+        
+        -- [PERBAIKAN]: Cek apakah karakter hidup dan tunggu tas ke-load kalau habis mati
+        local char0 = player.Character
+        local hum0 = char0 and char0:FindFirstChild("Humanoid")
+        if not char0 or not hum0 or hum0.Health <= 0 then
+            setStatus("Nunggu respawn...", Color3.fromRGB(255, 100, 50))
+            repeat 
+                task.wait(0.1) 
+            until player.Character and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0
+            
+            setStatus("Loading inventory...", Color3.fromRGB(255, 180, 50))
+            task.wait(2.5) -- Jeda krusial biar tas gak kebaca kosong!
+        end
+
         -- STEP 0: Sync kick power
         if autoBaconRunning then autoSetBaconKickPower() end
         if autoUFORunning then autoSetKickPower() end
@@ -1413,7 +1427,12 @@ local function runLoop()
         if shouldBundir then
             task.wait(1)
             bundir()
+            setStatus("Bundir, nunggu respawn...", Color3.fromRGB(255, 50, 50))
             repeat task.wait(0.1) until player.Character and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0
+            
+            -- [PERBAIKAN]: Tunggu tas loading lagi sehabis bundir
+            setStatus("Loading inventory...", Color3.fromRGB(255, 180, 50))
+            task.wait(2.5) 
             continue
         end
 
