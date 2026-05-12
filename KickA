@@ -1310,7 +1310,7 @@ local function runLoop()
             until player.Character and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0
             
             setStatus("Loading inventory...", Color3.fromRGB(255, 180, 50))
-            task.wait(2.5) -- Jeda krusial biar tas gak kebaca kosong!
+            task.wait(0.5) -- Jeda krusial biar tas gak kebaca kosong!
         end
 
         -- STEP 0: GLOBAL OVERRIDE
@@ -1441,7 +1441,7 @@ end
             
             -- [PERBAIKAN]: Tunggu tas loading lagi sehabis bundir
             setStatus("Loading inventory...", Color3.fromRGB(255, 180, 50))
-            task.wait(2.5) 
+            task.wait(0.5) 
             continue
         end
 
