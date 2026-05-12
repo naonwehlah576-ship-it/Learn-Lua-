@@ -1310,12 +1310,21 @@ local function runLoop()
             until player.Character and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0
             
             setStatus("Loading inventory...", Color3.fromRGB(255, 180, 50))
-            task.wait(0.5) -- Jeda krusial biar tas gak kebaca kosong!
+            task.wait(2.5) -- Jeda krusial biar tas gak kebaca kosong!
         end
 
-        -- STEP 0: Sync kick power
-        if autoBaconRunning then autoSetBaconKickPower() end
-        if autoUFORunning then autoSetKickPower() end
+        -- STEP 0: GLOBAL OVERRIDE
+local isUfoActive = not isUFOExpired()
+local isBaconActive = not isBaconExpired()
+
+if isUfoActive or isBaconActive then
+    KickPowerBox.Text = "1"
+    KickArg2Box.Text = tostring(getMaxKickPower())
+    setInfo("🚨 EVENT AKTIF! FORCE MAX POWER", Color3.fromRGB(255, 50, 50))
+else
+    if autoBaconRunning then autoSetBaconKickPower() end
+    if autoUFORunning then autoSetKickPower() end
+end
 
         -- STEP 1: TP ke kick spot
         setStatus("TP ke kick spot...", Color3.fromRGB(100, 180, 255))
@@ -1432,7 +1441,7 @@ local function runLoop()
             
             -- [PERBAIKAN]: Tunggu tas loading lagi sehabis bundir
             setStatus("Loading inventory...", Color3.fromRGB(255, 180, 50))
-            task.wait(0.5) 
+            task.wait(2.5) 
             continue
         end
 
