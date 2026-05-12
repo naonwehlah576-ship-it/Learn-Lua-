@@ -10,6 +10,10 @@ if parentUI:FindFirstChild("BrainrotFarmGUI") then
     parentUI.BrainrotFarmGUI:Destroy()
 end
 
+-- Fallback Tables (Biar gak error nil kalau belum didefine di hub/script lain)
+local BASE_PRICE = BASE_PRICE or setmetatable({}, {__index = function() return 1000000 end})
+local MULTIPLIER = MULTIPLIER or setmetatable({}, {__index = function() return 1 end})
+
 -- ================== HELPER FUNCTIONS (early) ==================
 local function parseKickPower(text)
     local num = string.match(text, "([%d%.]+)([KMB]?)")
@@ -83,7 +87,7 @@ local TitleLabel = Instance.new("TextLabel")
 TitleLabel.Size = UDim2.new(1, -80, 1, 0)
 TitleLabel.Position = UDim2.new(0, 10, 0, 0)
 TitleLabel.BackgroundTransparency = 1
-TitleLabel.Text = "🧠 Brainrot Farm v4.2 | Dafa Goreng"
+TitleLabel.Text = "🧠 Brainrot Farm v4.3 | Dafa Goreng"
 TitleLabel.TextColor3 = Color3.fromRGB(255, 215, 0)
 TitleLabel.TextSize = 11
 TitleLabel.Font = Enum.Font.GothamBold
@@ -462,6 +466,33 @@ BaconToggleBtn.Font = Enum.Font.GothamBold
 BaconToggleBtn.BorderSizePixel = 0
 BaconToggleBtn.Parent = MainFrame
 Instance.new("UICorner", BaconToggleBtn).CornerRadius = UDim.new(0, 4)
+
+-- [PERBAIKAN] Menambahkan Event Listener yang Hilang Untuk Toggles
+FavToggleBtn.MouseButton1Click:Connect(function()
+    favAutoRunning = not favAutoRunning
+    if favAutoRunning then
+        FavToggleBtn.Text = "⭐ Auto Fav: ON"
+        FavToggleBtn.BackgroundColor3 = Color3.fromRGB(255, 200, 0)
+        FavToggleBtn.TextColor3 = Color3.fromRGB(20, 20, 20)
+    else
+        FavToggleBtn.Text = "⭐ Auto Fav: OFF"
+        FavToggleBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+        FavToggleBtn.TextColor3 = Color3.fromRGB(150, 150, 150)
+    end
+end)
+
+UFOToggleBtn.MouseButton1Click:Connect(function()
+    autoUFORunning = not autoUFORunning
+    if autoUFORunning then
+        UFOToggleBtn.Text = "🛸 Auto UFO: ON"
+        UFOToggleBtn.BackgroundColor3 = Color3.fromRGB(100, 200, 255)
+        UFOToggleBtn.TextColor3 = Color3.fromRGB(20, 20, 20)
+    else
+        UFOToggleBtn.Text = "🛸 Auto UFO: OFF"
+        UFOToggleBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+        UFOToggleBtn.TextColor3 = Color3.fromRGB(150, 150, 150)
+    end
+end)
 
 BaconToggleBtn.MouseButton1Click:Connect(function()
     autoBaconRunning = not autoBaconRunning
@@ -907,7 +938,8 @@ end
 local function bundir()
     local char = player.Character
     if char then
-        char:FindFirstChild("Humanoid").Health = 0
+        local hum = char:FindFirstChild("Humanoid")
+        if hum then hum.Health = 0 end
     end
 end
 
@@ -1014,19 +1046,15 @@ local UFO_KICK_POWER = {
 }
 
 local function isBaconExpired()
-    local ok, frame = pcall(function() return player.PlayerGui.TimersGui.TimedUpgrades.Bacon end)
-    if not ok or not frame then return true end
-    if not frame.Visible then return true end
-    if frame.TimeLabel.Text == "00:00" then return true end
-    return false
+    local ok, label = pcall(function() return player.PlayerGui.TimersGui.TimedUpgrades.Bacon.TimeLabel end)
+    if not ok or not label then return true end
+    return label.Text == "00:00" or label.Text == ""
 end
 
 local function isUFOExpired()
-    local ok, frame = pcall(function() return player.PlayerGui.TimersGui.TimedUpgrades.Alien end)
-    if not ok or not frame then return true end
-    if not frame.Visible then return true end
-    if frame.TimeLabel.Text == "00:00" then return true end
-    return false
+    local ok, label = pcall(function() return player.PlayerGui.TimersGui.TimedUpgrades.Alien.TimeLabel end)
+    if not ok or not label then return true end
+    return label.Text == "00:00" or label.Text == ""
 end
 
 local function hasAllBaconBrainrots()
@@ -1062,7 +1090,6 @@ local function syncPowerAndUI()
     local bExpired = isBaconExpired()
     local uExpired = isUFOExpired()
 
-    -- [PERBAIKAN]: Kalau ada Event yang AKTIF, SEMUA AKUN IKUT! (Persetan sama Toggle)
     if not bExpired then
         KickPowerBox.Text = "1"
         KickArg2Box.Text = tostring(getMaxKickPower())
@@ -1078,7 +1105,6 @@ local function syncPowerAndUI()
         return
     end
 
-    -- PRIORITAS 2 & 3: Kalau gak ada event jalan, baru cek Toggle buat nyari barang & ngaktifin
     if autoBaconRunning then
         if hasAllBaconBrainrots() then
             KickPowerBox.Text = "1"
@@ -1131,19 +1157,25 @@ local running = false
 local KICK_POS = Vector3.new(704.0, 3.2, 237.6)
 local SAFE_POS = Vector3.new(701.9, 4.2, 229.5)
 
+-- [PERBAIKAN] Helper buat nunggu respawn beneran kelar sampe RootPart muncul
+local function waitRespawn()
+    repeat 
+        task.wait(0.1) 
+    until player.Character and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0 and player.Character:FindFirstChild("HumanoidRootPart")
+    task.wait(1) -- Beri waktu server sinkronisasi physics sebelum di TP
+end
+
 -- ================== MAIN LOOP ==================
 local function runLoop()
     while running do
         local char0 = player.Character
         local hum0 = char0 and char0:FindFirstChild("Humanoid")
-        if not char0 or not hum0 or hum0.Health <= 0 then
+        -- [PERBAIKAN] Pastikan nunggu RootPart muncul juga sebelum lanjut
+        if not char0 or not hum0 or hum0.Health <= 0 or not char0:FindFirstChild("HumanoidRootPart") then
             setStatus("Nunggu respawn...", Color3.fromRGB(255, 100, 50))
-            repeat 
-                task.wait(0.1) 
-            until player.Character and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0
-            
+            waitRespawn()
             setStatus("Loading inventory...", Color3.fromRGB(255, 180, 50))
-            task.wait(1.5)
+            task.wait(0.5) 
         end
 
         syncPowerAndUI()
@@ -1152,7 +1184,7 @@ local function runLoop()
         local root = getRoot()
         if not root then task.wait(1) continue end
         pcall(function() root.CFrame = CFrame.new(KICK_POS) end)
-        task.wait(0.5)
+        task.wait(0.8) -- [PERBAIKAN] Naikin dikit delay-nya biar remote kick gak di-reject server karena belum full ke-TP
 
         if not running then break end
 
@@ -1165,7 +1197,7 @@ local function runLoop()
         if not running then break end
 
         setStatus("Nunggu mendarat... [" .. currentTarget .. "]", Color3.fromRGB(200, 100, 255))
-        local timeout = 30
+        local timeout = 8 -- [PERBAIKAN] Turunin dari 30 detik biar gak nunggu kelamaan kalo nendangnya nyangkut
         local elapsed = 0
         local kicked = false
         while elapsed < timeout and running do
@@ -1208,57 +1240,54 @@ local function runLoop()
             return nil
         end
 
-        local char4 = player.Character
         local shouldBundir = false
+        local r1 = getRoot()
 
-        if char4 then
-            local hum4 = char4:FindFirstChild("Humanoid")
-            if hum4 then
-                task.wait(2)
-                setStatus("Balik SafeZone... [" .. currentTarget .. "]", Color3.fromRGB(100, 220, 100))
-                local bv = Instance.new("BodyVelocity")
-                bv.MaxForce = Vector3.new(1e5, 0, 1e5)
-                bv.Parent = char4:FindFirstChild("HumanoidRootPart")
+        -- [PERBAIKAN] Cek Root terbaru, bukan variabel statis yg rawan bikin script nge-hang pas karakter mati
+        if r1 then
+            task.wait(1.5)
+            setStatus("Balik SafeZone... [" .. currentTarget .. "]", Color3.fromRGB(100, 220, 100))
+            local bv = Instance.new("BodyVelocity")
+            bv.MaxForce = Vector3.new(1e5, 0, 1e5)
+            bv.Parent = r1
 
-                while running do
-                    local r2 = getRoot()
-                    if not r2 then break end
+            while running do
+                local r2 = getRoot()
+                if not r2 or r2 ~= r1 then break end -- Keluar loop kalo tiba-tiba mati / ganti karakter
 
-                    local found = findBrainrot()
-                    if found and not brainrot then
-                        brainrot = found
-                        local mutVal2 = brainrot:GetAttribute("Mutation") or "None"
-                        local basePrice = BASE_PRICE[brainrot.Name] or 0
-                        local multiplier = MULTIPLIER[mutVal2] or 1
-                        local actualPrice = basePrice * multiplier
-                        if not isValidBrainrot(brainrot) then
-                            setStatus("Bundir: " .. brainrot.Name .. " [" .. mutVal2 .. "] $" .. math.floor(actualPrice/1000) .. "K/s", Color3.fromRGB(255, 50, 50))
-                            shouldBundir = true
-                            break
-                        end
-                        setStatus("Valid! $" .. math.floor(actualPrice/1000) .. "K/s - " .. brainrot.Name, Color3.fromRGB(100, 220, 100))
+                local found = findBrainrot()
+                if found and not brainrot then
+                    brainrot = found
+                    local mutVal2 = brainrot:GetAttribute("Mutation") or "None"
+                    local basePrice = BASE_PRICE[brainrot.Name] or 0
+                    local multiplier = MULTIPLIER[mutVal2] or 1
+                    local actualPrice = basePrice * multiplier
+                    if not isValidBrainrot(brainrot) then
+                        setStatus("Bundir: " .. brainrot.Name .. " [" .. mutVal2 .. "] $" .. math.floor(actualPrice/1000) .. "K/s", Color3.fromRGB(255, 50, 50))
+                        shouldBundir = true
+                        break
                     end
-
-                    if brainrot and not brainrot.Parent then break end
-                    if (r2.Position - SAFE_POS).Magnitude < 5 then break end
-
-                    local dir = (SAFE_POS - r2.Position).Unit
-                    local speed = (hum4 and hum4.WalkSpeed or 16) + getSpeedBoost()
-                    bv.Velocity = Vector3.new(dir.X * speed, 0, dir.Z * speed)
-                    task.wait(0.1)
+                    setStatus("Valid! $" .. math.floor(actualPrice/1000) .. "K/s - " .. brainrot.Name, Color3.fromRGB(100, 220, 100))
                 end
-                bv:Destroy()
+
+                if brainrot and not brainrot.Parent then break end
+                if (r2.Position - SAFE_POS).Magnitude < 5 then break end
+
+                local dir = (SAFE_POS - r2.Position).Unit
+                local speed = (player.Character and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.WalkSpeed or 16) + getSpeedBoost()
+                bv.Velocity = Vector3.new(dir.X * speed, 0, dir.Z * speed)
+                task.wait(0.1)
             end
+            if bv then bv:Destroy() end
         end
 
         if shouldBundir then
             task.wait(1)
             bundir()
             setStatus("Bundir, nunggu respawn...", Color3.fromRGB(255, 50, 50))
-            repeat task.wait(0.1) until player.Character and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0
-            
+            waitRespawn()
             setStatus("Loading inventory...", Color3.fromRGB(255, 180, 50))
-            task.wait(1.5)
+            task.wait(0.5) 
             continue
         end
 
@@ -1279,26 +1308,23 @@ local function runLoop()
             if not brainrot.Parent then isRemoved = true end
         end)
 
-        local char5 = player.Character
-        if char5 then
-            local hum5 = char5:FindFirstChild("Humanoid")
-            if hum5 then
-                local bv2 = Instance.new("BodyVelocity")
-                bv2.MaxForce = Vector3.new(1e5, 0, 1e5)
-                bv2.Parent = char5:FindFirstChild("HumanoidRootPart")
+        local r3 = getRoot()
+        if r3 then
+            local bv2 = Instance.new("BodyVelocity")
+            bv2.MaxForce = Vector3.new(1e5, 0, 1e5)
+            bv2.Parent = r3
 
-                while not isRemoved and running do
-                    if not brainrot.Parent then isRemoved = true break end
-                    local r3 = getRoot()
-                    if r3 then
-                        local dir2 = (SAFE_POS - r3.Position).Unit
-                        local speed2 = (hum5 and hum5.WalkSpeed or 16) + getSpeedBoost()
-                        bv2.Velocity = Vector3.new(dir2.X * speed2, 0, dir2.Z * speed2)
-                    end
-                    task.wait(0.1)
-                end
-                bv2:Destroy()
+            while not isRemoved and running do
+                if not brainrot.Parent then isRemoved = true break end
+                local currR = getRoot()
+                if not currR or currR ~= r3 then break end -- Stop kalau karakter terganti
+
+                local dir2 = (SAFE_POS - currR.Position).Unit
+                local speed2 = (player.Character and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.WalkSpeed or 16) + getSpeedBoost()
+                bv2.Velocity = Vector3.new(dir2.X * speed2, 0, dir2.Z * speed2)
+                task.wait(0.1)
             end
+            if bv2 then bv2:Destroy() end
         end
         removedConn:Disconnect()
 
