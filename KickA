@@ -541,6 +541,7 @@ local MULTIPLIER = {
     ["Wet"]         = 16,
     ["Bacon"]       = 30,
     ["Astral"]      = 35,
+    ["Phantom"]     = 35,
 }
 
 local BASE_PRICE = {
