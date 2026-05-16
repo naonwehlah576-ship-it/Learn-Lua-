@@ -540,6 +540,7 @@ local MULTIPLIER = {
     ["Enchanted"]   = 12,
     ["Wet"]         = 16,
     ["Bacon"]       = 30,
+    ["Astral"]      = 35,
 }
 
 local BASE_PRICE = {
@@ -649,6 +650,10 @@ local BASE_PRICE = {
     ["Ketchuru Matsuru"]           = 800000,
     ["Mastodontico Telepiedone"]   = 850000,
     ["Ketupat Kepat"]              = 1000000,
+    ["Professora 67"]             = 1000000,
+    ["Astro Tim"]                 = 1100000,
+    ["Baba Yaga"]                 = 1200000,
+    ["Kicky"]                     = 1400000,
 }
 
 -- Bacon Event buttons
