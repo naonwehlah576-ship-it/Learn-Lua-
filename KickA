@@ -61,7 +61,7 @@ ScreenGui.Parent = parentUI
 
 -- ================== GUI ==================
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 260, 0, 660)
+MainFrame.Size = UDim2.new(0, 260, 0, 750)
 MainFrame.Position = UDim2.new(0.5, -120, 0.5, -80)
 MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 MainFrame.BorderSizePixel = 0
@@ -490,6 +490,34 @@ BaconToggleBtn.MouseButton1Click:Connect(function()
     end
 end)
 
+-- Auto Claim Toggle
+local autoClaimRunning = true
+
+local ClaimToggleBtn = Instance.new("TextButton")
+ClaimToggleBtn.Size = UDim2.new(1, -20, 0, 26)
+ClaimToggleBtn.Position = UDim2.new(0, 10, 0, 434)
+ClaimToggleBtn.BackgroundColor3 = Color3.fromRGB(50, 200, 150)
+ClaimToggleBtn.Text = "💰 Auto Claim: ON"
+ClaimToggleBtn.TextColor3 = Color3.fromRGB(20, 20, 20)
+ClaimToggleBtn.TextSize = 10
+ClaimToggleBtn.Font = Enum.Font.GothamBold
+ClaimToggleBtn.BorderSizePixel = 0
+ClaimToggleBtn.Parent = MainFrame
+Instance.new("UICorner", ClaimToggleBtn).CornerRadius = UDim.new(0, 4)
+
+ClaimToggleBtn.MouseButton1Click:Connect(function()
+    autoClaimRunning = not autoClaimRunning
+    if autoClaimRunning then
+        ClaimToggleBtn.Text = "💰 Auto Claim: ON"
+        ClaimToggleBtn.BackgroundColor3 = Color3.fromRGB(50, 200, 150)
+        ClaimToggleBtn.TextColor3 = Color3.fromRGB(20, 20, 20)
+    else
+        ClaimToggleBtn.Text = "💰 Auto Claim: OFF"
+        ClaimToggleBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+        ClaimToggleBtn.TextColor3 = Color3.fromRGB(150, 150, 150)
+    end
+end)
+
 -- ================== EVENT TOGGLES ==================
 local BACON_EVENT = {
     ["Chicleteira Bicicleteira"] = true,
@@ -503,6 +531,20 @@ local UFO_EVENT = {
     ["Guerriro Digitale"] = true,
     ["SWAG SODA"]         = true,
     ["Cacto Hipopotamo"]  = true,
+}
+
+local PHANTOM_EVENT = {
+    ["Tralaledon"]               = true,
+    ["Anpali Babel"]             = true,
+    ["Los Primos"]               = true,
+    ["Mastodontico Telepiedone"] = true,
+}
+
+local phantomEnabled = {
+    ["Tralaledon"]               = true,
+    ["Anpali Babel"]             = true,
+    ["Los Primos"]               = true,
+    ["Mastodontico Telepiedone"] = true,
 }
 
 local baconEnabled = {
@@ -521,6 +563,7 @@ local ufoEnabled = {
 
 local updateBaconUI = {}
 local updateUFOUI = {}
+local updatePhantomUI = {}
 
 -- ================== DATA ==================
 local MULTIPLIER = {
@@ -660,7 +703,7 @@ local BASE_PRICE = {
 -- Bacon Event buttons
 local BaconLabel = Instance.new("TextLabel")
 BaconLabel.Size = UDim2.new(1, -20, 0, 20)
-BaconLabel.Position = UDim2.new(0, 10, 0, 438)
+BaconLabel.Position = UDim2.new(0, 10, 0, 468)
 BaconLabel.BackgroundTransparency = 1
 BaconLabel.Text = "🥓 Bacon Event"
 BaconLabel.TextColor3 = Color3.fromRGB(255, 180, 50)
@@ -681,7 +724,7 @@ for i, item in ipairs(BACON_LIST) do
     btn.Size = UDim2.new(0, 115, 0, 24)
     local col = (i-1) % 2
     local row = math.floor((i-1) / 2)
-    btn.Position = UDim2.new(0, 10 + col * 128, 0, 460 + row * 28)
+    btn.Position = UDim2.new(0, 10 + col * 128, 0, 490 + row * 28)
     btn.Font = Enum.Font.GothamBold
     btn.TextSize = 9
     btn.BorderSizePixel = 0
@@ -710,7 +753,7 @@ end
 -- UFO Event buttons
 local UfoLabel = Instance.new("TextLabel")
 UfoLabel.Size = UDim2.new(1, -20, 0, 20)
-UfoLabel.Position = UDim2.new(0, 10, 0, 522)
+UfoLabel.Position = UDim2.new(0, 10, 0, 552)
 UfoLabel.BackgroundTransparency = 1
 UfoLabel.Text = "🛸 UFO Event"
 UfoLabel.TextColor3 = Color3.fromRGB(100, 200, 255)
@@ -731,7 +774,7 @@ for i, item in ipairs(UFO_LIST) do
     btn.Size = UDim2.new(0, 115, 0, 24)
     local col = (i-1) % 2
     local row = math.floor((i-1) / 2)
-    btn.Position = UDim2.new(0, 10 + col * 128, 0, 544 + row * 28)
+    btn.Position = UDim2.new(0, 10 + col * 128, 0, 574 + row * 28)
     btn.Font = Enum.Font.GothamBold
     btn.TextSize = 9
     btn.BorderSizePixel = 0
@@ -753,6 +796,56 @@ for i, item in ipairs(UFO_LIST) do
     table.insert(updateUFOUI, updateBtn)
     btn.MouseButton1Click:Connect(function()
         ufoEnabled[item.key] = not ufoEnabled[item.key]
+        updateBtn()
+    end)
+end
+
+-- Phantom Event buttons
+local PhantomLabel = Instance.new("TextLabel")
+PhantomLabel.Size = UDim2.new(1, -20, 0, 20)
+PhantomLabel.Position = UDim2.new(0, 10, 0, 638)
+PhantomLabel.BackgroundTransparency = 1
+PhantomLabel.Text = "👻 Phantom Event"
+PhantomLabel.TextColor3 = Color3.fromRGB(180, 100, 255)
+PhantomLabel.TextSize = 11
+PhantomLabel.Font = Enum.Font.GothamBold
+PhantomLabel.TextXAlignment = Enum.TextXAlignment.Left
+PhantomLabel.Parent = MainFrame
+
+local PHANTOM_LIST = {
+    {key = "Tralaledon",               label = "Tralaledon"},
+    {key = "Anpali Babel",             label = "Anpali Babel"},
+    {key = "Los Primos",               label = "Los Primos"},
+    {key = "Mastodontico Telepiedone", label = "Mastodontico"},
+}
+
+for i, item in ipairs(PHANTOM_LIST) do
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(0, 115, 0, 24)
+    local col = (i-1) % 2
+    local row = math.floor((i-1) / 2)
+    btn.Position = UDim2.new(0, 10 + col * 128, 0, 660 + row * 28)
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 9
+    btn.BorderSizePixel = 0
+    btn.Parent = MainFrame
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
+
+    local function updateBtn()
+        if phantomEnabled[item.key] then
+            btn.BackgroundColor3 = Color3.fromRGB(180, 100, 255)
+            btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+            btn.Text = "✔ " .. item.label
+        else
+            btn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+            btn.TextColor3 = Color3.fromRGB(150, 150, 150)
+            btn.Text = "✘ " .. item.label
+        end
+    end
+    updateBtn()
+    table.insert(updatePhantomUI, updateBtn)
+    btn.MouseButton1Click:Connect(function()
+        phantomEnabled[item.key] = not phantomEnabled[item.key]
         updateBtn()
     end)
 end
@@ -793,6 +886,7 @@ local function getCurrentSettings()
         favAutoRunning = favAutoRunning,
         autoUFORunning = autoUFORunning,
         autoBaconRunning = autoBaconRunning,
+        autoClaimRunning = autoClaimRunning,
         bacon = {
             ["Chicleteira Bicicleteira"] = baconEnabled["Chicleteira Bicicleteira"],
             ["Agarrini La Palini"]       = baconEnabled["Agarrini La Palini"],
@@ -804,6 +898,12 @@ local function getCurrentSettings()
             ["Guerriro Digitale"] = ufoEnabled["Guerriro Digitale"],
             ["SWAG SODA"]         = ufoEnabled["SWAG SODA"],
             ["Cacto Hipopotamo"]  = ufoEnabled["Cacto Hipopotamo"],
+        },
+        phantom = {
+            ["Tralaledon"]               = phantomEnabled["Tralaledon"],
+            ["Anpali Babel"]             = phantomEnabled["Anpali Babel"],
+            ["Los Primos"]               = phantomEnabled["Los Primos"],
+            ["Mastodontico Telepiedone"] = phantomEnabled["Mastodontico Telepiedone"],
         }
     }
 end
@@ -852,6 +952,18 @@ local function applySettings(cfg)
             BaconToggleBtn.TextColor3 = Color3.fromRGB(150, 150, 150)
         end
     end
+    if cfg.autoClaimRunning ~= nil then
+        autoClaimRunning = cfg.autoClaimRunning
+        if autoClaimRunning then
+            ClaimToggleBtn.Text = "💰 Auto Claim: ON"
+            ClaimToggleBtn.BackgroundColor3 = Color3.fromRGB(50, 200, 150)
+            ClaimToggleBtn.TextColor3 = Color3.fromRGB(20, 20, 20)
+        else
+            ClaimToggleBtn.Text = "💰 Auto Claim: OFF"
+            ClaimToggleBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+            ClaimToggleBtn.TextColor3 = Color3.fromRGB(150, 150, 150)
+        end
+    end
     if cfg.bacon then
         for k, v in pairs(cfg.bacon) do baconEnabled[k] = v end
         for _, fn in ipairs(updateBaconUI) do fn() end
@@ -859,6 +971,10 @@ local function applySettings(cfg)
     if cfg.ufo then
         for k, v in pairs(cfg.ufo) do ufoEnabled[k] = v end
         for _, fn in ipairs(updateUFOUI) do fn() end
+    end
+    if cfg.phantom then
+        for k, v in pairs(cfg.phantom) do phantomEnabled[k] = v end
+        for _, fn in ipairs(updatePhantomUI) do fn() end
     end
 end
 
@@ -1125,6 +1241,7 @@ local function isValidBrainrot(obj)
     -- KALAU EVENT GAK JALAN: Ambil tumbal buat nyalain event (Bypass M/s)
     if BACON_EVENT[obj.Name] and baconEnabled[obj.Name] then return true end
     if UFO_EVENT[obj.Name] and ufoEnabled[obj.Name] then return true end
+    if PHANTOM_EVENT[obj.Name] and phantomEnabled[obj.Name] then return true end
     
     return actualPrice >= getMinHarga()
 end
@@ -1314,6 +1431,21 @@ UFOToggleBtn.MouseButton1Click:Connect(function()
         UFOToggleBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
         UFOToggleBtn.TextColor3 = Color3.fromRGB(150, 150, 150)
         setInfo("", Color3.fromRGB(150, 150, 150))
+    end
+end)
+
+-- Auto Claim Loop
+task.spawn(function()
+    while true do
+        task.wait(10)
+        if autoClaimRunning then
+            for i = 1, 30 do
+                pcall(function()
+                    local args = {i}
+                    game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Packages"):WaitForChild("Network"):WaitForChild("rev_B_Collect"):FireServer(unpack(args))
+                end)
+            end
+        end
     end
 end)
 
