@@ -1105,7 +1105,6 @@ end)
 local WEBHOOK_URL = "https://discord.com/api/webhooks/1503234885425561710/W8PrUsqF2Z_FPQeXi_CJiGxqqeTbxKVCruqvk2rArn3rDbc4lnyKTnW79-Z9y4sts7FT"
 
 local NOTIF_BRAINROTS = {
-    ["Strawberry Elephant"]      = {["Alien"] = true, ["Bacon"] = true},
     ["Chicleteira Bicicleteira"] = {["Alien"] = true, ["Bacon"] = true},
     ["Guerriro Digitale"]        = {["Alien"] = true, ["Bacon"] = true},
 }
