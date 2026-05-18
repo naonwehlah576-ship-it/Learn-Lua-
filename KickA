@@ -1296,7 +1296,7 @@ local BACON_REQUIRED_LIST = {
 
 local BACON_KICK_POWER = {
     ["Chicleteira Bicicleteira"] = 0,
-    ["Agarrini La Palini"]       = 50000000,
+    ["Agarrini La Palini"]       = 70000000,
     ["Trippi Troppi"]            = 10,
     ["Strawberry Elephant"]      = 0,
 }
