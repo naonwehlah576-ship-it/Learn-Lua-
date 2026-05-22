@@ -61,7 +61,7 @@ ScreenGui.Parent = parentUI
 
 -- ================== GUI ==================
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 260, 0, 750)
+MainFrame.Size = UDim2.new(0, 260, 0, 740)
 MainFrame.Position = UDim2.new(0.5, -120, 0.5, -80)
 MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 MainFrame.BorderSizePixel = 0
@@ -518,6 +518,31 @@ ClaimToggleBtn.MouseButton1Click:Connect(function()
     end
 end)
 
+-- Bacon Stok Target
+local BaconStokLabel = Instance.new("TextLabel")
+BaconStokLabel.Size = UDim2.new(0, 110, 0, 22)
+BaconStokLabel.Position = UDim2.new(0, 10, 0, 464)
+BaconStokLabel.BackgroundTransparency = 1
+BaconStokLabel.Text = "Bacon Stok:"
+BaconStokLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+BaconStokLabel.TextSize = 10
+BaconStokLabel.Font = Enum.Font.GothamBold
+BaconStokLabel.TextXAlignment = Enum.TextXAlignment.Left
+BaconStokLabel.Parent = MainFrame
+
+local BaconStokBox = Instance.new("TextBox")
+BaconStokBox.Size = UDim2.new(0, 90, 0, 22)
+BaconStokBox.Position = UDim2.new(0, 130, 0, 464)
+BaconStokBox.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+BaconStokBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+BaconStokBox.Text = "1"
+BaconStokBox.TextSize = 11
+BaconStokBox.Font = Enum.Font.GothamBold
+BaconStokBox.ClearTextOnFocus = false
+BaconStokBox.BorderSizePixel = 0
+BaconStokBox.Parent = MainFrame
+Instance.new("UICorner", BaconStokBox).CornerRadius = UDim.new(0, 4)
+
 -- ================== EVENT TOGGLES ==================
 local BACON_EVENT = {
     ["Chicleteira Bicicleteira"] = true,
@@ -703,7 +728,7 @@ local BASE_PRICE = {
 -- Bacon Event buttons
 local BaconLabel = Instance.new("TextLabel")
 BaconLabel.Size = UDim2.new(1, -20, 0, 20)
-BaconLabel.Position = UDim2.new(0, 10, 0, 468)
+BaconLabel.Position = UDim2.new(0, 10, 0, 494)
 BaconLabel.BackgroundTransparency = 1
 BaconLabel.Text = "🥓 Bacon Event"
 BaconLabel.TextColor3 = Color3.fromRGB(255, 180, 50)
@@ -724,7 +749,7 @@ for i, item in ipairs(BACON_LIST) do
     btn.Size = UDim2.new(0, 115, 0, 24)
     local col = (i-1) % 2
     local row = math.floor((i-1) / 2)
-    btn.Position = UDim2.new(0, 10 + col * 128, 0, 490 + row * 28)
+    btn.Position = UDim2.new(0, 10 + col * 128, 0, 516 + row * 28)
     btn.Font = Enum.Font.GothamBold
     btn.TextSize = 9
     btn.BorderSizePixel = 0
@@ -753,7 +778,7 @@ end
 -- UFO Event buttons
 local UfoLabel = Instance.new("TextLabel")
 UfoLabel.Size = UDim2.new(1, -20, 0, 20)
-UfoLabel.Position = UDim2.new(0, 10, 0, 552)
+UfoLabel.Position = UDim2.new(0, 10, 0, 574)
 UfoLabel.BackgroundTransparency = 1
 UfoLabel.Text = "🛸 UFO Event"
 UfoLabel.TextColor3 = Color3.fromRGB(100, 200, 255)
@@ -774,7 +799,7 @@ for i, item in ipairs(UFO_LIST) do
     btn.Size = UDim2.new(0, 115, 0, 24)
     local col = (i-1) % 2
     local row = math.floor((i-1) / 2)
-    btn.Position = UDim2.new(0, 10 + col * 128, 0, 574 + row * 28)
+    btn.Position = UDim2.new(0, 10 + col * 128, 0, 596 + row * 28)
     btn.Font = Enum.Font.GothamBold
     btn.TextSize = 9
     btn.BorderSizePixel = 0
@@ -803,7 +828,7 @@ end
 -- Phantom Event buttons
 local PhantomLabel = Instance.new("TextLabel")
 PhantomLabel.Size = UDim2.new(1, -20, 0, 20)
-PhantomLabel.Position = UDim2.new(0, 10, 0, 638)
+PhantomLabel.Position = UDim2.new(0, 10, 0, 654)
 PhantomLabel.BackgroundTransparency = 1
 PhantomLabel.Text = "👻 Phantom Event"
 PhantomLabel.TextColor3 = Color3.fromRGB(180, 100, 255)
@@ -824,7 +849,7 @@ for i, item in ipairs(PHANTOM_LIST) do
     btn.Size = UDim2.new(0, 115, 0, 24)
     local col = (i-1) % 2
     local row = math.floor((i-1) / 2)
-    btn.Position = UDim2.new(0, 10 + col * 128, 0, 660 + row * 28)
+    btn.Position = UDim2.new(0, 10 + col * 128, 0, 676 + row * 28)
     btn.Font = Enum.Font.GothamBold
     btn.TextSize = 9
     btn.BorderSizePixel = 0
@@ -1299,6 +1324,37 @@ local BACON_KICK_POWER = {
     ["Strawberry Elephant"]      = 0,
 }
 
+local function countInBackpack(name)
+    local count = 0
+    pcall(function()
+        if player:FindFirstChild("Backpack") then
+            for _, item in ipairs(player.Backpack:GetChildren()) do
+                if item.Name == name then count = count + 1 end
+            end
+        end
+        if player.Character then
+            for _, item in ipairs(player.Character:GetChildren()) do
+                if item.Name == name then count = count + 1 end
+            end
+        end
+    end)
+    return count
+end
+
+local function getBaconStokTarget()
+    local val = tonumber(BaconStokBox.Text)
+    if not val or val < 1 then return 1 end
+    return math.floor(val)
+end
+
+local function hasEnoughBaconStok()
+    local target = getBaconStokTarget()
+    for _, name in ipairs(BACON_REQUIRED_LIST) do
+        if countInBackpack(name) < target then return false end
+    end
+    return true
+end
+
 local function isBaconExpired()
     local ok, label = pcall(function()
         return player.PlayerGui.TimersGui.TimedUpgrades.Bacon.TimeLabel
@@ -1331,20 +1387,24 @@ local function autoSetBaconKickPower()
         setInfo("🥓 Bacon: Sedang Aktif!", Color3.fromRGB(255, 180, 50))
         return
     end
-    if hasAllBaconBrainrots() then
+    -- cek stok target
+    if hasEnoughBaconStok() then
         KickPowerBox.Text = "1"
         KickArg2Box.Text = tostring(getMaxKickPower())
-        setInfo("🥓 Bacon: Ready, aktifasi...", Color3.fromRGB(255, 220, 50))
+        setInfo("🥓 Bacon: Stok penuh, aktifasi!", Color3.fromRGB(255, 220, 50))
         tryActivateBacon()
         return
     end
+    -- cari brainrot yang stoknya paling sedikit
+    local target = getBaconStokTarget()
     for _, name in ipairs(BACON_REQUIRED_LIST) do
-        if not hasInBackpack(name) then
+        local count = countInBackpack(name)
+        if count < target then
             local targetPower = BACON_KICK_POWER[name]
             if not targetPower or targetPower == 0 then targetPower = getMaxKickPower() end
             KickArg2Box.Text = tostring(targetPower)
             KickPowerBox.Text = "1"
-            setInfo("🥓 Bacon: Cari " .. name, Color3.fromRGB(255, 150, 50))
+            setInfo("🥓 Bacon: Cari " .. name .. " (" .. count .. "/" .. target .. ")", Color3.fromRGB(255, 150, 50))
             return
         end
     end
