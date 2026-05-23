@@ -1142,6 +1142,9 @@ local function isValidBrainrot(obj)
     local multiplier = MULTIPLIER[mutKey] or 1
     local actualPrice = basePrice * multiplier
 
+    -- PHANTOM EVENT (Bypass Mutlak)
+    if PHANTOM_EVENT[obj.Name] and phantomEnabled[obj.Name] then return true end
+
     -- Cek status timer UI buat tau event lagi jalan atau nggak
     local ufoActive = false
     pcall(function() ufoActive = (player.PlayerGui.TimersGui.TimedUpgrades.Alien.TimeLabel.Text ~= "00:00") end)
@@ -1158,7 +1161,6 @@ local function isValidBrainrot(obj)
     if autoBaconRunning then
         for _, reqName in ipairs(BACON_REQUIRED_LIST) do
             if obj.Name == reqName then
-                -- Kalau stoknya belum sampe target, sikat!
                 if countInBackpack(reqName) < getBaconStokTarget() then
                     return true 
                 end
@@ -1172,9 +1174,6 @@ local function isValidBrainrot(obj)
             if obj.Name == uName then return true end
         end
     end
-
-    -- PHANTOM EVENT
-    if PHANTOM_EVENT[obj.Name] and phantomEnabled[obj.Name] then return true end
     
     -- Filter M/s Normal
     return actualPrice >= getMinHarga()
@@ -1268,7 +1267,7 @@ local function autoSetBaconKickPower()
         setInfo("🥓 Bacon: Sedang Aktif!", Color3.fromRGB(255, 180, 50))
         return
     end
-    -- cek stok target
+    
     if hasEnoughBaconStok() then
         KickPowerBox.Text = "1"
         KickArg2Box.Text = tostring(getMaxKickPower())
@@ -1277,36 +1276,44 @@ local function autoSetBaconKickPower()
         return
     end
     
-    -- CARI TUMBAL: Gabungin target yang posisinya (Kick Power-nya) SAMA
     local target = getBaconStokTarget()
+    
+    -- CARI JUMLAH STOK PALING SEDIKIT DARI SEMUA TUMBAL
+    local lowestCount = math.huge
+    for _, name in ipairs(BACON_REQUIRED_LIST) do
+        local count = countInBackpack(name)
+        if count < lowestCount then
+            lowestCount = count
+        end
+    end
+
     local selectedPower = nil
     local groupedNames = {}
 
     for _, name in ipairs(BACON_REQUIRED_LIST) do
         local count = countInBackpack(name)
-        if count < target then
+        
+        -- HANYA FOKUS MENGUMPULKAN ITEM YANG JUMLAHNYA PALING SEDIKIT (Round-Robin)
+        if count == lowestCount and count < target then
             local targetPower = BACON_KICK_POWER[name]
             if not targetPower or targetPower == 0 then targetPower = getMaxKickPower() end
             
-            -- Kalau belum ada power yang dipilih, jadikan ini patokan
             if not selectedPower then
                 selectedPower = targetPower
                 table.insert(groupedNames, {n = name, c = count})
-            -- Kalau item ini powernya sama persis kayak patokan, masukin ke grup!
             elseif selectedPower == targetPower then
                 table.insert(groupedNames, {n = name, c = count})
             end
         end
     end
 
-    -- Update UI dan Set Power
     if selectedPower then
         KickArg2Box.Text = tostring(selectedPower)
         KickPowerBox.Text = "1"
         
         local strList = {}
         for _, item in ipairs(groupedNames) do
-            local shortName = string.split(item.n, " ")[1] -- Potong nama biar rapi
+            local shortName = string.split(item.n, " ")[1]
             table.insert(strList, shortName .. " " .. item.c .. "/" .. target)
         end
         
