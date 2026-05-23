@@ -1251,13 +1251,15 @@ local function hasAllBaconBrainrots()
 end
 
 local function tryActivateBacon()
-    if not isBaconExpired() then return end
-    if not hasAllBaconBrainrots() then return end
+    if not isBaconExpired() then return false end
+    if not hasAllBaconBrainrots() then return false end
     pcall(function()
         local args = {"BACON"}
         game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Packages"):WaitForChild("Network"):WaitForChild("rev_sbe"):FireServer(unpack(args))
     end)
     setStatus("Bacon Event diaktifkan!", Color3.fromRGB(255, 180, 50))
+    task.wait(3) -- Delay biar server ngupdate timer di layar dan gak nge-reject tendangan
+    return true
 end
 
 local function autoSetBaconKickPower()
@@ -1265,15 +1267,14 @@ local function autoSetBaconKickPower()
         KickPowerBox.Text = "1"
         KickArg2Box.Text = tostring(getMaxKickPower())
         setInfo("🥓 Bacon: Sedang Aktif!", Color3.fromRGB(255, 180, 50))
-        return
+        return false
     end
     
     if hasEnoughBaconStok() then
         KickPowerBox.Text = "1"
         KickArg2Box.Text = tostring(getMaxKickPower())
         setInfo("🥓 Bacon: Stok penuh, aktifasi!", Color3.fromRGB(255, 220, 50))
-        tryActivateBacon()
-        return
+        return tryActivateBacon()
     end
     
     local target = getBaconStokTarget()
@@ -1318,10 +1319,11 @@ local function autoSetBaconKickPower()
         end
         
         setInfo("🥓 Cari: " .. table.concat(strList, " & "), Color3.fromRGB(255, 150, 50))
-        return
+        return false
     end
 
     setInfo("🥓 Bacon: Idle", Color3.fromRGB(150, 150, 150))
+    return false
 end
 
 -- ================== UFO AUTO ACTIVATE ==================
@@ -1348,13 +1350,15 @@ local function hasAllUFOBrainrots()
 end
 
 local function tryActivateUFO()
-    if not isUFOExpired() then return end
-    if not hasAllUFOBrainrots() then return end
+    if not isUFOExpired() then return false end
+    if not hasAllUFOBrainrots() then return false end
     pcall(function()
         local args = {"UFO"}
         game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Packages"):WaitForChild("Network"):WaitForChild("rev_sbe"):FireServer(unpack(args))
     end)
     setStatus("UFO Event diaktifkan!", Color3.fromRGB(100, 200, 255))
+    task.wait(3) -- Delay buat UFO juga
+    return true
 end
 
 local function autoSetKickPower()
@@ -1362,14 +1366,13 @@ local function autoSetKickPower()
         KickPowerBox.Text = "1"
         KickArg2Box.Text = tostring(getMaxKickPower())
         setInfo("🛸 UFO: Sedang Aktif!", Color3.fromRGB(100, 200, 255))
-        return
+        return false
     end
     if hasAllUFOBrainrots() then
         KickPowerBox.Text = "1"
         KickArg2Box.Text = tostring(getMaxKickPower())
         setInfo("🛸 UFO: Ready, aktifasi...", Color3.fromRGB(150, 220, 255))
-        tryActivateUFO()
-        return
+        return tryActivateUFO()
     end
     for _, name in ipairs(UFO_REQUIRED) do
         if not hasInBackpack(name) then
@@ -1378,10 +1381,11 @@ local function autoSetKickPower()
             KickArg2Box.Text = tostring(targetPower)
             KickPowerBox.Text = "1"
             setInfo("🛸 UFO: Cari " .. name, Color3.fromRGB(100, 200, 255))
-            return
+            return false
         end
     end
     setInfo("🛸 UFO: Idle", Color3.fromRGB(150, 150, 150))
+    return false
 end
 
 UFOToggleBtn.MouseButton1Click:Connect(function()
@@ -1433,6 +1437,7 @@ local function runLoop()
         -- STEP 0: GLOBAL OVERRIDE
         local isUfoActive = not isUFOExpired()
         local isBaconActive = not isBaconExpired()
+        local justActivated = false
 
         -- Force Max HANYA JIKA event jalan DAN minimal satu fitur event (Bacon/UFO) lu nyalain
         if (isUfoActive or isBaconActive) and (autoUFORunning or autoBaconRunning) then
@@ -1440,16 +1445,21 @@ local function runLoop()
             KickArg2Box.Text = tostring(getMaxKickPower())
             setInfo("🚨 EVENT AKTIF! FORCE MAX (Fokus M/s)", Color3.fromRGB(255, 50, 50))
         else
-            -- Fix Antrian Tabrakan Tumbal
+            -- Fix Antrian Tabrakan Tumbal (Sekarang me-return true/false kalau abis aktifasi event)
             if autoBaconRunning and not hasEnoughBaconStok() then
-                autoSetBaconKickPower()
+                justActivated = autoSetBaconKickPower() or false
             elseif autoUFORunning and not hasAllUFOBrainrots() then
-                autoSetKickPower()
+                justActivated = autoSetKickPower() or false
             elseif autoBaconRunning and hasEnoughBaconStok() then
-                autoSetBaconKickPower() -- Aktifasi
+                justActivated = autoSetBaconKickPower() or false -- Aktifasi
             elseif autoUFORunning and hasAllUFOBrainrots() then
-                autoSetKickPower() -- Aktifasi
+                justActivated = autoSetKickPower() or false -- Aktifasi
             end
+        end
+        
+        -- Kalau script abis neken tombol aktifasi, JANGAN LANGSUNG KICK (Loop ulang)
+        if justActivated then
+            continue 
         end
 
         -- STEP 1: TP ke kick spot
