@@ -689,6 +689,7 @@ local BASE_PRICE = {
     ["Tralaledon"]                 = 625000,
     ["Anpali Babel"]               = 750000,
     ["Ketchuru Matsuru"]           = 800000,
+    ["Los Primos"]                 = 800000,
     ["Mastodontico Telepiedone"]   = 850000,
     ["Ketupat Kepat"]              = 1000000,
     ["Professora 67"]             = 1000000,
