@@ -1513,12 +1513,17 @@ local function runLoop()
             if not r then return nil end
             local closest = nil
             local shortestDist = math.huge
-            for _, child in ipairs(debris:GetChildren()) do
-                if child:IsA("Model") and child.PrimaryPart and child.PrimaryPart.Name == "Root" then
-                    local dist = (child.PrimaryPart.Position - r.Position).Magnitude
-                    if dist < shortestDist then
-                        shortestDist = dist
-                        closest = child
+            for _, outerModel in ipairs(debris:GetChildren()) do
+                if outerModel:IsA("Model") then
+                    -- Struktur baru: Debris > Model > BrainrotModel (yang punya nama brainrot)
+                    for _, innerModel in ipairs(outerModel:GetChildren()) do
+                        if innerModel:IsA("Model") and BASE_PRICE[innerModel.Name] and innerModel.PrimaryPart and innerModel.PrimaryPart.Name == "Root" then
+                            local dist = (innerModel.PrimaryPart.Position - r.Position).Magnitude
+                            if dist < shortestDist then
+                                shortestDist = dist
+                                closest = innerModel
+                            end
+                        end
                     end
                 end
             end
