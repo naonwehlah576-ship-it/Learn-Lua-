@@ -575,12 +575,12 @@ local MULTIPLIER = {
     ["Shadow"]      = 12,
     ["Virus"]       = 10,
     ["Electrified"] = 16,
-    ["Rainbow"]     = 30,
+    ["Rainbow"]     = 40,
     ["Alien"]       = 22,
     ["Enchanted"]   = 12,
     ["Wet"]         = 16,
     ["Bacon"]       = 30,
-    ["Astral"]      = 35,
+    ["Astral"]      = 50,
     ["Phantom"]     = 35,
 }
 
