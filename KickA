@@ -559,7 +559,6 @@ local phantomEnabled = {
     ["Mastodontico Telepiedone"] = true,
 }
 
-
 local updatePhantomUI = {}
 
 -- ================== DATA ==================
@@ -582,121 +581,58 @@ local MULTIPLIER = {
     ["Bacon"]       = 30,
     ["Astral"]      = 50,
     ["Phantom"]     = 35,
+    ["Volcanic"]    = 35,
+    ["Heavenly"]    = 32,
 }
 
-local BASE_PRICE = {
-    ["Noobini Pizzanini"]          = 2,
-    ["Lirili Larila"]              = 3,
-    ["Tim Cheese"]                 = 3,
-    ["Talpa Di Fero"]              = 4,
-    ["Svinina Bombardino"]         = 5,
-    ["Pipi Kiwi"]                  = 6,
-    ["Trippi Troppi"]              = 7,
-    ["Fruli Frula"]                = 7,
-    ["Gangster Footera"]           = 15,
-    ["Bobrito Bandito"]            = 17,
-    ["Boneca Ambalabu"]            = 17,
-    ["Ta Ta Ta Ta Sahur"]          = 18,
-    ["Ballerina Cappuccina"]       = 19,
-    ["Cappuccino Assassino"]       = 22,
-    ["Brr Brr Patapim"]            = 22,
-    ["Cacto Hipopotamo"]           = 26,
-    ["Garamararam"]                = 40,
-    ["Madung"]                     = 44,
-    ["Waterdino"]                  = 50,
-    ["Pesto Mortioni"]             = 52,
-    ["Pannaburro"]                 = 62,
-    ["Orcalero"]                   = 64,
-    ["Mangolini Parrocini"]        = 64,
-    ["John Pork"]                  = 72,
-    ["Gattatino Nyanino"]          = 76,
-    ["Chimpanzini Bananini"]       = 100,
-    ["Plan Red"]                   = 130,
-    ["Plan Blue"]                  = 140,
-    ["Capi Taco"]                  = 150,
-    ["Bambini Crostini"]           = 160,
-    ["Trulimero Trulicina"]        = 160,
-    ["Elefantucci Bananucci"]      = 170,
-    ["Bananita Dolphinita"]        = 210,
-    ["Salamino Pinguino"]          = 230,
-    ["Penguino Cocosino"]          = 450,
-    ["67"]                         = 500,
-    ["Burbaloni Luliloli"]         = 550,
-    ["Chef Crabracadabra"]         = 600,
-    ["Capybara Eggplant"]          = 650,
-    ["Bangello"]                   = 725,
-    ["Elefanto Frigo"]             = 775,
-    ["Rinooccio Verdini"]          = 880,
-    ["Glorbo Fruttodrillo"]        = 920,
-    ["Udin Din Din Dun"]           = 1800,
-    ["Pandaccini Bananini"]        = 2000,
-    ["Octopusini Bluberini"]       = 2100,
-    ["Strawberelli Flamingelli"]   = 2300,
-    ["Sigma Boy"]                  = 2400,
-    ["Frigo Camelo"]               = 2600,
-    ["Orangutini Ananasini"]       = 2700,
-    ["Rhino Toasterino"]           = 2900,
-    ["Bombardiro Crocodilo"]       = 3100,
-    ["Bombini Gusini"]             = 4700,
-    ["Castlino Fortini"]           = 5000,
-    ["Tuff Toucan"]                = 5300,
-    ["Fryuro"]                     = 5800,
-    ["Burguro"]                    = 6200,
-    ["Guest666"]                   = 7000,
-    ["Zibra Zubra Zibralini"]      = 7700,
-    ["Cavallo Virtuso"]            = 8500,
-    ["Gorillo Watermelondrillo"]   = 9500,
-    ["Cocofanto Elefanto"]         = 10000,
-    ["Bambu Sahur"]                = 12500,
-    ["W or L"]                     = 15000,
-    ["Girafa Celeste"]             = 16500,
-    ["Tralalero Tralala"]          = 17500,
-    ["Tralalerita Tralala"]        = 18000,
-    ["Peant Jarro"]                = 19500,
-    ["Dipperi Chiperini"]          = 20000,
-    ["Rexosaurus"]                 = 22500,
-    ["1x1x1x1"]                    = 23000,
-    ["Matteo"]                     = 25000,
-    ["Alessio"]                    = 27500,
-    ["Espresso Signora"]           = 27500,
-    ["Tripi Tropi Tropa Tripa"]    = 28000,
-    ["SWAG SODA"]                  = 29000,
-    ["Stoppo Luminino"]            = 30000,
-    ["Torrtuginni Dragonfrutini"]  = 32000,
-    ["Tictac Sahur"]               = 38000,
-    ["Cactus Pingu"]               = 44500,
-    ["Los Primos Blue"]            = 44500,
-    ["La Vacca Saturno Saturnita"] = 49500,
-    ["Agarrini La Palini"]         = 53500,
-    ["Bottellini"]                 = 75000,
-    ["Karkerkar Kurkur"]           = 120000,
-    ["Blackhole Goat"]             = 125000,
-    ["Compactoroni Diskaloni"]     = 135000,
-    ["Cappuccino Clownino"]        = 135000,
-    ["Nuclearo Dinossauro"]        = 190000,
-    ["Los Nooo My Hotspotsitos"]   = 200000,
-    ["Chillin Chilli"]             = 220000,
-    ["Crazylone Pizaione"]         = 225000,
-    ["Corn Sahur"]                 = 225000,
-    ["Meowl"]                      = 275000,
-    ["Strawberry Elephant"]        = 420000,
-    ["Dragonfrutina Dolphinita"]   = 475000,
-    ["Guerriro Digitale"]          = 490000,
-    ["Chicleteira Bicicleteira"]   = 500000,
-    ["Pot Hotspot"]                = 525000,
-    ["Krupuk Pagi Pagi"]           = 540000,
-    ["Beluga Beluga"]              = 575000,
-    ["Tralaledon"]                 = 625000,
-    ["Anpali Babel"]               = 750000,
-    ["Ketchuru Matsuru"]           = 800000,
-    ["Los Primos"]                 = 800000,
-    ["Mastodontico Telepiedone"]   = 850000,
-    ["Ketupat Kepat"]              = 1000000,
-    ["Professora 67"]             = 1000000,
-    ["Astro Tim"]                 = 1100000,
-    ["Baba Yaga"]                 = 1200000,
-    ["Kicky"]                     = 1400000,
-}
+local BASE_PRICE = {}
+
+local function autoScanIndex()
+    pcall(function()
+        local playerGui = player:WaitForChild("PlayerGui", 5)
+        if not playerGui then return end
+        local frames = playerGui:FindFirstChild("Frames")
+        local indexMenu = frames and frames:FindFirstChild("Index")
+        local holder = indexMenu and indexMenu:FindFirstChild("Holder")
+        local scrollingFrame = holder and holder:FindFirstChild("ScrollingFrame")
+
+        if not scrollingFrame then
+            warn("❌ Menu Index tidak ditemukan! Gagal update list harga. Buka menu Index agar script bisa nge-scan.")
+            return
+        end
+
+        local count = 0
+        for _, item in ipairs(scrollingFrame:GetChildren()) do
+            local cpsLabel = item:FindFirstChild("CPSLabel")
+            if cpsLabel and cpsLabel:IsA("TextLabel") then
+                local brainrotName = item.Name
+                local txt = cpsLabel.Text
+                
+                local numStr, suffix = string.match(txt, "%$([%d%.]+)([KMBkmb]?)/s")
+                if not numStr then
+                    numStr, suffix = string.match(txt, "([%d%.]+)([KMBkmb]?)")
+                end
+
+                if numStr then
+                    local val = tonumber(numStr)
+                    if val then
+                        suffix = string.upper(suffix or "")
+                        if suffix == "K" then val = val * 1000
+                        elseif suffix == "M" then val = val * 1000000
+                        elseif suffix == "B" then val = val * 1000000000
+                        end
+                        
+                        BASE_PRICE[brainrotName] = math.floor(val)
+                        count = count + 1
+                    end
+                end
+            end
+        end
+        print("✅ Auto-Scan berhasil! " .. count .. " harga item telah dimuat ke database script.")
+    end)
+end
+
+autoScanIndex()
 
 -- Phantom Event buttons
 local PhantomLabel = Instance.new("TextLabel")
@@ -1135,10 +1071,15 @@ local UFO_REQUIRED = {
 }
 
 local function isValidBrainrot(obj)
+    -- Pastikan scan berhasil. Kalau BASE_PRICE kosong, kita force accept aja biar nggak nge-drop barang secara random
+    local basePrice = BASE_PRICE[obj.Name]
+    if not basePrice then 
+        autoScanIndex() -- Coba scan sekali lagi kalau gagal
+        basePrice = BASE_PRICE[obj.Name] or 0
+    end
+
     local mutation = obj:GetAttribute("Mutation")
     local mutKey = mutation and tostring(mutation) or "None"
-    local basePrice = BASE_PRICE[obj.Name]
-    if not basePrice then return false end
     local multiplier = MULTIPLIER[mutKey] or 1
     local actualPrice = basePrice * multiplier
 
@@ -1453,7 +1394,7 @@ local function runLoop()
             elseif autoBaconRunning and hasEnoughBaconStok() then
                 justActivated = autoSetBaconKickPower() or false -- Aktifasi
             elseif autoUFORunning and hasAllUFOBrainrots() then
-                justActivated = autoSetKickPower() or false -- Aktifasi
+                 justActivated = autoSetKickPower() or false -- Aktifasi
             end
         end
         
@@ -1490,7 +1431,7 @@ local function runLoop()
             elapsed = elapsed + 0.1
             local r = getRoot()
             if r and r.Position.X < 690 then
-                kicked = true
+                 kicked = true
                 break
             end
         end
