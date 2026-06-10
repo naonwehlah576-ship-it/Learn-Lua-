@@ -53,6 +53,7 @@ end
 
 local favAutoRunning = true
 local autoUFORunning = true
+local autoHeavenlyRunning = true
 
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "BrainrotFarmGUI"
@@ -61,7 +62,7 @@ ScreenGui.Parent = parentUI
 
 -- ================== GUI ==================
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 260, 0, 580)
+MainFrame.Size = UDim2.new(0, 260, 0, 620) -- Tinggi ditambah dari 580 ke 620 untuk muat tombol baru
 MainFrame.Position = UDim2.new(1, -270, 0.5, -375)
 MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 MainFrame.BorderSizePixel = 0
@@ -81,7 +82,7 @@ local TitleLabel = Instance.new("TextLabel")
 TitleLabel.Size = UDim2.new(1, -80, 1, 0)
 TitleLabel.Position = UDim2.new(0, 10, 0, 0)
 TitleLabel.BackgroundTransparency = 1
-TitleLabel.Text = "🧠 Brainrot Farm v3.9 | Dafa Goreng"
+TitleLabel.Text = "🧠 Brainrot Farm v4.0 | Dafa Goreng"
 TitleLabel.TextColor3 = Color3.fromRGB(255, 215, 0)
 TitleLabel.TextSize = 11
 TitleLabel.Font = Enum.Font.GothamBold
@@ -99,7 +100,6 @@ CloseBtn.Font = Enum.Font.GothamBold
 CloseBtn.Parent = TitleBar
 Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 4)
 
--- Status Label utama
 local StatusLabel = Instance.new("TextLabel")
 StatusLabel.Size = UDim2.new(1, -20, 0, 20)
 StatusLabel.Position = UDim2.new(0, 10, 0, 44)
@@ -111,7 +111,6 @@ StatusLabel.Font = Enum.Font.Gotham
 StatusLabel.TextXAlignment = Enum.TextXAlignment.Left
 StatusLabel.Parent = MainFrame
 
--- Info Label kedua (bacon/ufo status)
 local InfoLabel = Instance.new("TextLabel")
 InfoLabel.Size = UDim2.new(1, -20, 0, 18)
 InfoLabel.Position = UDim2.new(0, 10, 0, 64)
@@ -136,7 +135,6 @@ ToggleBtn.BorderSizePixel = 0
 ToggleBtn.Parent = MainFrame
 Instance.new("UICorner", ToggleBtn).CornerRadius = UDim.new(0, 6)
 
--- Save/Load buttons
 local SaveBtn = Instance.new("TextButton")
 SaveBtn.Size = UDim2.new(0, 115, 0, 26)
 SaveBtn.Position = UDim2.new(0, 10, 0, 124)
@@ -161,7 +159,6 @@ LoadBtn.BorderSizePixel = 0
 LoadBtn.Parent = MainFrame
 Instance.new("UICorner", LoadBtn).CornerRadius = UDim.new(0, 4)
 
--- Config List Frame
 local ConfigFrame = Instance.new("Frame")
 ConfigFrame.Size = UDim2.new(0, 240, 0, 200)
 ConfigFrame.Position = UDim2.new(0, 10, 0, 154)
@@ -241,7 +238,7 @@ ListLayout.SortOrder = Enum.SortOrder.LayoutOrder
 ListLayout.Padding = UDim.new(0, 4)
 ListLayout.Parent = ScrollFrame
 
--- Min Harga
+-- ================== INPUTS ==================
 local MinLabel = Instance.new("TextLabel")
 MinLabel.Size = UDim2.new(0, 110, 0, 22)
 MinLabel.Position = UDim2.new(0, 10, 0, 158)
@@ -266,7 +263,6 @@ MinBox.BorderSizePixel = 0
 MinBox.Parent = MainFrame
 Instance.new("UICorner", MinBox).CornerRadius = UDim.new(0, 4)
 
--- Fly Speed
 local FlyLabel = Instance.new("TextLabel")
 FlyLabel.Size = UDim2.new(0, 110, 0, 22)
 FlyLabel.Position = UDim2.new(0, 10, 0, 184)
@@ -291,7 +287,6 @@ FlySpeedBox.BorderSizePixel = 0
 FlySpeedBox.Parent = MainFrame
 Instance.new("UICorner", FlySpeedBox).CornerRadius = UDim.new(0, 4)
 
--- Kick Power arg1
 local KickLabel = Instance.new("TextLabel")
 KickLabel.Size = UDim2.new(0, 110, 0, 22)
 KickLabel.Position = UDim2.new(0, 10, 0, 210)
@@ -328,11 +323,8 @@ KickMaxBtn.BorderSizePixel = 0
 KickMaxBtn.Parent = MainFrame
 Instance.new("UICorner", KickMaxBtn).CornerRadius = UDim.new(0, 4)
 
-KickMaxBtn.MouseButton1Click:Connect(function()
-    KickPowerBox.Text = tostring(getMaxKickPower())
-end)
+KickMaxBtn.MouseButton1Click:Connect(function() KickPowerBox.Text = tostring(getMaxKickPower()) end)
 
--- Kick Power arg2
 local KickArg2Label = Instance.new("TextLabel")
 KickArg2Label.Size = UDim2.new(0, 110, 0, 22)
 KickArg2Label.Position = UDim2.new(0, 10, 0, 236)
@@ -369,11 +361,8 @@ KickArg2MaxBtn.BorderSizePixel = 0
 KickArg2MaxBtn.Parent = MainFrame
 Instance.new("UICorner", KickArg2MaxBtn).CornerRadius = UDim.new(0, 4)
 
-KickArg2MaxBtn.MouseButton1Click:Connect(function()
-    KickArg2Box.Text = tostring(getMaxKickPower())
-end)
+KickArg2MaxBtn.MouseButton1Click:Connect(function() KickArg2Box.Text = tostring(getMaxKickPower()) end)
 
--- Min Fav
 local MinFavLabel = Instance.new("TextLabel")
 MinFavLabel.Size = UDim2.new(0, 110, 0, 22)
 MinFavLabel.Position = UDim2.new(0, 10, 0, 262)
@@ -398,7 +387,6 @@ MinFavBox.BorderSizePixel = 0
 MinFavBox.Parent = MainFrame
 Instance.new("UICorner", MinFavBox).CornerRadius = UDim.new(0, 4)
 
--- Speed Boost
 local SpeedBoostLabel = Instance.new("TextLabel")
 SpeedBoostLabel.Size = UDim2.new(0, 110, 0, 22)
 SpeedBoostLabel.Position = UDim2.new(0, 10, 0, 288)
@@ -423,7 +411,7 @@ SpeedBoostBox.BorderSizePixel = 0
 SpeedBoostBox.Parent = MainFrame
 Instance.new("UICorner", SpeedBoostBox).CornerRadius = UDim.new(0, 4)
 
--- Auto Fav Toggle
+-- ================== TOGGLES ==================
 local FavToggleBtn = Instance.new("TextButton")
 FavToggleBtn.Size = UDim2.new(1, -20, 0, 26)
 FavToggleBtn.Position = UDim2.new(0, 10, 0, 314)
@@ -436,7 +424,6 @@ FavToggleBtn.BorderSizePixel = 0
 FavToggleBtn.Parent = MainFrame
 Instance.new("UICorner", FavToggleBtn).CornerRadius = UDim.new(0, 4)
 
--- Auto UFO Toggle
 local UFOToggleBtn = Instance.new("TextButton")
 UFOToggleBtn.Size = UDim2.new(1, -20, 0, 26)
 UFOToggleBtn.Position = UDim2.new(0, 10, 0, 344)
@@ -449,7 +436,6 @@ UFOToggleBtn.BorderSizePixel = 0
 UFOToggleBtn.Parent = MainFrame
 Instance.new("UICorner", UFOToggleBtn).CornerRadius = UDim.new(0, 4)
 
--- Test Ping Discord
 local TestPingBtn = Instance.new("TextButton")
 TestPingBtn.Size = UDim2.new(1, -20, 0, 26)
 TestPingBtn.Position = UDim2.new(0, 10, 0, 374)
@@ -462,9 +448,7 @@ TestPingBtn.BorderSizePixel = 0
 TestPingBtn.Parent = MainFrame
 Instance.new("UICorner", TestPingBtn).CornerRadius = UDim.new(0, 4)
 
--- Auto Bacon Toggle
 local autoBaconRunning = true
-
 local BaconToggleBtn = Instance.new("TextButton")
 BaconToggleBtn.Size = UDim2.new(1, -20, 0, 26)
 BaconToggleBtn.Position = UDim2.new(0, 10, 0, 404)
@@ -477,22 +461,7 @@ BaconToggleBtn.BorderSizePixel = 0
 BaconToggleBtn.Parent = MainFrame
 Instance.new("UICorner", BaconToggleBtn).CornerRadius = UDim.new(0, 4)
 
-BaconToggleBtn.MouseButton1Click:Connect(function()
-    autoBaconRunning = not autoBaconRunning
-    if autoBaconRunning then
-        BaconToggleBtn.Text = "🥓 Auto Bacon: ON"
-        BaconToggleBtn.BackgroundColor3 = Color3.fromRGB(255, 150, 30)
-        BaconToggleBtn.TextColor3 = Color3.fromRGB(20, 20, 20)
-    else
-        BaconToggleBtn.Text = "🥓 Auto Bacon: OFF"
-        BaconToggleBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-        BaconToggleBtn.TextColor3 = Color3.fromRGB(150, 150, 150)
-    end
-end)
-
--- Auto Claim Toggle
 local autoClaimRunning = true
-
 local ClaimToggleBtn = Instance.new("TextButton")
 ClaimToggleBtn.Size = UDim2.new(1, -20, 0, 26)
 ClaimToggleBtn.Position = UDim2.new(0, 10, 0, 434)
@@ -505,23 +474,21 @@ ClaimToggleBtn.BorderSizePixel = 0
 ClaimToggleBtn.Parent = MainFrame
 Instance.new("UICorner", ClaimToggleBtn).CornerRadius = UDim.new(0, 4)
 
-ClaimToggleBtn.MouseButton1Click:Connect(function()
-    autoClaimRunning = not autoClaimRunning
-    if autoClaimRunning then
-        ClaimToggleBtn.Text = "💰 Auto Claim: ON"
-        ClaimToggleBtn.BackgroundColor3 = Color3.fromRGB(50, 200, 150)
-        ClaimToggleBtn.TextColor3 = Color3.fromRGB(20, 20, 20)
-    else
-        ClaimToggleBtn.Text = "💰 Auto Claim: OFF"
-        ClaimToggleBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-        ClaimToggleBtn.TextColor3 = Color3.fromRGB(150, 150, 150)
-    end
-end)
+local HeavenlyToggleBtn = Instance.new("TextButton")
+HeavenlyToggleBtn.Size = UDim2.new(1, -20, 0, 26)
+HeavenlyToggleBtn.Position = UDim2.new(0, 10, 0, 464)
+HeavenlyToggleBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 100)
+HeavenlyToggleBtn.Text = "✨ Auto Heavenly: ON"
+HeavenlyToggleBtn.TextColor3 = Color3.fromRGB(20, 20, 20)
+HeavenlyToggleBtn.TextSize = 10
+HeavenlyToggleBtn.Font = Enum.Font.GothamBold
+HeavenlyToggleBtn.BorderSizePixel = 0
+HeavenlyToggleBtn.Parent = MainFrame
+Instance.new("UICorner", HeavenlyToggleBtn).CornerRadius = UDim.new(0, 4)
 
--- Bacon Stok Target
 local BaconStokLabel = Instance.new("TextLabel")
 BaconStokLabel.Size = UDim2.new(0, 110, 0, 22)
-BaconStokLabel.Position = UDim2.new(0, 10, 0, 464)
+BaconStokLabel.Position = UDim2.new(0, 10, 0, 494)
 BaconStokLabel.BackgroundTransparency = 1
 BaconStokLabel.Text = "Bacon Stok:"
 BaconStokLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
@@ -532,7 +499,7 @@ BaconStokLabel.Parent = MainFrame
 
 local BaconStokBox = Instance.new("TextBox")
 BaconStokBox.Size = UDim2.new(0, 90, 0, 22)
-BaconStokBox.Position = UDim2.new(0, 130, 0, 464)
+BaconStokBox.Position = UDim2.new(0, 130, 0, 494)
 BaconStokBox.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
 BaconStokBox.TextColor3 = Color3.fromRGB(255, 255, 255)
 BaconStokBox.Text = "1"
@@ -543,8 +510,7 @@ BaconStokBox.BorderSizePixel = 0
 BaconStokBox.Parent = MainFrame
 Instance.new("UICorner", BaconStokBox).CornerRadius = UDim.new(0, 4)
 
--- ================== EVENT TOGGLES ==================
-
+-- ================== EVENT LISTS ==================
 local PHANTOM_EVENT = {
     ["Tralaledon"]               = true,
     ["Anpali Babel"]             = true,
@@ -558,86 +524,55 @@ local phantomEnabled = {
     ["Los Primos"]               = true,
     ["Mastodontico Telepiedone"] = true,
 }
-
 local updatePhantomUI = {}
 
--- ================== DATA ==================
 local MULTIPLIER = {
-    ["None"]        = 1,
-    ["Gold"]        = 1.5,
-    ["Golden"]      = 1.5,
-    ["Diamond"]     = 2,
-    ["Plasma"]      = 4,
-    ["Molten"]      = 6,
-    ["Radioactive"] = 8,
-    ["Void"]        = 8,
-    ["Shadow"]      = 12,
-    ["Virus"]       = 10,
-    ["Electrified"] = 16,
-    ["Rainbow"]     = 40,
-    ["Alien"]       = 22,
-    ["Enchanted"]   = 12,
-    ["Wet"]         = 16,
-    ["Bacon"]       = 30,
-    ["Astral"]      = 50,
-    ["Phantom"]     = 35,
-    ["Volcanic"]    = 35,
-    ["Heavenly"]    = 32,
+    ["None"]        = 1,   ["Gold"]        = 1.5,
+    ["Golden"]      = 1.5, ["Diamond"]     = 2,
+    ["Plasma"]      = 4,   ["Molten"]      = 6,
+    ["Radioactive"] = 8,   ["Void"]        = 8,
+    ["Shadow"]      = 12,  ["Virus"]       = 10,
+    ["Electrified"] = 16,  ["Rainbow"]     = 40,
+    ["Alien"]       = 22,  ["Enchanted"]   = 12,
+    ["Wet"]         = 16,  ["Bacon"]       = 30,
+    ["Astral"]      = 50,  ["Phantom"]     = 35,
+    ["Volcanic"]    = 35,  ["Heavenly"]    = 32,
 }
-
 local BASE_PRICE = {}
 
 local function autoScanIndex()
     pcall(function()
         local playerGui = player:WaitForChild("PlayerGui", 5)
         if not playerGui then return end
-        local frames = playerGui:FindFirstChild("Frames")
-        local indexMenu = frames and frames:FindFirstChild("Index")
-        local holder = indexMenu and indexMenu:FindFirstChild("Holder")
-        local scrollingFrame = holder and holder:FindFirstChild("ScrollingFrame")
-
-        if not scrollingFrame then
-            warn("❌ Menu Index tidak ditemukan! Gagal update list harga. Buka menu Index agar script bisa nge-scan.")
-            return
-        end
+        local scrollingFrame = playerGui:FindFirstChild("Frames") and playerGui.Frames:FindFirstChild("Index") and playerGui.Frames.Index:FindFirstChild("Holder") and playerGui.Frames.Index.Holder:FindFirstChild("ScrollingFrame")
+        if not scrollingFrame then return end
 
         local count = 0
         for _, item in ipairs(scrollingFrame:GetChildren()) do
             local cpsLabel = item:FindFirstChild("CPSLabel")
             if cpsLabel and cpsLabel:IsA("TextLabel") then
-                local brainrotName = item.Name
-                local txt = cpsLabel.Text
-                
-                local numStr, suffix = string.match(txt, "%$([%d%.]+)([KMBkmb]?)/s")
-                if not numStr then
-                    numStr, suffix = string.match(txt, "([%d%.]+)([KMBkmb]?)")
-                end
-
+                local numStr, suffix = string.match(cpsLabel.Text, "%$([%d%.]+)([KMBkmb]?)/s")
+                if not numStr then numStr, suffix = string.match(cpsLabel.Text, "([%d%.]+)([KMBkmb]?)") end
                 if numStr then
                     local val = tonumber(numStr)
                     if val then
                         suffix = string.upper(suffix or "")
                         if suffix == "K" then val = val * 1000
                         elseif suffix == "M" then val = val * 1000000
-                        elseif suffix == "B" then val = val * 1000000000
-                        end
-                        
-                        BASE_PRICE[brainrotName] = math.floor(val)
+                        elseif suffix == "B" then val = val * 1000000000 end
+                        BASE_PRICE[item.Name] = math.floor(val)
                         count = count + 1
                     end
                 end
             end
         end
-        print("✅ Auto-Scan berhasil! " .. count .. " harga item telah dimuat ke database script.")
     end)
 end
-
 autoScanIndex()
 
--- Phantom Event buttons
 local PhantomLabel = Instance.new("TextLabel")
 PhantomLabel.Size = UDim2.new(1, -20, 0, 20)
-PhantomLabel.Position = UDim2.new(0, 10, 0, 494)
+PhantomLabel.Position = UDim2.new(0, 10, 0, 524)
 PhantomLabel.BackgroundTransparency = 1
 PhantomLabel.Text = "👻 Phantom Event"
 PhantomLabel.TextColor3 = Color3.fromRGB(180, 100, 255)
@@ -658,7 +593,7 @@ for i, item in ipairs(PHANTOM_LIST) do
     btn.Size = UDim2.new(0, 115, 0, 24)
     local col = (i-1) % 2
     local row = math.floor((i-1) / 2)
-    btn.Position = UDim2.new(0, 10 + col * 128, 0, 516 + row * 28)
+    btn.Position = UDim2.new(0, 10 + col * 128, 0, 546 + row * 28)
     btn.Font = Enum.Font.GothamBold
     btn.TextSize = 9
     btn.BorderSizePixel = 0
@@ -684,24 +619,17 @@ for i, item in ipairs(PHANTOM_LIST) do
     end)
 end
 
--- ================== LOGIC ==================
+-- ================== CONFIG SYSTEM ==================
 local KICK_POS = Vector3.new(704.0, 3.2, 237.6)
 local SAFE_POS = Vector3.new(701.9, 4.2, 229.5)
-
 local running = false
-local network   = ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Packages"):WaitForChild("Network")
-local kickEvent = network:WaitForChild("rev_KickEvent")
 
--- ================== CONFIG SYSTEM ==================
 local CONFIG_FILE = "BrainrotConfigs.json"
-local isSaveMode = false
-
 local function getConfigs()
     local ok, data = pcall(readfile, CONFIG_FILE)
     if not ok or not data or data == "" then return {} end
     local ok2, parsed = pcall(game:GetService("HttpService").JSONDecode, game:GetService("HttpService"), data)
-    if not ok2 then return {} end
-    return parsed
+    return ok2 and parsed or {}
 end
 
 local function saveConfigs(configs)
@@ -722,12 +650,8 @@ local function getCurrentSettings()
         autoUFORunning = autoUFORunning,
         autoBaconRunning = autoBaconRunning,
         autoClaimRunning = autoClaimRunning,
-        phantom = {
-            ["Tralaledon"]               = phantomEnabled["Tralaledon"],
-            ["Anpali Babel"]             = phantomEnabled["Anpali Babel"],
-            ["Los Primos"]               = phantomEnabled["Los Primos"],
-            ["Mastodontico Telepiedone"] = phantomEnabled["Mastodontico Telepiedone"],
-        }
+        autoHeavenlyRunning = autoHeavenlyRunning, -- NEW
+        phantom = phantomEnabled
     }
 end
 
@@ -740,53 +664,36 @@ local function applySettings(cfg)
     pcall(function() if cfg.minFav then MinFavBox.Text = cfg.minFav end end)
     pcall(function() if cfg.speedBoost then SpeedBoostBox.Text = cfg.speedBoost end end)
     pcall(function() if cfg.baconStok then BaconStokBox.Text = cfg.baconStok end end)
+    
     if cfg.favAutoRunning ~= nil then
         favAutoRunning = cfg.favAutoRunning
-        if favAutoRunning then
-            FavToggleBtn.Text = "⭐ Auto Fav: ON"
-            FavToggleBtn.BackgroundColor3 = Color3.fromRGB(255, 200, 0)
-            FavToggleBtn.TextColor3 = Color3.fromRGB(20, 20, 20)
-        else
-            FavToggleBtn.Text = "⭐ Auto Fav: OFF"
-            FavToggleBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-            FavToggleBtn.TextColor3 = Color3.fromRGB(150, 150, 150)
-        end
+        FavToggleBtn.Text = favAutoRunning and "⭐ Auto Fav: ON" or "⭐ Auto Fav: OFF"
+        FavToggleBtn.BackgroundColor3 = favAutoRunning and Color3.fromRGB(255, 200, 0) or Color3.fromRGB(50, 50, 50)
+        FavToggleBtn.TextColor3 = favAutoRunning and Color3.fromRGB(20, 20, 20) or Color3.fromRGB(150, 150, 150)
     end
     if cfg.autoUFORunning ~= nil then
         autoUFORunning = cfg.autoUFORunning
-        if autoUFORunning then
-            UFOToggleBtn.Text = "🛸 Auto UFO: ON"
-            UFOToggleBtn.BackgroundColor3 = Color3.fromRGB(100, 200, 255)
-            UFOToggleBtn.TextColor3 = Color3.fromRGB(20, 20, 20)
-        else
-            UFOToggleBtn.Text = "🛸 Auto UFO: OFF"
-            UFOToggleBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-            UFOToggleBtn.TextColor3 = Color3.fromRGB(150, 150, 150)
-        end
+        UFOToggleBtn.Text = autoUFORunning and "🛸 Auto UFO: ON" or "🛸 Auto UFO: OFF"
+        UFOToggleBtn.BackgroundColor3 = autoUFORunning and Color3.fromRGB(100, 200, 255) or Color3.fromRGB(50, 50, 50)
+        UFOToggleBtn.TextColor3 = autoUFORunning and Color3.fromRGB(20, 20, 20) or Color3.fromRGB(150, 150, 150)
     end
     if cfg.autoBaconRunning ~= nil then
         autoBaconRunning = cfg.autoBaconRunning
-        if autoBaconRunning then
-            BaconToggleBtn.Text = "🥓 Auto Bacon: ON"
-            BaconToggleBtn.BackgroundColor3 = Color3.fromRGB(255, 150, 30)
-            BaconToggleBtn.TextColor3 = Color3.fromRGB(20, 20, 20)
-        else
-            BaconToggleBtn.Text = "🥓 Auto Bacon: OFF"
-            BaconToggleBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-            BaconToggleBtn.TextColor3 = Color3.fromRGB(150, 150, 150)
-        end
+        BaconToggleBtn.Text = autoBaconRunning and "🥓 Auto Bacon: ON" or "🥓 Auto Bacon: OFF"
+        BaconToggleBtn.BackgroundColor3 = autoBaconRunning and Color3.fromRGB(255, 150, 30) or Color3.fromRGB(50, 50, 50)
+        BaconToggleBtn.TextColor3 = autoBaconRunning and Color3.fromRGB(20, 20, 20) or Color3.fromRGB(150, 150, 150)
     end
     if cfg.autoClaimRunning ~= nil then
         autoClaimRunning = cfg.autoClaimRunning
-        if autoClaimRunning then
-            ClaimToggleBtn.Text = "💰 Auto Claim: ON"
-            ClaimToggleBtn.BackgroundColor3 = Color3.fromRGB(50, 200, 150)
-            ClaimToggleBtn.TextColor3 = Color3.fromRGB(20, 20, 20)
-        else
-            ClaimToggleBtn.Text = "💰 Auto Claim: OFF"
-            ClaimToggleBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-            ClaimToggleBtn.TextColor3 = Color3.fromRGB(150, 150, 150)
-        end
+        ClaimToggleBtn.Text = autoClaimRunning and "💰 Auto Claim: ON" or "💰 Auto Claim: OFF"
+        ClaimToggleBtn.BackgroundColor3 = autoClaimRunning and Color3.fromRGB(50, 200, 150) or Color3.fromRGB(50, 50, 50)
+        ClaimToggleBtn.TextColor3 = autoClaimRunning and Color3.fromRGB(20, 20, 20) or Color3.fromRGB(150, 150, 150)
+    end
+    if cfg.autoHeavenlyRunning ~= nil then
+        autoHeavenlyRunning = cfg.autoHeavenlyRunning
+        HeavenlyToggleBtn.Text = autoHeavenlyRunning and "✨ Auto Heavenly: ON" or "✨ Auto Heavenly: OFF"
+        HeavenlyToggleBtn.BackgroundColor3 = autoHeavenlyRunning and Color3.fromRGB(255, 255, 100) or Color3.fromRGB(50, 50, 50)
+        HeavenlyToggleBtn.TextColor3 = autoHeavenlyRunning and Color3.fromRGB(20, 20, 20) or Color3.fromRGB(150, 150, 150)
     end
     if cfg.phantom then
         for k, v in pairs(cfg.phantom) do phantomEnabled[k] = v end
@@ -803,15 +710,14 @@ local function refreshConfigList(mode)
     for name, _ in pairs(configs) do
         if name == "__last" then continue end
         count = count + 1
-        local row = Instance.new("Frame")
+        local row = Instance.new("Frame", ScrollFrame)
         row.Size = UDim2.new(1, 0, 0, 28)
         row.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
         row.BorderSizePixel = 0
         row.ZIndex = 10
-        row.Parent = ScrollFrame
         Instance.new("UICorner", row).CornerRadius = UDim.new(0, 4)
 
-        local nameBtn = Instance.new("TextButton")
+        local nameBtn = Instance.new("TextButton", row)
         nameBtn.Size = UDim2.new(1, -32, 1, 0)
         nameBtn.Position = UDim2.new(0, 4, 0, 0)
         nameBtn.BackgroundTransparency = 1
@@ -821,9 +727,8 @@ local function refreshConfigList(mode)
         nameBtn.Font = Enum.Font.Gotham
         nameBtn.TextXAlignment = Enum.TextXAlignment.Left
         nameBtn.ZIndex = 11
-        nameBtn.Parent = row
 
-        local delBtn = Instance.new("TextButton")
+        local delBtn = Instance.new("TextButton", row)
         delBtn.Size = UDim2.new(0, 24, 0, 24)
         delBtn.Position = UDim2.new(1, -28, 0, 2)
         delBtn.BackgroundColor3 = Color3.fromRGB(180, 40, 40)
@@ -831,7 +736,6 @@ local function refreshConfigList(mode)
         delBtn.TextSize = 10
         delBtn.Font = Enum.Font.GothamBold
         delBtn.ZIndex = 11
-        delBtn.Parent = row
         Instance.new("UICorner", delBtn).CornerRadius = UDim.new(0, 4)
 
         local capturedName = name
@@ -857,18 +761,6 @@ local function refreshConfigList(mode)
             refreshConfigList(mode)
         end)
     end
-
-    if count == 0 then
-        local empty = Instance.new("TextLabel")
-        empty.Size = UDim2.new(1, 0, 0, 28)
-        empty.BackgroundTransparency = 1
-        empty.Text = "Belum ada config"
-        empty.TextColor3 = Color3.fromRGB(150, 150, 150)
-        empty.TextSize = 10
-        empty.Font = Enum.Font.Gotham
-        empty.ZIndex = 10
-        empty.Parent = ScrollFrame
-    end
     ScrollFrame.CanvasSize = UDim2.new(0, 0, 0, count * 32)
 end
 
@@ -876,28 +768,20 @@ task.spawn(function()
     task.wait(0.5)
     local configs = getConfigs()
     local lastName = configs["__last"]
-    if lastName and configs[lastName] then
-        applySettings(configs[lastName])
-    end
+    if lastName and configs[lastName] then applySettings(configs[lastName]) end
 end)
 
 SaveBtn.MouseButton1Click:Connect(function()
-    isSaveMode = true
     ConfigTitle.Text = "Nama Config:"
-    NameInput.Visible = true
-    NameInput.Text = ""
+    NameInput.Visible = true; NameInput.Text = ""
     ConfirmSaveBtn.Visible = true
-    ScrollFrame.Visible = false
-    ConfigFrame.Visible = true
+    ScrollFrame.Visible = false; ConfigFrame.Visible = true
 end)
 
 LoadBtn.MouseButton1Click:Connect(function()
-    isSaveMode = false
     ConfigTitle.Text = "Pilih Config:"
-    NameInput.Visible = false
-    ConfirmSaveBtn.Visible = false
-    ScrollFrame.Visible = true
-    refreshConfigList("load")
+    NameInput.Visible = false; ConfirmSaveBtn.Visible = false
+    ScrollFrame.Visible = true; refreshConfigList("load")
     ConfigFrame.Visible = true
 end)
 
@@ -913,64 +797,7 @@ ConfirmSaveBtn.MouseButton1Click:Connect(function()
     ConfigFrame.Visible = false
 end)
 
-ConfigCloseBtn.MouseButton1Click:Connect(function()
-    ConfigFrame.Visible = false
-end)
-
--- ================== DISCORD WEBHOOK ==================
-local WEBHOOK_URL = "https://discord.com/api/webhooks/1503234885425561710/W8PrUsqF2Z_FPQeXi_CJiGxqqeTbxKVCruqvk2rArn3rDbc4lnyKTnW79-Z9y4sts7FT"
-
-local NOTIF_BRAINROTS = {
-    ["Chicleteira Bicicleteira"] = {["Alien"] = true, ["Bacon"] = true},
-}
-
-local notifiedGuids = {}
-
-local function sendDiscordNotif(name, mutation, price)
-    local HttpService = game:GetService("HttpService")
-    local httprequest = http_request or request or (syn and syn.request) or (http and http.request) or (fluxus and fluxus.request)
-    if not httprequest then return end
-    local msg = "🚨 **BRAINROT LANGKA!**\n👤 **Akun:** " .. player.Name .. "\n📦 **Item:** " .. name .. "\n🧬 **Mutasi:** " .. mutation .. "\n💰 **Harga:** $" .. math.floor(price/1000) .. "K/s"
-    local data = HttpService:JSONEncode({content = msg})
-    pcall(function()
-        httprequest({
-            Url = WEBHOOK_URL,
-            Method = "POST",
-            Headers = {["Content-Type"] = "application/json"},
-            Body = data
-        })
-    end)
-end
-
-local function checkNotifBackpack()
-    pcall(function()
-        for _, item in ipairs(player.Backpack:GetChildren()) do
-            local guid = item:GetAttribute("GUID")
-            if not guid or notifiedGuids[guid] then continue end
-            local mutation = item:GetAttribute("Mutation") or "None"
-            local notifMutations = NOTIF_BRAINROTS[item.Name]
-            if notifMutations and notifMutations[mutation] then
-                local basePrice = BASE_PRICE[item.Name] or 0
-                local multiplier = MULTIPLIER[mutation] or 1
-                local actualPrice = basePrice * multiplier
-                sendDiscordNotif(item.Name, mutation, actualPrice)
-                notifiedGuids[guid] = true
-            end
-        end
-    end)
-end
-
-TestPingBtn.MouseButton1Click:Connect(function()
-    sendDiscordNotif("Test Ping", "None", 0)
-    setStatus("Test ping dikirim!", Color3.fromRGB(88, 101, 242))
-end)
-
-task.spawn(function()
-    while true do
-        task.wait(1)
-        checkNotifBackpack()
-    end
-end)
+ConfigCloseBtn.MouseButton1Click:Connect(function() ConfigFrame.Visible = false end)
 
 -- ================== HELPER LOGIC ==================
 local function setStatus(text, color)
@@ -983,263 +810,182 @@ local function setInfo(text, color)
     InfoLabel.TextColor3 = color or Color3.fromRGB(150, 150, 150)
 end
 
-local function getRoot()
-    local char = player.Character
-    if not char then return nil end
-    return char:FindFirstChild("HumanoidRootPart")
-end
-
-local function bundir()
-    local char = player.Character
-    if char then
-        char:FindFirstChild("Humanoid").Health = 0
-    end
-end
-
-local function getMinHarga()
-    local val = tonumber(MinBox.Text)
-    if not val or val <= 0 then return 4 end
-    return val * 1000000
-end
-
-local function getKickPower()
-    local val = tonumber(KickPowerBox.Text)
-    if not val or val <= 0 then return 1 end
-    return val
-end
-
-local function getKickArg2()
-    local val = tonumber(KickArg2Box.Text)
-    if not val or val <= 0 then return 0 end
-    return val / getMaxKickPower()
-end
-
-local function getFlySpeed()
-    local val = tonumber(FlySpeedBox.Text)
-    if not val or val <= 0 then return 2000 end
-    return val
-end
-
-local function getSpeedBoost()
-    local val = tonumber(SpeedBoostBox.Text)
-    if not val then return 0 end
-    return val
-end
-
-local function getMinFav()
-    local val = tonumber(MinFavBox.Text)
-    if not val or val <= 0 then return 4000000 end
-    return val * 1000000
-end
-
+local function getRoot() return player.Character and player.Character:FindFirstChild("HumanoidRootPart") end
+local function bundir() if player.Character then player.Character:FindFirstChild("Humanoid").Health = 0 end end
+local function getMinHarga() local val = tonumber(MinBox.Text); return (val and val > 0) and val * 1000000 or 4000000 end
+local function getKickPower() local val = tonumber(KickPowerBox.Text); return (val and val > 0) and val or 1 end
+local function getKickArg2() local val = tonumber(KickArg2Box.Text); return (val and val > 0) and (val / getMaxKickPower()) or 0 end
+local function getSpeedBoost() return tonumber(SpeedBoostBox.Text) or 0 end
+local function getBaconStokTarget() local val = tonumber(BaconStokBox.Text); return (val and val > 0) and math.floor(val) or 1 end
 local function countInBackpack(name)
     local count = 0
     pcall(function()
         if player:FindFirstChild("Backpack") then
-            for _, item in ipairs(player.Backpack:GetChildren()) do
-                if item.Name == name then count = count + 1 end
-            end
+            for _, item in ipairs(player.Backpack:GetChildren()) do if item.Name == name then count = count + 1 end end
         end
         if player.Character then
-            for _, item in ipairs(player.Character:GetChildren()) do
-                if item.Name == name then count = count + 1 end
-            end
+            for _, item in ipairs(player.Character:GetChildren()) do if item.Name == name then count = count + 1 end end
         end
     end)
     return count
 end
 
-local function getBaconStokTarget()
-    local val = tonumber(BaconStokBox.Text)
-    if not val or val < 1 then return 1 end
-    return math.floor(val)
-end
+-- ================== EVENTS DATA ==================
+local BACON_REQUIRED_LIST = {"Chicleteira Bicicleteira", "Agarrini La Palini", "Trippi Troppi", "Strawberry Elephant"}
+local UFO_REQUIRED = {"Girafa Celeste", "Guerriro Digitale", "SWAG SODA", "Cacto Hipopotamo"}
+local HEAVENLY_REQUIRED = {"Anpali Babel", "Los Primos", "Mastodontico Telepiedone", "Espresso Shockantoni"} -- NEW
 
--- DATA EVENT FIX
-local BACON_REQUIRED_LIST = {
-    "Chicleteira Bicicleteira",
-    "Agarrini La Palini",
-    "Trippi Troppi",
-    "Strawberry Elephant",
-}
-
-local UFO_REQUIRED = {
-    "Girafa Celeste",
-    "Guerriro Digitale",
-    "SWAG SODA",
-    "Cacto Hipopotamo",
-}
-
-local function isValidBrainrot(obj)
-    -- Pastikan scan berhasil. Kalau BASE_PRICE kosong, kita force accept aja biar nggak nge-drop barang secara random
-    local basePrice = BASE_PRICE[obj.Name]
-    if not basePrice then 
-        autoScanIndex() -- Coba scan sekali lagi kalau gagal
-        basePrice = BASE_PRICE[obj.Name] or 0
-    end
-
-    local mutation = obj:GetAttribute("Mutation")
-    local mutKey = mutation and tostring(mutation) or "None"
-    local multiplier = MULTIPLIER[mutKey] or 1
-    local actualPrice = basePrice * multiplier
-
-    -- PHANTOM EVENT (Bypass Mutlak)
-    if PHANTOM_EVENT[obj.Name] and phantomEnabled[obj.Name] then return true end
-
-    -- Cek status timer UI buat tau event lagi jalan atau nggak
-    local ufoActive = false
-    pcall(function() ufoActive = (player.PlayerGui.TimersGui.TimedUpgrades.Alien.TimeLabel.Text ~= "00:00") end)
-    
-    local baconActive = false
-    pcall(function() baconActive = (player.PlayerGui.TimersGui.TimedUpgrades.Bacon.TimeLabel.Text ~= "00:00") end)
-
-    -- KALAU EVENT LAGI JALAN: Fokus 100% ke Min Harga (M/s)
-    if ufoActive or baconActive then
-        return actualPrice >= getMinHarga()
-    end
-
-    -- TUMBAL BACON (Grup Kolektif)
-    if autoBaconRunning then
-        for _, reqName in ipairs(BACON_REQUIRED_LIST) do
-            if obj.Name == reqName then
-                if countInBackpack(reqName) < getBaconStokTarget() then
-                    return true 
-                end
-            end
-        end
-    end
-
-    -- TUMBAL UFO
-    if autoUFORunning then
-        for _, uName in ipairs(UFO_REQUIRED) do
-            if obj.Name == uName then return true end
-        end
-    end
-    
-    -- Filter M/s Normal
-    return actualPrice >= getMinHarga()
-end
-
--- Auto favorite loop
-task.spawn(function()
-    while true do
-        task.wait(0.1)
-        if favAutoRunning then
-            pcall(function()
-                for _, item in ipairs(player.Backpack:GetChildren()) do
-                    local guid = item:GetAttribute("GUID")
-                    if guid then
-                        local isFav = item:GetAttribute("Favorite")
-                        if isFav then continue end
-                        local mutation = item:GetAttribute("Mutation") or "None"
-                        local basePrice = BASE_PRICE[item.Name] or 0
-                        local multiplier = MULTIPLIER[mutation] or 1
-                        if (basePrice * multiplier) >= getMinFav() then
-                            pcall(function()
-                                local args = {guid}
-                                game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Packages"):WaitForChild("Network"):WaitForChild("rev_ToggleFav"):FireServer(unpack(args))
-                            end)
-                        end
-                    end
-                end
-            end)
-        end
-    end
-end)
-
-FavToggleBtn.MouseButton1Click:Connect(function()
-    favAutoRunning = not favAutoRunning
-    if favAutoRunning then
-        FavToggleBtn.Text = "⭐ Auto Fav: ON"
-        FavToggleBtn.BackgroundColor3 = Color3.fromRGB(255, 200, 0)
-        FavToggleBtn.TextColor3 = Color3.fromRGB(20, 20, 20)
-    else
-        FavToggleBtn.Text = "⭐ Auto Fav: OFF"
-        FavToggleBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-        FavToggleBtn.TextColor3 = Color3.fromRGB(150, 150, 150)
-    end
-end)
-
--- ================== BACON AUTO ACTIVATE ==================
 local BACON_KICK_POWER = {
     ["Chicleteira Bicicleteira"] = 0,
     ["Agarrini La Palini"]       = 70000000,
     ["Trippi Troppi"]            = 10,
     ["Strawberry Elephant"]      = 0,
 }
+local UFO_KICK_POWER = {
+    ["Girafa Celeste"]    = 14000000,
+    ["Guerriro Digitale"] = 0,
+    ["SWAG SODA"]         = 50000000,
+    ["Cacto Hipopotamo"]  = 250,
+}
+local HEAVENLY_KICK_POWER = { -- Max Power All
+    ["Anpali Babel"]             = 0,
+    ["Los Primos"]               = 0,
+    ["Mastodontico Telepiedone"] = 0,
+    ["Espresso Shockantoni"]     = 0,
+}
 
+local function isValidBrainrot(obj)
+    local basePrice = BASE_PRICE[obj.Name]
+    if not basePrice then 
+        autoScanIndex()
+        basePrice = BASE_PRICE[obj.Name] or 0
+    end
+    local mutKey = obj:GetAttribute("Mutation") and tostring(obj:GetAttribute("Mutation")) or "None"
+    local actualPrice = basePrice * (MULTIPLIER[mutKey] or 1)
+
+    if PHANTOM_EVENT[obj.Name] and phantomEnabled[obj.Name] then return true end
+
+    local ufoActive, baconActive, heavenlyActive = false, false, false
+    pcall(function() ufoActive = (player.PlayerGui.TimersGui.TimedUpgrades.Alien.TimeLabel.Text ~= "00:00") end)
+    pcall(function() baconActive = (player.PlayerGui.TimersGui.TimedUpgrades.Bacon.TimeLabel.Text ~= "00:00") end)
+    pcall(function() heavenlyActive = (player.PlayerGui.TimersGui.TimedUpgrades.Heavenly.TimeLabel.Text ~= "00:00") end)
+
+    if ufoActive or baconActive or heavenlyActive then return actualPrice >= getMinHarga() end
+
+    -- TUMBAL HEAVENLY
+    if autoHeavenlyRunning then
+        for _, hName in ipairs(HEAVENLY_REQUIRED) do if obj.Name == hName then return true end end
+    end
+
+    -- TUMBAL BACON
+    if autoBaconRunning then
+        for _, reqName in ipairs(BACON_REQUIRED_LIST) do
+            if obj.Name == reqName and countInBackpack(reqName) < getBaconStokTarget() then return true end
+        end
+    end
+
+    -- TUMBAL UFO
+    if autoUFORunning then
+        for _, uName in ipairs(UFO_REQUIRED) do if obj.Name == uName then return true end end
+    end
+    
+    return actualPrice >= getMinHarga()
+end
+
+-- ================== HEAVENLY AUTO ACTIVATE ==================
+local function isHeavenlyExpired()
+    local ok, label = pcall(function() return player.PlayerGui.TimersGui.TimedUpgrades.Heavenly.TimeLabel end)
+    return (not ok or not label) and true or (label.Text == "00:00")
+end
+
+local function hasAllHeavenlyBrainrots()
+    for _, name in ipairs(HEAVENLY_REQUIRED) do if not hasInBackpack(name) then return false end end
+    return true
+end
+
+local function tryActivateHeavenly()
+    if not isHeavenlyExpired() or not hasAllHeavenlyBrainrots() then return false end
+    pcall(function()
+        game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Packages"):WaitForChild("Network"):WaitForChild("rev_sbe"):FireServer("HEAVENLY")
+    end)
+    setStatus("Heavenly Event diaktifkan!", Color3.fromRGB(255, 255, 100))
+    task.wait(3)
+    return true
+end
+
+local function autoSetHeavenlyKickPower()
+    if not isHeavenlyExpired() then
+        KickPowerBox.Text = "1"; KickArg2Box.Text = tostring(getMaxKickPower())
+        setInfo("✨ Heavenly: Sedang Aktif!", Color3.fromRGB(255, 255, 100))
+        return false
+    end
+    if hasAllHeavenlyBrainrots() then
+        KickPowerBox.Text = "1"; KickArg2Box.Text = tostring(getMaxKickPower())
+        setInfo("✨ Heavenly: Ready, aktifasi...", Color3.fromRGB(255, 255, 150))
+        return tryActivateHeavenly()
+    end
+    for _, name in ipairs(HEAVENLY_REQUIRED) do
+        if not hasInBackpack(name) then
+            local targetPower = HEAVENLY_KICK_POWER[name]
+            if not targetPower or targetPower == 0 then targetPower = getMaxKickPower() end
+            KickArg2Box.Text = tostring(targetPower); KickPowerBox.Text = "1"
+            setInfo("✨ Heavenly: Cari " .. name, Color3.fromRGB(255, 255, 100))
+            return false
+        end
+    end
+    setInfo("✨ Heavenly: Idle", Color3.fromRGB(150, 150, 150))
+    return false
+end
+
+-- ================== BACON/UFO AUTO ACTIVATE ==================
 local function hasEnoughBaconStok()
     local target = getBaconStokTarget()
-    for _, name in ipairs(BACON_REQUIRED_LIST) do
-        if countInBackpack(name) < target then return false end
-    end
+    for _, name in ipairs(BACON_REQUIRED_LIST) do if countInBackpack(name) < target then return false end end
     return true
 end
 
 local function isBaconExpired()
-    local ok, label = pcall(function()
-        return player.PlayerGui.TimersGui.TimedUpgrades.Bacon.TimeLabel
-    end)
-    if not ok or not label then return true end
-    return label.Text == "00:00"
+    local ok, label = pcall(function() return player.PlayerGui.TimersGui.TimedUpgrades.Bacon.TimeLabel end)
+    return (not ok or not label) and true or (label.Text == "00:00")
 end
 
 local function hasAllBaconBrainrots()
-    for _, name in ipairs(BACON_REQUIRED_LIST) do
-        if not hasInBackpack(name) then return false end
-    end
+    for _, name in ipairs(BACON_REQUIRED_LIST) do if not hasInBackpack(name) then return false end end
     return true
 end
 
 local function tryActivateBacon()
-    if not isBaconExpired() then return false end
-    if not hasAllBaconBrainrots() then return false end
-    pcall(function()
-        local args = {"BACON"}
-        game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Packages"):WaitForChild("Network"):WaitForChild("rev_sbe"):FireServer(unpack(args))
-    end)
+    if not isBaconExpired() or not hasAllBaconBrainrots() then return false end
+    pcall(function() game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Packages"):WaitForChild("Network"):WaitForChild("rev_sbe"):FireServer("BACON") end)
     setStatus("Bacon Event diaktifkan!", Color3.fromRGB(255, 180, 50))
-    task.wait(3) -- Delay biar server ngupdate timer di layar dan gak nge-reject tendangan
+    task.wait(3)
     return true
 end
 
 local function autoSetBaconKickPower()
     if not isBaconExpired() then
-        KickPowerBox.Text = "1"
-        KickArg2Box.Text = tostring(getMaxKickPower())
+        KickPowerBox.Text = "1"; KickArg2Box.Text = tostring(getMaxKickPower())
         setInfo("🥓 Bacon: Sedang Aktif!", Color3.fromRGB(255, 180, 50))
         return false
     end
-    
     if hasEnoughBaconStok() then
-        KickPowerBox.Text = "1"
-        KickArg2Box.Text = tostring(getMaxKickPower())
+        KickPowerBox.Text = "1"; KickArg2Box.Text = tostring(getMaxKickPower())
         setInfo("🥓 Bacon: Stok penuh, aktifasi!", Color3.fromRGB(255, 220, 50))
         return tryActivateBacon()
     end
     
-    local target = getBaconStokTarget()
-    
-    -- CARI JUMLAH STOK PALING SEDIKIT DARI SEMUA TUMBAL
-    local lowestCount = math.huge
+    local target, lowestCount = getBaconStokTarget(), math.huge
     for _, name in ipairs(BACON_REQUIRED_LIST) do
         local count = countInBackpack(name)
-        if count < lowestCount then
-            lowestCount = count
-        end
+        if count < lowestCount then lowestCount = count end
     end
 
-    local selectedPower = nil
-    local groupedNames = {}
-
+    local selectedPower, groupedNames = nil, {}
     for _, name in ipairs(BACON_REQUIRED_LIST) do
         local count = countInBackpack(name)
-        
-        -- HANYA FOKUS MENGUMPULKAN ITEM YANG JUMLAHNYA PALING SEDIKIT (Round-Robin)
         if count == lowestCount and count < target then
-            local targetPower = BACON_KICK_POWER[name]
-            if not targetPower or targetPower == 0 then targetPower = getMaxKickPower() end
-            
+            local targetPower = BACON_KICK_POWER[name] or getMaxKickPower()
+            if targetPower == 0 then targetPower = getMaxKickPower() end
             if not selectedPower then
                 selectedPower = targetPower
                 table.insert(groupedNames, {n = name, c = count})
@@ -1250,77 +996,50 @@ local function autoSetBaconKickPower()
     end
 
     if selectedPower then
-        KickArg2Box.Text = tostring(selectedPower)
-        KickPowerBox.Text = "1"
-        
+        KickArg2Box.Text = tostring(selectedPower); KickPowerBox.Text = "1"
         local strList = {}
-        for _, item in ipairs(groupedNames) do
-            local shortName = string.split(item.n, " ")[1]
-            table.insert(strList, shortName .. " " .. item.c .. "/" .. target)
-        end
-        
+        for _, item in ipairs(groupedNames) do table.insert(strList, string.split(item.n, " ")[1] .. " " .. item.c .. "/" .. target) end
         setInfo("🥓 Cari: " .. table.concat(strList, " & "), Color3.fromRGB(255, 150, 50))
         return false
     end
-
     setInfo("🥓 Bacon: Idle", Color3.fromRGB(150, 150, 150))
     return false
 end
 
--- ================== UFO AUTO ACTIVATE ==================
-local UFO_KICK_POWER = {
-    ["Girafa Celeste"]    = 14000000,
-    ["Guerriro Digitale"] = 0,
-    ["SWAG SODA"]         = 50000000,
-    ["Cacto Hipopotamo"]  = 250,
-}
-
 local function isUFOExpired()
-    local ok, label = pcall(function()
-        return player.PlayerGui.TimersGui.TimedUpgrades.Alien.TimeLabel
-    end)
-    if not ok or not label then return true end
-    return label.Text == "00:00"
+    local ok, label = pcall(function() return player.PlayerGui.TimersGui.TimedUpgrades.Alien.TimeLabel end)
+    return (not ok or not label) and true or (label.Text == "00:00")
 end
 
 local function hasAllUFOBrainrots()
-    for _, name in ipairs(UFO_REQUIRED) do
-        if not hasInBackpack(name) then return false end
-    end
+    for _, name in ipairs(UFO_REQUIRED) do if not hasInBackpack(name) then return false end end
     return true
 end
 
 local function tryActivateUFO()
-    if not isUFOExpired() then return false end
-    if not hasAllUFOBrainrots() then return false end
-    pcall(function()
-        local args = {"UFO"}
-        game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Packages"):WaitForChild("Network"):WaitForChild("rev_sbe"):FireServer(unpack(args))
-    end)
+    if not isUFOExpired() or not hasAllUFOBrainrots() then return false end
+    pcall(function() game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Packages"):WaitForChild("Network"):WaitForChild("rev_sbe"):FireServer("UFO") end)
     setStatus("UFO Event diaktifkan!", Color3.fromRGB(100, 200, 255))
-    task.wait(3) -- Delay buat UFO juga
+    task.wait(3)
     return true
 end
 
 local function autoSetKickPower()
     if not isUFOExpired() then
-        KickPowerBox.Text = "1"
-        KickArg2Box.Text = tostring(getMaxKickPower())
+        KickPowerBox.Text = "1"; KickArg2Box.Text = tostring(getMaxKickPower())
         setInfo("🛸 UFO: Sedang Aktif!", Color3.fromRGB(100, 200, 255))
         return false
     end
     if hasAllUFOBrainrots() then
-        KickPowerBox.Text = "1"
-        KickArg2Box.Text = tostring(getMaxKickPower())
+        KickPowerBox.Text = "1"; KickArg2Box.Text = tostring(getMaxKickPower())
         setInfo("🛸 UFO: Ready, aktifasi...", Color3.fromRGB(150, 220, 255))
         return tryActivateUFO()
     end
     for _, name in ipairs(UFO_REQUIRED) do
         if not hasInBackpack(name) then
-            local targetPower = UFO_KICK_POWER[name]
-            if not targetPower or targetPower == 0 then targetPower = getMaxKickPower() end
-            KickArg2Box.Text = tostring(targetPower)
-            KickPowerBox.Text = "1"
+            local targetPower = UFO_KICK_POWER[name] or getMaxKickPower()
+            if targetPower == 0 then targetPower = getMaxKickPower() end
+            KickArg2Box.Text = tostring(targetPower); KickPowerBox.Text = "1"
             setInfo("🛸 UFO: Cari " .. name, Color3.fromRGB(100, 200, 255))
             return false
         end
@@ -1329,31 +1048,68 @@ local function autoSetKickPower()
     return false
 end
 
-UFOToggleBtn.MouseButton1Click:Connect(function()
-    autoUFORunning = not autoUFORunning
-    if autoUFORunning then
-        UFOToggleBtn.Text = "🛸 Auto UFO: ON"
-        UFOToggleBtn.BackgroundColor3 = Color3.fromRGB(100, 200, 255)
-        UFOToggleBtn.TextColor3 = Color3.fromRGB(20, 20, 20)
-    else
-        UFOToggleBtn.Text = "🛸 Auto UFO: OFF"
-        UFOToggleBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-        UFOToggleBtn.TextColor3 = Color3.fromRGB(150, 150, 150)
-        setInfo("", Color3.fromRGB(150, 150, 150))
-    end
+-- ================== TOGGLE BINDS ==================
+HeavenlyToggleBtn.MouseButton1Click:Connect(function()
+    autoHeavenlyRunning = not autoHeavenlyRunning
+    HeavenlyToggleBtn.Text = autoHeavenlyRunning and "✨ Auto Heavenly: ON" or "✨ Auto Heavenly: OFF"
+    HeavenlyToggleBtn.BackgroundColor3 = autoHeavenlyRunning and Color3.fromRGB(255, 255, 100) or Color3.fromRGB(50, 50, 50)
+    HeavenlyToggleBtn.TextColor3 = autoHeavenlyRunning and Color3.fromRGB(20, 20, 20) or Color3.fromRGB(150, 150, 150)
 end)
 
--- Auto Claim Loop
+BaconToggleBtn.MouseButton1Click:Connect(function()
+    autoBaconRunning = not autoBaconRunning
+    BaconToggleBtn.Text = autoBaconRunning and "🥓 Auto Bacon: ON" or "🥓 Auto Bacon: OFF"
+    BaconToggleBtn.BackgroundColor3 = autoBaconRunning and Color3.fromRGB(255, 150, 30) or Color3.fromRGB(50, 50, 50)
+    BaconToggleBtn.TextColor3 = autoBaconRunning and Color3.fromRGB(20, 20, 20) or Color3.fromRGB(150, 150, 150)
+end)
+
+UFOToggleBtn.MouseButton1Click:Connect(function()
+    autoUFORunning = not autoUFORunning
+    UFOToggleBtn.Text = autoUFORunning and "🛸 Auto UFO: ON" or "🛸 Auto UFO: OFF"
+    UFOToggleBtn.BackgroundColor3 = autoUFORunning and Color3.fromRGB(100, 200, 255) or Color3.fromRGB(50, 50, 50)
+    UFOToggleBtn.TextColor3 = autoUFORunning and Color3.fromRGB(20, 20, 20) or Color3.fromRGB(150, 150, 150)
+end)
+
+ClaimToggleBtn.MouseButton1Click:Connect(function()
+    autoClaimRunning = not autoClaimRunning
+    ClaimToggleBtn.Text = autoClaimRunning and "💰 Auto Claim: ON" or "💰 Auto Claim: OFF"
+    ClaimToggleBtn.BackgroundColor3 = autoClaimRunning and Color3.fromRGB(50, 200, 150) or Color3.fromRGB(50, 50, 50)
+    ClaimToggleBtn.TextColor3 = autoClaimRunning and Color3.fromRGB(20, 20, 20) or Color3.fromRGB(150, 150, 150)
+end)
+
+FavToggleBtn.MouseButton1Click:Connect(function()
+    favAutoRunning = not favAutoRunning
+    FavToggleBtn.Text = favAutoRunning and "⭐ Auto Fav: ON" or "⭐ Auto Fav: OFF"
+    FavToggleBtn.BackgroundColor3 = favAutoRunning and Color3.fromRGB(255, 200, 0) or Color3.fromRGB(50, 50, 50)
+    FavToggleBtn.TextColor3 = favAutoRunning and Color3.fromRGB(20, 20, 20) or Color3.fromRGB(150, 150, 150)
+end)
+
+-- Auto Claim & Fav Loops
 task.spawn(function()
     while true do
         task.wait(10)
         if autoClaimRunning then
-            for i = 1, 30 do
-                pcall(function()
-                    local args = {i}
-                    game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Packages"):WaitForChild("Network"):WaitForChild("rev_B_Collect"):FireServer(unpack(args))
-                end)
-            end
+            for i = 1, 30 do pcall(function() game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Packages"):WaitForChild("Network"):WaitForChild("rev_B_Collect"):FireServer(i) end) end
+        end
+    end
+end)
+
+task.spawn(function()
+    while true do
+        task.wait(0.1)
+        if favAutoRunning then
+            pcall(function()
+                for _, item in ipairs(player.Backpack:GetChildren()) do
+                    local guid = item:GetAttribute("GUID")
+                    if guid and not item:GetAttribute("Favorite") then
+                        local mutVal = item:GetAttribute("Mutation") or "None"
+                        local actPrice = (BASE_PRICE[item.Name] or 0) * (MULTIPLIER[mutVal] or 1)
+                        if actPrice >= (tonumber(MinFavBox.Text) * 1000000 or 4000000) then
+                            pcall(function() game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Packages"):WaitForChild("Network"):WaitForChild("rev_ToggleFav"):FireServer(guid) end)
+                        end
+                    end
+                end
+            end)
         end
     end
 end)
@@ -1361,49 +1117,43 @@ end)
 -- ================== MAIN LOOP ==================
 local function runLoop()
     while running do
-        
-        -- [PERBAIKAN]: Cek apakah karakter hidup dan tunggu tas ke-load kalau habis mati
         local char0 = player.Character
         local hum0 = char0 and char0:FindFirstChild("Humanoid")
         if not char0 or not hum0 or hum0.Health <= 0 then
             setStatus("Nunggu respawn...", Color3.fromRGB(255, 100, 50))
-            repeat 
-                task.wait(0.1) 
-            until player.Character and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0
-            
+            repeat task.wait(0.1) until player.Character and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0
             setStatus("Loading inventory...", Color3.fromRGB(255, 180, 50))
-            task.wait(0.5) -- Jeda krusial biar tas gak kebaca kosong!
+            task.wait(0.5)
         end
 
-        -- STEP 0: GLOBAL OVERRIDE
         local isUfoActive = not isUFOExpired()
         local isBaconActive = not isBaconExpired()
+        local isHeavenlyActive = not isHeavenlyExpired()
         local justActivated = false
 
-        -- Force Max HANYA JIKA event jalan DAN minimal satu fitur event (Bacon/UFO) lu nyalain
-        if (isUfoActive or isBaconActive) and (autoUFORunning or autoBaconRunning) then
+        if (isUfoActive or isBaconActive or isHeavenlyActive) and (autoUFORunning or autoBaconRunning or autoHeavenlyRunning) then
             KickPowerBox.Text = "1"
             KickArg2Box.Text = tostring(getMaxKickPower())
             setInfo("🚨 EVENT AKTIF! FORCE MAX (Fokus M/s)", Color3.fromRGB(255, 50, 50))
         else
-            -- Fix Antrian Tabrakan Tumbal (Sekarang me-return true/false kalau abis aktifasi event)
-            if autoBaconRunning and not hasEnoughBaconStok() then
+            -- Prioritas: Heavenly > Bacon > UFO
+            if autoHeavenlyRunning and not hasAllHeavenlyBrainrots() then
+                justActivated = autoSetHeavenlyKickPower() or false
+            elseif autoBaconRunning and not hasEnoughBaconStok() then
                 justActivated = autoSetBaconKickPower() or false
             elseif autoUFORunning and not hasAllUFOBrainrots() then
                 justActivated = autoSetKickPower() or false
+            elseif autoHeavenlyRunning and hasAllHeavenlyBrainrots() then
+                justActivated = autoSetHeavenlyKickPower() or false
             elseif autoBaconRunning and hasEnoughBaconStok() then
-                justActivated = autoSetBaconKickPower() or false -- Aktifasi
+                justActivated = autoSetBaconKickPower() or false 
             elseif autoUFORunning and hasAllUFOBrainrots() then
-                 justActivated = autoSetKickPower() or false -- Aktifasi
+                justActivated = autoSetKickPower() or false
             end
         end
         
-        -- Kalau script abis neken tombol aktifasi, JANGAN LANGSUNG KICK (Loop ulang)
-        if justActivated then
-            continue 
-        end
+        if justActivated then continue end
 
-        -- STEP 1: TP ke kick spot
         setStatus("TP ke kick spot...", Color3.fromRGB(100, 180, 255))
         local root = getRoot()
         if not root then task.wait(1) continue end
@@ -1412,28 +1162,19 @@ local function runLoop()
 
         if not running then break end
 
-        -- STEP 2: Fire kick
         setStatus("Nge-kick...", Color3.fromRGB(255, 150, 50))
         pcall(function()
-            local args = {getKickPower(), getKickArg2()}
-            game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Packages"):WaitForChild("Network"):WaitForChild("rev_KickEvent"):FireServer(unpack(args))
+            game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Packages"):WaitForChild("Network"):WaitForChild("rev_KickEvent"):FireServer(getKickPower(), getKickArg2())
         end)
 
         if not running then break end
 
-        -- STEP 3: Nunggu kena kick
         setStatus("Nunggu kena kick...", Color3.fromRGB(200, 100, 255))
-        local timeout = 30
-        local elapsed = 0
-        local kicked = false
-        while elapsed < timeout and running do
-            task.wait(0.1)
-            elapsed = elapsed + 0.1
+        local elapsed, kicked = 0, false
+        while elapsed < 30 and running do
+            task.wait(0.1); elapsed = elapsed + 0.1
             local r = getRoot()
-            if r and r.Position.X < 690 then
-                 kicked = true
-                break
-            end
+            if r and r.Position.X < 690 then kicked = true break end
         end
 
         if not kicked or not running then
@@ -1444,26 +1185,17 @@ local function runLoop()
 
         if not running then break end
 
-        -- STEP 4: Scan + jalan ke safe zone
         setStatus("Mendarat! Nunggu brainrot spawn...", Color3.fromRGB(100, 220, 100))
-        local debris = workspace:WaitForChild("Debris")
         local brainrot = nil
-
         local function findBrainrot()
-            local r = getRoot()
-            if not r then return nil end
-            local closest = nil
-            local shortestDist = math.huge
-            for _, outerModel in ipairs(debris:GetChildren()) do
+            local r = getRoot(); if not r then return nil end
+            local closest, shortestDist = nil, math.huge
+            for _, outerModel in ipairs(workspace:WaitForChild("Debris"):GetChildren()) do
                 if outerModel:IsA("Model") then
-                    -- Struktur baru: Debris > Model > BrainrotModel (yang punya nama brainrot)
                     for _, innerModel in ipairs(outerModel:GetChildren()) do
                         if innerModel:IsA("Model") and BASE_PRICE[innerModel.Name] and innerModel.PrimaryPart and innerModel.PrimaryPart.Name == "Root" then
                             local dist = (innerModel.PrimaryPart.Position - r.Position).Magnitude
-                            if dist < shortestDist then
-                                shortestDist = dist
-                                closest = innerModel
-                            end
+                            if dist < shortestDist then shortestDist = dist; closest = innerModel end
                         end
                     end
                 end
@@ -1485,16 +1217,12 @@ local function runLoop()
                 bv.Parent = char4:FindFirstChild("HumanoidRootPart")
 
                 while running do
-                    local r2 = getRoot()
-                    if not r2 then break end
-
+                    local r2 = getRoot(); if not r2 then break end
                     local found = findBrainrot()
                     if found and not brainrot then
                         brainrot = found
                         local mutVal2 = brainrot:GetAttribute("Mutation") or "None"
-                        local basePrice = BASE_PRICE[brainrot.Name] or 0
-                        local multiplier = MULTIPLIER[mutVal2] or 1
-                        local actualPrice = basePrice * multiplier
+                        local actualPrice = (BASE_PRICE[brainrot.Name] or 0) * (MULTIPLIER[mutVal2] or 1)
                         if not isValidBrainrot(brainrot) then
                             setStatus("Bundir: " .. brainrot.Name .. " [" .. mutVal2 .. "] $" .. math.floor(actualPrice/1000) .. "K/s", Color3.fromRGB(255, 50, 50))
                             shouldBundir = true
@@ -1516,43 +1244,31 @@ local function runLoop()
         end
 
         if shouldBundir then
-            task.wait(1)
-            bundir()
+            task.wait(1); bundir()
             setStatus("Bundir, nunggu respawn...", Color3.fromRGB(255, 50, 50))
             repeat task.wait(0.1) until player.Character and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0
-            
-            -- [PERBAIKAN]: Tunggu tas loading lagi sehabis bundir
-            setStatus("Loading inventory...", Color3.fromRGB(255, 180, 50))
-            task.wait(0.5) 
+            setStatus("Loading inventory...", Color3.fromRGB(255, 180, 50)); task.wait(0.5)
             continue
         end
 
         if not brainrot or not running then
-            setStatus("Timeout brainrot, retry...", Color3.fromRGB(255, 50, 50))
-            task.wait(1)
+            setStatus("Timeout brainrot, retry...", Color3.fromRGB(255, 50, 50)); task.wait(1)
             continue
         end
 
-        -- STEP 5: Nunggu removed
         local mutVal = brainrot:GetAttribute("Mutation") or "None"
-        local basePrice = BASE_PRICE[brainrot.Name] or 0
-        local multiplier = MULTIPLIER[mutVal] or 1
-        local actualPrice = basePrice * multiplier
+        local actualPrice = (BASE_PRICE[brainrot.Name] or 0) * (MULTIPLIER[mutVal] or 1)
         setStatus("Nunggu removed: " .. brainrot.Name .. " $" .. math.floor(actualPrice/1000) .. "K/s", Color3.fromRGB(100, 220, 100))
 
         local isRemoved = false
-        local removedConn = brainrot.AncestryChanged:Connect(function()
-            if not brainrot.Parent then isRemoved = true end
-        end)
+        local removedConn = brainrot.AncestryChanged:Connect(function() if not brainrot.Parent then isRemoved = true end end)
 
         local char5 = player.Character
         if char5 then
             local hum5 = char5:FindFirstChild("Humanoid")
             if hum5 then
                 local bv2 = Instance.new("BodyVelocity")
-                bv2.MaxForce = Vector3.new(1e5, 0, 1e5)
-                bv2.Parent = char5:FindFirstChild("HumanoidRootPart")
-
+                bv2.MaxForce = Vector3.new(1e5, 0, 1e5); bv2.Parent = char5:FindFirstChild("HumanoidRootPart")
                 while not isRemoved and running do
                     if not brainrot.Parent then isRemoved = true break end
                     local r3 = getRoot()
@@ -1569,37 +1285,28 @@ local function runLoop()
         removedConn:Disconnect()
 
         if not running then break end
-
         setStatus("Brainrot selesai! Langsung kick...", Color3.fromRGB(100, 220, 100))
         task.wait(0.5)
     end
-
     setStatus("Idle", Color3.fromRGB(200, 200, 200))
     setInfo("", Color3.fromRGB(150, 150, 150))
 end
 
--- ================== BUTTON EVENTS ==================
+-- ================== BOOTSTRAP ==================
 ToggleBtn.MouseButton1Click:Connect(function()
     running = not running
     if running then
-        ToggleBtn.Text = "⏹ STOP"
-        ToggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+        ToggleBtn.Text = "⏹ STOP"; ToggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
         task.spawn(runLoop)
     else
-        ToggleBtn.Text = "▶ START"
-        ToggleBtn.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
+        ToggleBtn.Text = "▶ START"; ToggleBtn.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
         setStatus("Stopping...", Color3.fromRGB(255, 100, 50))
     end
 end)
 
-CloseBtn.MouseButton1Click:Connect(function()
-    running = false
-    ScreenGui:Destroy()
-end)
+CloseBtn.MouseButton1Click:Connect(function() running = false; ScreenGui:Destroy() end)
 
--- Auto start
 task.wait(5)
 running = true
-ToggleBtn.Text = "⏹ STOP"
-ToggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+ToggleBtn.Text = "⏹ STOP"; ToggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
 task.spawn(runLoop)
