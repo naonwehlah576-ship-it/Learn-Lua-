@@ -654,7 +654,7 @@ local function getCurrentSettings()
         autoUFORunning = autoUFORunning,
         autoBaconRunning = autoBaconRunning,
         autoClaimRunning = autoClaimRunning,
-        autoHeavenlyRunning = autoHeavenlyRunning, -- NEW
+        autoHeavenlyRunning = autoHeavenlyRunning,
         phantom = phantomEnabled
     }
 end
@@ -1138,9 +1138,8 @@ local function runLoop()
         if (isUfoActive or isBaconActive or isHeavenlyActive) and (autoUFORunning or autoBaconRunning or autoHeavenlyRunning) then
             KickPowerBox.Text = "1"
             KickArg2Box.Text = tostring(getMaxKickPower())
-            setInfo("🚨 EVENT AKTIF! FORCE MAX (Fokus M/s)", Color3.fromRGB(255, 50, 50))
+            setInfo("🚨 EVENT AKTIF! FORCE MAX", Color3.fromRGB(255, 50, 50))
         else
-            -- Prioritas: Heavenly > Bacon > UFO
             if autoHeavenlyRunning and not hasAllHeavenlyBrainrots() then
                 justActivated = autoSetHeavenlyKickPower() or false
             elseif autoBaconRunning and not hasEnoughBaconStok() then
@@ -1191,6 +1190,7 @@ local function runLoop()
 
         setStatus("Mendarat! Nunggu brainrot spawn...", Color3.fromRGB(100, 220, 100))
         local brainrot = nil
+        
         local function findNearbyBrainrots()
             local r = getRoot(); if not r then return {} end
             local foundList = {}
@@ -1199,7 +1199,6 @@ local function runLoop()
                     for _, innerModel in ipairs(outerModel:GetChildren()) do
                         if innerModel:IsA("Model") and innerModel.PrimaryPart and innerModel.PrimaryPart.Name == "Root" then
                             local dist = (innerModel.PrimaryPart.Position - r.Position).Magnitude
-                            -- Kumpulin SEMUA brainrot dalam radius 40 stud
                             if dist <= 40 then 
                                 table.insert(foundList, innerModel)
                             end
@@ -1225,7 +1224,6 @@ local function runLoop()
                 while running do
                     local r2 = getRoot(); if not r2 then break end
                     
-                    -- Panggil fungsi scan radius 40 stud
                     local foundList = findNearbyBrainrots()
                     
                     if #foundList > 0 and not brainrot then
@@ -1234,14 +1232,12 @@ local function runLoop()
                         local highestVal = -1
                         local sampleTrash = foundList[1]
                         
-                        -- Cek semua brainrot yang ketangkep di list
                         for _, b in ipairs(foundList) do
                             if isValidBrainrot(b) then
                                 hasValid = true
                                 local mutV = b:GetAttribute("Mutation") or "None"
                                 local val = (BASE_PRICE[b.Name] or 0) * (MULTIPLIER[mutV] or 1)
                                 
-                                -- Kalau ada banyak yang valid, kunci target ke yang paling mahal
                                 if val > highestVal then
                                     highestVal = val
                                     bestTarget = b
@@ -1255,7 +1251,6 @@ local function runLoop()
                             local actualPrice = (BASE_PRICE[brainrot.Name] or 0) * (MULTIPLIER[mutVal2] or 1)
                             setStatus("Valid! $" .. math.floor(actualPrice/1000) .. "K/s - " .. brainrot.Name, Color3.fromRGB(100, 220, 100))
                         else
-                            -- Kalau SEMUA list-nya gak lolos filter, baru bundir
                             local mutValTrash = sampleTrash:GetAttribute("Mutation") or "None"
                             local actPriceTrash = (BASE_PRICE[sampleTrash.Name] or 0) * (MULTIPLIER[mutValTrash] or 1)
                             setStatus("Bundir: " .. sampleTrash.Name .. " [" .. mutValTrash .. "] $" .. math.floor(actPriceTrash/1000) .. "K/s", Color3.fromRGB(255, 50, 50))
@@ -1318,8 +1313,8 @@ local function runLoop()
         removedConn:Disconnect()
 
         if not running then break end
-        setStatus("Brainrot selesai! Langsung kick...", Color3.fromRGB(100, 220, 100))
-        task.wait(0.5)
+        setStatus("Brainrot selesai! Jeda 2 dtk...", Color3.fromRGB(100, 220, 100))
+        task.wait(2)
     end
     setStatus("Idle", Color3.fromRGB(200, 200, 200))
     setInfo("", Color3.fromRGB(150, 150, 150))
