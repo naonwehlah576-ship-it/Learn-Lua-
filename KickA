@@ -1275,7 +1275,7 @@ local function runLoop()
             task.wait(1); bundir()
             setStatus("Bundir, nunggu respawn...", Color3.fromRGB(255, 50, 50))
             repeat task.wait(0.1) until player.Character and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0
-            setStatus("Loading inventory...", Color3.fromRGB(255, 180, 50)); task.wait(0.5)
+            setStatus("Loading inventory...", Color3.fromRGB(255, 180, 50)); task.wait(1.5)
             continue
         end
 
