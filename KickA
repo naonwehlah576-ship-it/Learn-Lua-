@@ -62,7 +62,7 @@ ScreenGui.Parent = parentUI
 
 -- ================== GUI ==================
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 260, 0, 620) -- Tinggi ditambah dari 580 ke 620 untuk muat tombol baru
+MainFrame.Size = UDim2.new(0, 260, 0, 620)
 MainFrame.Position = UDim2.new(1, -270, 0.5, -375)
 MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 MainFrame.BorderSizePixel = 0
@@ -568,7 +568,11 @@ local function autoScanIndex()
         end
     end)
 end
-autoScanIndex()
+
+task.spawn(function()
+    task.wait(5)
+    autoScanIndex()
+end)
 
 local PhantomLabel = Instance.new("TextLabel")
 PhantomLabel.Size = UDim2.new(1, -20, 0, 20)
@@ -1193,7 +1197,7 @@ local function runLoop()
             for _, outerModel in ipairs(workspace:WaitForChild("Debris"):GetChildren()) do
                 if outerModel:IsA("Model") then
                     for _, innerModel in ipairs(outerModel:GetChildren()) do
-                        if innerModel:IsA("Model") and BASE_PRICE[innerModel.Name] and innerModel.PrimaryPart and innerModel.PrimaryPart.Name == "Root" then
+                        if innerModel:IsA("Model") and innerModel.PrimaryPart and innerModel.PrimaryPart.Name == "Root" then
                             local dist = (innerModel.PrimaryPart.Position - r.Position).Magnitude
                             if dist < shortestDist then shortestDist = dist; closest = innerModel end
                         end
