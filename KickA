@@ -1191,21 +1191,23 @@ local function runLoop()
 
         setStatus("Mendarat! Nunggu brainrot spawn...", Color3.fromRGB(100, 220, 100))
         local brainrot = nil
-        local function findBrainrot()
-            local r = getRoot(); if not r then return nil end
-            local closest, shortestDist = nil, math.huge
+        local function findNearbyBrainrots()
+            local r = getRoot(); if not r then return {} end
+            local foundList = {}
             for _, outerModel in ipairs(workspace:WaitForChild("Debris"):GetChildren()) do
                 if outerModel:IsA("Model") then
                     for _, innerModel in ipairs(outerModel:GetChildren()) do
                         if innerModel:IsA("Model") and innerModel.PrimaryPart and innerModel.PrimaryPart.Name == "Root" then
                             local dist = (innerModel.PrimaryPart.Position - r.Position).Magnitude
-                            if dist < shortestDist then shortestDist = dist; closest = innerModel end
+                            -- Kumpulin SEMUA brainrot dalam radius 40 stud
+                            if dist <= 40 then 
+                                table.insert(foundList, innerModel)
+                            end
                         end
                     end
                 end
             end
-            if closest and shortestDist < 150 then return closest end
-            return nil
+            return foundList
         end
 
         local char4 = player.Character
@@ -1222,17 +1224,44 @@ local function runLoop()
 
                 while running do
                     local r2 = getRoot(); if not r2 then break end
-                    local found = findBrainrot()
-                    if found and not brainrot then
-                        brainrot = found
-                        local mutVal2 = brainrot:GetAttribute("Mutation") or "None"
-                        local actualPrice = (BASE_PRICE[brainrot.Name] or 0) * (MULTIPLIER[mutVal2] or 1)
-                        if not isValidBrainrot(brainrot) then
-                            setStatus("Bundir: " .. brainrot.Name .. " [" .. mutVal2 .. "] $" .. math.floor(actualPrice/1000) .. "K/s", Color3.fromRGB(255, 50, 50))
+                    
+                    -- Panggil fungsi scan radius 40 stud
+                    local foundList = findNearbyBrainrots()
+                    
+                    if #foundList > 0 and not brainrot then
+                        local hasValid = false
+                        local bestTarget = nil
+                        local highestVal = -1
+                        local sampleTrash = foundList[1]
+                        
+                        -- Cek semua brainrot yang ketangkep di list
+                        for _, b in ipairs(foundList) do
+                            if isValidBrainrot(b) then
+                                hasValid = true
+                                local mutV = b:GetAttribute("Mutation") or "None"
+                                local val = (BASE_PRICE[b.Name] or 0) * (MULTIPLIER[mutV] or 1)
+                                
+                                -- Kalau ada banyak yang valid, kunci target ke yang paling mahal
+                                if val > highestVal then
+                                    highestVal = val
+                                    bestTarget = b
+                                end
+                            end
+                        end
+                        
+                        if hasValid then
+                            brainrot = bestTarget
+                            local mutVal2 = brainrot:GetAttribute("Mutation") or "None"
+                            local actualPrice = (BASE_PRICE[brainrot.Name] or 0) * (MULTIPLIER[mutVal2] or 1)
+                            setStatus("Valid! $" .. math.floor(actualPrice/1000) .. "K/s - " .. brainrot.Name, Color3.fromRGB(100, 220, 100))
+                        else
+                            -- Kalau SEMUA list-nya gak lolos filter, baru bundir
+                            local mutValTrash = sampleTrash:GetAttribute("Mutation") or "None"
+                            local actPriceTrash = (BASE_PRICE[sampleTrash.Name] or 0) * (MULTIPLIER[mutValTrash] or 1)
+                            setStatus("Bundir: " .. sampleTrash.Name .. " [" .. mutValTrash .. "] $" .. math.floor(actPriceTrash/1000) .. "K/s", Color3.fromRGB(255, 50, 50))
                             shouldBundir = true
                             break
                         end
-                        setStatus("Valid! $" .. math.floor(actualPrice/1000) .. "K/s - " .. brainrot.Name, Color3.fromRGB(100, 220, 100))
                     end
 
                     if brainrot and not brainrot.Parent then break end
