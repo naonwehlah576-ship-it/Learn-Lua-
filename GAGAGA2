@@ -1,7 +1,7 @@
 -- =====================================================================
--- GROW A GARDEN 2 - AUTOMATION PREMIUM HUB (V7 - ULTIMATE AFK MODE)
+-- GROW A GARDEN 2 - AUTOMATION PREMIUM HUB (V8 - TRUE AFK STATE MACHINE)
 -- Features: Auto Harvest+TP, Auto Sell, Auto Buy, Rare Seed, Auto Pet
--- Fixes: Target Locking (Anti-Stutter), Grace Period (Anti-TP Nyasar)
+-- Fixes: ABSOLUTELY NO AUTO-TOGGLE OFF, Unified Hunt Engine, Perfect TP Lock
 -- =====================================================================
 
 local Players = game:GetService("Players")
@@ -41,7 +41,7 @@ local PetData = {
 }
 local PetOrder = {"Frog", "Bunny", "Owl", "Deer", "Robin", "Bee", "Monkey", "Bear", "Golden Dragonfly", "Unicorn", "Racoon"}
 
-local FILE_NAME = "GAG2_Automation_Config_v7.json"
+local FILE_NAME = "GAG2_Automation_Config_v8.json"
 local config = {
     AutoHarvest = false, AutoSell = false, AutoBuySeed = false, 
     AutoBuyGear = false, AutoClaimRare = false, AutoBuyPet = false,
@@ -49,12 +49,15 @@ local config = {
     SelectedSeeds = {}, SelectedGears = {}, SelectedPets = {}
 }
 
--- SMART STATE VARIABLES
-local IsHuntingRare = false
-local IsHuntingPet = false
-
-local toggleVisuals = {}
-local petCheckboxes = {}
+-- STATE MACHINE VARIABLES (Pusat Kendali AFK Sejati)
+local Hunt = {
+    State = "IDLE", -- "IDLE", "FLYING", "BUYING"
+    Target = nil,
+    Type = nil, -- "RARE" atau "PET"
+    GraceTimer = 0,
+    InitialMoney = 0,
+    ExpectedPrice = 0
+}
 
 local function saveConfig()
     if writefile then pcall(function() writefile(FILE_NAME, HttpService:JSONEncode(config)) end) end
@@ -81,77 +84,36 @@ if existingGui then existingGui:Destroy() end
 pcall(function() ScreenGui.Parent = game:GetService("CoreGui") end)
 if not ScreenGui.Parent then ScreenGui.Parent = PlayerGui end
 
-local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 740, 0, 390)
-MainFrame.Position = UDim2.new(0.5, -370, 0.5, -195)
-MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-MainFrame.BorderSizePixel = 0
-MainFrame.ClipsDescendants = true
-MainFrame.Parent = ScreenGui
+local MainFrame = Instance.new("Frame"); MainFrame.Size = UDim2.new(0, 740, 0, 390); MainFrame.Position = UDim2.new(0.5, -370, 0.5, -195)
+MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20); MainFrame.BorderSizePixel = 0; MainFrame.ClipsDescendants = true; MainFrame.Parent = ScreenGui
 local MainCorner = Instance.new("UICorner"); MainCorner.CornerRadius = UDim.new(0, 8); MainCorner.Parent = MainFrame
 
-local Topbar = Instance.new("Frame")
-Topbar.Size = UDim2.new(1, 0, 0, 35)
-Topbar.BackgroundColor3 = Color3.fromRGB(28, 28, 28)
-Topbar.BorderSizePixel = 0
-Topbar.Parent = MainFrame
+local Topbar = Instance.new("Frame"); Topbar.Size = UDim2.new(1, 0, 0, 35); Topbar.BackgroundColor3 = Color3.fromRGB(28, 28, 28); Topbar.BorderSizePixel = 0; Topbar.Parent = MainFrame
 local TopbarCorner = Instance.new("UICorner"); TopbarCorner.CornerRadius = UDim.new(0, 8); TopbarCorner.Parent = Topbar
-
 local Title = Instance.new("TextLabel"); Title.Size = UDim2.new(1, -80, 1, 0); Title.Position = UDim2.new(0, 12, 0, 0)
-Title.BackgroundTransparency = 1; Title.Text = "Grow a Garden 2 Hub"; Title.TextColor3 = Color3.fromRGB(240, 240, 240)
-Title.Font = Enum.Font.GothamBold; Title.TextSize = 14; Title.TextXAlignment = Enum.TextXAlignment.Left; Title.Parent = Topbar
+Title.BackgroundTransparency = 1; Title.Text = "Grow a Garden 2 Hub"; Title.TextColor3 = Color3.fromRGB(240, 240, 240); Title.Font = Enum.Font.GothamBold; Title.TextSize = 14; Title.TextXAlignment = Enum.TextXAlignment.Left; Title.Parent = Topbar
 
 local CloseBtn = Instance.new("TextButton"); CloseBtn.Size = UDim2.new(0, 30, 0, 30); CloseBtn.Position = UDim2.new(1, -32, 0, 2)
-CloseBtn.BackgroundTransparency = 1; CloseBtn.Text = "✕"; CloseBtn.TextColor3 = Color3.fromRGB(150, 150, 150)
-CloseBtn.Font = Enum.Font.GothamBold; CloseBtn.TextSize = 16; CloseBtn.Parent = Topbar
+CloseBtn.BackgroundTransparency = 1; CloseBtn.Text = "✕"; CloseBtn.TextColor3 = Color3.fromRGB(150, 150, 150); CloseBtn.Font = Enum.Font.GothamBold; CloseBtn.TextSize = 16; CloseBtn.Parent = Topbar
 CloseBtn.MouseButton1Click:Connect(function() ScreenGui:Destroy() end)
-
 local MinBtn = Instance.new("TextButton"); MinBtn.Size = UDim2.new(0, 30, 0, 30); MinBtn.Position = UDim2.new(1, -62, 0, 2)
-MinBtn.BackgroundTransparency = 1; MinBtn.Text = "—"; MinBtn.TextColor3 = Color3.fromRGB(150, 150, 150)
-MinBtn.Font = Enum.Font.GothamBold; MinBtn.TextSize = 16; MinBtn.Parent = Topbar
+MinBtn.BackgroundTransparency = 1; MinBtn.Text = "—"; MinBtn.TextColor3 = Color3.fromRGB(150, 150, 150); MinBtn.Font = Enum.Font.GothamBold; MinBtn.TextSize = 16; MinBtn.Parent = Topbar
 local isMinimized = false
-MinBtn.MouseButton1Click:Connect(function()
-    isMinimized = not isMinimized
-    TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quint), {Size = isMinimized and UDim2.new(0, 740, 0, 35) or UDim2.new(0, 740, 0, 390)}):Play()
-end)
+MinBtn.MouseButton1Click:Connect(function() isMinimized = not isMinimized; TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quint), {Size = isMinimized and UDim2.new(0, 740, 0, 35) or UDim2.new(0, 740, 0, 390)}):Play() end)
 
 local dragging, dragInput, dragStart, startPos
-Topbar.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        dragging = true; dragStart = input.Position; startPos = MainFrame.Position
-        input.Changed:Connect(function() if input.UserInputState == Enum.UserInputState.End then dragging = false end end)
-    end
-end)
-Topbar.InputChanged:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then dragInput = input end
-end)
-UserInputService.InputChanged:Connect(function(input)
-    if input == dragInput and dragging then
-        local delta = input.Position - dragStart
-        MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-    end
-end)
+Topbar.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging = true; dragStart = input.Position; startPos = MainFrame.Position; input.Changed:Connect(function() if input.UserInputState == Enum.UserInputState.End then dragging = false end end) end end)
+Topbar.InputChanged:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then dragInput = input end end)
+UserInputService.InputChanged:Connect(function(input) if input == dragInput and dragging then local delta = input.Position - dragStart; MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y) end end)
 
 local Container = Instance.new("Frame"); Container.Size = UDim2.new(1, -20, 1, -55); Container.Position = UDim2.new(0, 10, 0, 45); Container.BackgroundTransparency = 1; Container.Parent = MainFrame
+local function createPanel(xPos) local pnl = Instance.new("Frame"); pnl.Size = UDim2.new(0, 175, 1, 0); pnl.Position = UDim2.new(0, xPos, 0, 0); pnl.BackgroundColor3 = Color3.fromRGB(25, 25, 25); pnl.BorderSizePixel = 0; pnl.Parent = Container; local c = Instance.new("UICorner"); c.CornerRadius = UDim.new(0, 6); c.Parent = pnl; return pnl end
 
-local function createPanel(xPos)
-    local pnl = Instance.new("Frame"); pnl.Size = UDim2.new(0, 175, 1, 0); pnl.Position = UDim2.new(0, xPos, 0, 0)
-    pnl.BackgroundColor3 = Color3.fromRGB(25, 25, 25); pnl.BorderSizePixel = 0; pnl.Parent = Container
-    local c = Instance.new("UICorner"); c.CornerRadius = UDim.new(0, 6); c.Parent = pnl
-    return pnl
-end
-
-local LeftPanel = createPanel(0)
-local SeedPanel = createPanel(183)
-local GearPanel = createPanel(366)
-local PetPanel = createPanel(549)
+local LeftPanel = createPanel(0); local SeedPanel = createPanel(183); local GearPanel = createPanel(366); local PetPanel = createPanel(549)
 
 local function createScrollList(parent, titleText)
-    local lbl = Instance.new("TextLabel"); lbl.Size = UDim2.new(1, 0, 0, 25); lbl.BackgroundTransparency = 1
-    lbl.Text = titleText; lbl.TextColor3 = Color3.fromRGB(180, 180, 180); lbl.Font = Enum.Font.GothamBold; lbl.TextSize = 12; lbl.Parent = parent
-    local sf = Instance.new("ScrollingFrame"); sf.Size = UDim2.new(1, -10, 1, -35); sf.Position = UDim2.new(0, 5, 0, 30)
-    sf.BackgroundTransparency = 1; sf.BorderSizePixel = 0; sf.ScrollBarThickness = 3; sf.ScrollBarImageColor3 = Color3.fromRGB(80, 80, 80)
-    sf.CanvasSize = UDim2.new(0, 0, 0, 0); sf.Parent = parent
+    local lbl = Instance.new("TextLabel"); lbl.Size = UDim2.new(1, 0, 0, 25); lbl.BackgroundTransparency = 1; lbl.Text = titleText; lbl.TextColor3 = Color3.fromRGB(180, 180, 180); lbl.Font = Enum.Font.GothamBold; lbl.TextSize = 12; lbl.Parent = parent
+    local sf = Instance.new("ScrollingFrame"); sf.Size = UDim2.new(1, -10, 1, -35); sf.Position = UDim2.new(0, 5, 0, 30); sf.BackgroundTransparency = 1; sf.BorderSizePixel = 0; sf.ScrollBarThickness = 3; sf.ScrollBarImageColor3 = Color3.fromRGB(80, 80, 80); sf.CanvasSize = UDim2.new(0, 0, 0, 0); sf.Parent = parent
     local layout = Instance.new("UIListLayout"); layout.Padding = UDim.new(0, 4); layout.SortOrder = Enum.SortOrder.LayoutOrder; layout.Parent = sf
     layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() sf.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 10) end)
     return sf
@@ -166,11 +128,12 @@ local function createToggle(parent, text, configKey, yPos)
     local btn = Instance.new("TextButton"); btn.Size = UDim2.new(0, 20, 0, 20); btn.Position = UDim2.new(0, 2, 0, 5); btn.BorderSizePixel = 0; btn.Text = ""; btn.Parent = frame
     btn.BackgroundColor3 = config[configKey] and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(45, 45, 45)
     local btnCorner = Instance.new("UICorner"); btnCorner.CornerRadius = UDim.new(0, 4); btnCorner.Parent = btn
-    local label = Instance.new("TextLabel"); label.Size = UDim2.new(1, -30, 1, 0); label.Position = UDim2.new(0, 30, 0, 0); label.BackgroundTransparency = 1
-    label.Text = text; label.TextColor3 = Color3.fromRGB(220, 220, 220); label.Font = Enum.Font.Gotham; label.TextSize = 12; label.TextXAlignment = Enum.TextXAlignment.Left; label.Parent = frame
-    local function updateVisual() TweenService:Create(btn, TweenInfo.new(0.2), {BackgroundColor3 = config[configKey] and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(45, 45, 45)}):Play() end
-    toggleVisuals[configKey] = updateVisual
-    btn.MouseButton1Click:Connect(function() config[configKey] = not config[configKey]; updateVisual(); saveConfig() end)
+    local label = Instance.new("TextLabel"); label.Size = UDim2.new(1, -30, 1, 0); label.Position = UDim2.new(0, 30, 0, 0); label.BackgroundTransparency = 1; label.Text = text; label.TextColor3 = Color3.fromRGB(220, 220, 220); label.Font = Enum.Font.Gotham; label.TextSize = 12; label.TextXAlignment = Enum.TextXAlignment.Left; label.Parent = frame
+    btn.MouseButton1Click:Connect(function() 
+        config[configKey] = not config[configKey]
+        TweenService:Create(btn, TweenInfo.new(0.2), {BackgroundColor3 = config[configKey] and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(45, 45, 45)}):Play()
+        saveConfig() 
+    end)
 end
 
 local function createTextBox(parent, labelText, configKey, yPos)
@@ -213,14 +176,17 @@ local function populatePetList()
         local chkCorner = Instance.new("UICorner"); chkCorner.CornerRadius = UDim.new(0, 3); chkCorner.Parent = chk
         local txt = Instance.new("TextLabel"); txt.Size = UDim2.new(1, -28, 1, 0); txt.Position = UDim2.new(0, 26, 0, 0); txt.BackgroundTransparency = 1; txt.Text = petName; txt.TextColor3 = Color3.fromRGB(190, 190, 190); txt.Font = Enum.Font.Gotham; txt.TextSize = 10; txt.TextXAlignment = Enum.TextXAlignment.Left; txt.Parent = row
         
-        petCheckboxes[petName] = function()
-            chk.BackgroundColor3 = config.SelectedPets[petName] and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(45, 45, 45)
-            chk.Text = config.SelectedPets[petName] and "✓" or ""
-        end
-        
         chk.MouseButton1Click:Connect(function()
-            for p, _ in pairs(config.SelectedPets) do config.SelectedPets[p] = false; if petCheckboxes[p] then petCheckboxes[p]() end end
-            config.SelectedPets[petName] = true; petCheckboxes[petName](); saveConfig()
+            for p, _ in pairs(config.SelectedPets) do config.SelectedPets[p] = false; end
+            config.SelectedPets[petName] = true
+            -- Visual Update for all checkboxes in the list
+            for _, child in pairs(PetScroll:GetChildren()) do
+                if child:IsA("Frame") and child:FindFirstChild("TextButton") then
+                    child.TextButton.BackgroundColor3 = config.SelectedPets[child.Name] and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(45, 45, 45)
+                    child.TextButton.Text = config.SelectedPets[child.Name] and "✓" or ""
+                end
+            end
+            saveConfig()
         end)
     end
 end
@@ -240,7 +206,7 @@ createTextBox(LeftPanel, "Tween Speed:", "TweenSpeed", 185)
 createToggle(LeftPanel, "Auto Buy Pet", "AutoBuyPet", 220)
 
 -- =====================================================================
--- 4. UTILITY FUNCTIONS (NOCLIP & SAFE DETECT)
+-- 4. UTILITY FUNCTIONS
 -- =====================================================================
 local function getGardenSpawnPoint()
     local plotId = LocalPlayer:GetAttribute("PlotId")
@@ -266,7 +232,13 @@ local function getPromptLocation(prompt)
     return nil, nil
 end
 
+local function getCurrentMoney()
+    local sheckles = LocalPlayer:FindFirstChild("leaderstats") and LocalPlayer.leaderstats:FindFirstChild("Sheckles")
+    return sheckles and sheckles.Value or 0
+end
+
 local currentTween = nil
+local currentTweenTarget = nil
 local noclipConnection = nil
 
 local function toggleNoclip(state)
@@ -290,6 +262,9 @@ local function tweenToLocation(targetCFrame)
     if not char or not char:FindFirstChild("HumanoidRootPart") then return end
     local hrp = char.HumanoidRootPart
     
+    -- ANTI STUTTER: Kalo lu udah terbang lurus ke titik itu, gak usah reset tween
+    if currentTweenTarget and (currentTweenTarget - targetCFrame.Position).Magnitude < 10 then return end
+    
     local speed = tonumber(config.TweenSpeed) or 50
     local distance = (hrp.Position - targetCFrame.Position).Magnitude
     local tInfo = TweenInfo.new(distance / speed, Enum.EasingStyle.Linear)
@@ -299,31 +274,165 @@ local function tweenToLocation(targetCFrame)
     toggleNoclip(true)
     hrp.Anchored = true 
     
+    currentTweenTarget = targetCFrame.Position
     currentTween = TweenService:Create(hrp, tInfo, {CFrame = targetCFrame})
     currentTween.Completed:Connect(function()
         hrp.Anchored = false
         toggleNoclip(false)
+        currentTweenTarget = nil
     end)
     currentTween:Play()
 end
 
 local function stopTween()
-    if currentTween then currentTween:Cancel() end
+    if currentTween then currentTween:Cancel(); currentTween = nil end
     local char = LocalPlayer.Character
     if char and char:FindFirstChild("HumanoidRootPart") then char.HumanoidRootPart.Anchored = false end
     toggleNoclip(false)
+    currentTweenTarget = nil
+end
+
+local function scanForRare()
+    for _, obj in pairs(workspace:GetDescendants()) do
+        if obj:IsA("ProximityPrompt") and obj.ActionText == "CLAIM" and (obj.ObjectText == "Gold Seed" or obj.ObjectText == "Rainbow Seed") then
+            return obj
+        end
+    end
+    return nil
+end
+
+local function scanForPet()
+    local targetPetName = nil
+    for pet, isSelected in pairs(config.SelectedPets) do
+        if isSelected then targetPetName = pet break end
+    end
+    if targetPetName and PetData[targetPetName] then
+        local targetPriceStr = PetData[targetPetName].PriceStr
+        for _, obj in pairs(workspace:GetDescendants()) do
+            if obj:IsA("ProximityPrompt") and obj.ActionText == "Buy" and obj.ObjectText == targetPriceStr then
+                return obj, PetData[targetPetName].PriceNum
+            end
+        end
+    end
+    return nil, 0
 end
 
 -- =====================================================================
--- 5. BACKGROUND LOOPS (TARGET LOCKING & GRACE PERIOD LOGIC)
+-- 5. THE UNIFIED HUNT ENGINE (AFK SEJATI STATE MACHINE) - SPAM FIX
 -- =====================================================================
 
--- Loop 1: Auto Harvest & Auto TP
+task.spawn(function()
+    while task.wait(0.2) do
+        -- SAFETY: Kalau user mematikan kedua toggle secara manual, reset status ke IDLE
+        if not config.AutoBuyPet and not config.AutoClaimRare then
+            if Hunt.State ~= "IDLE" then
+                Hunt.State = "IDLE"
+                Hunt.Target = nil
+                stopTween()
+            end
+            continue
+        end
+
+        if Hunt.State == "IDLE" then
+            -- Cari Rare Seed (Prioritas 1)
+            if config.AutoClaimRare then
+                local rareTarget = scanForRare()
+                if rareTarget then
+                    Hunt.State = "FLYING"
+                    Hunt.Target = rareTarget
+                    Hunt.Type = "RARE"
+                    continue
+                end
+            end
+            
+            -- Cari Pet (Prioritas 2)
+            if config.AutoBuyPet then
+                local petTarget, priceNum = scanForPet()
+                if petTarget then
+                    Hunt.State = "FLYING"
+                    Hunt.Target = petTarget
+                    Hunt.Type = "PET"
+                    Hunt.ExpectedPrice = priceNum
+                    continue
+                end
+            end
+
+        elseif Hunt.State == "FLYING" then
+            -- Kalau prompt hilang sebelum kita sampai
+            if not Hunt.Target or not Hunt.Target.Parent or not Hunt.Target:IsDescendantOf(workspace) then
+                Hunt.State = "IDLE"; Hunt.Target = nil; stopTween(); continue
+            end
+            
+            local targetPos, targetCFrame = getPromptLocation(Hunt.Target)
+            if not targetPos then
+                Hunt.State = "IDLE"; Hunt.Target = nil; stopTween(); continue
+            end
+
+            local char = LocalPlayer.Character
+            if char and char:FindFirstChild("HumanoidRootPart") then
+                local dist = (char.HumanoidRootPart.Position - targetPos).Magnitude
+                -- Jarak dipersempit jadi 5 biar lebih nempel ke target!
+                if dist > 5 then
+                    tweenToLocation(targetCFrame)
+                else
+                    -- SAMPAI TUJUAN -> Masuk ke mode BUYING
+                    stopTween()
+                    
+                    if Hunt.Type == "PET" then
+                        Hunt.InitialMoney = getCurrentMoney()
+                    end
+                    
+                    Hunt.State = "BUYING"
+                    Hunt.GraceTimer = os.clock() + 5 -- Toleransi 5 detik
+                end
+            end
+
+        elseif Hunt.State == "BUYING" then
+            -- SPAM FIREPROX DISINI! Selama di mode BUYING, dia bakal pencet E terus-terusan
+            if Hunt.Target and Hunt.Target:IsDescendantOf(workspace) then
+                if fireproximityprompt then 
+                    fireproximityprompt(Hunt.Target, 1, true) 
+                end
+            end
+
+            if Hunt.Type == "PET" then
+                local currentMoney = getCurrentMoney()
+                -- CEK KESUKSESAN TRANSAKSI (Duit Ngurang)
+                if currentMoney <= (Hunt.InitialMoney - Hunt.ExpectedPrice) then
+                    -- SUKSES BELI! Gembok dibuka, balik ke kebun. TOGGLE TETAP ON!
+                    Hunt.State = "IDLE"
+                    Hunt.Target = nil
+                elseif os.clock() > Hunt.GraceTimer then
+                    -- WAKTU HABIS (TIMEOUT), transaksi gagal.
+                    Hunt.State = "IDLE"
+                    Hunt.Target = nil
+                end
+                
+            elseif Hunt.Type == "RARE" then
+                if not Hunt.Target or not Hunt.Target.Parent or not Hunt.Target:IsDescendantOf(workspace) then
+                    -- SUKSES! (Target lenyap)
+                    Hunt.State = "IDLE"
+                    Hunt.Target = nil
+                elseif os.clock() > Hunt.GraceTimer then
+                    -- TIMEOUT
+                    Hunt.State = "IDLE"
+                    Hunt.Target = nil
+                end
+            end
+        end
+    end
+end)
+
+-- =====================================================================
+-- 6. BACKGROUND LOOPS (Harvest, Sell, Buy Shop)
+-- =====================================================================
+
+-- Auto Harvest & Garden TP
 task.spawn(function()
     while task.wait(2) do
         if config.AutoHarvest then
-            -- TP HANYA JIKA KEDUA STATUS HUNTING MATI
-            if not IsHuntingRare and not IsHuntingPet then
+            -- TP HANYA JALAN JIKA STATUS ADALAH "IDLE"
+            if Hunt.State == "IDLE" then
                 local spawnPt = getGardenSpawnPoint()
                 if spawnPt and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
                     local hrp = LocalPlayer.Character.HumanoidRootPart
@@ -333,6 +442,7 @@ task.spawn(function()
                     end
                 end
             end
+            -- Harvest jalan terus
             for _, obj in pairs(workspace:GetDescendants()) do
                 if obj:IsA("ProximityPrompt") and obj.ActionText == "Harvest" then
                     if fireproximityprompt then task.spawn(fireproximityprompt, obj, 1, true) end
@@ -342,157 +452,7 @@ task.spawn(function()
     end
 end)
 
--- Loop 2: Rare Seed Hunter
-local activeRarePrompt = nil
-local rareGraceTime = 0
-
-task.spawn(function()
-    while task.wait(0.5) do
-        if config.AutoClaimRare then
-            if rareGraceTime > 0 then
-                -- Dalam masa tunggu, pertahankan kunci TP
-                IsHuntingRare = true
-                if os.clock() > rareGraceTime then
-                    -- Waktu toleransi habis, buka gembok TP
-                    rareGraceTime = 0
-                    IsHuntingRare = false
-                end
-            else
-                -- Cari target jika belum ada atau target lama hilang
-                if not activeRarePrompt or not activeRarePrompt.Parent or not activeRarePrompt:IsDescendantOf(workspace) then
-                    activeRarePrompt = nil
-                    for _, obj in pairs(workspace:GetDescendants()) do
-                        if obj:IsA("ProximityPrompt") and obj.ActionText == "CLAIM" and (obj.ObjectText == "Gold Seed" or obj.ObjectText == "Rainbow Seed") then
-                            activeRarePrompt = obj
-                            break -- Kunci ke prompt pertama yang ketemu
-                        end
-                    end
-                end
-                
-                -- Eksekusi target yang dikunci
-                if activeRarePrompt then
-                    IsHuntingRare = true
-                    local targetPos, targetCFrame = getPromptLocation(activeRarePrompt)
-                    if targetPos then
-                        local char = LocalPlayer.Character
-                        if char and char:FindFirstChild("HumanoidRootPart") then
-                            if (char.HumanoidRootPart.Position - targetPos).Magnitude > 10 then
-                                tweenToLocation(targetCFrame)
-                            else
-                                stopTween()
-                                if fireproximityprompt then fireproximityprompt(activeRarePrompt, 1, true) end
-                                activeRarePrompt = nil
-                                rareGraceTime = os.clock() + 3 -- Beri waktu 3 detik sblm lepas gembok TP
-                            end
-                        end
-                    else
-                        activeRarePrompt = nil
-                    end
-                else
-                    IsHuntingRare = false
-                    stopTween()
-                end
-            end
-        else
-            activeRarePrompt = nil
-            rareGraceTime = 0
-            if IsHuntingRare then IsHuntingRare = false; stopTween() end
-        end
-    end
-end)
-
--- Loop 3: Auto Buy Pet
-local activePetPrompt = nil
-local petGraceTime = 0
-local petInitialMoney = 0
-local petExpectedPrice = 0
-local lastPetName = nil
-
-task.spawn(function()
-    while task.wait(0.5) do
-        -- Jika lagi hunting Rare, Pet ngalah bentar biar gak tabrakan arah
-        if config.AutoBuyPet and not IsHuntingRare then 
-            if petGraceTime > 0 then
-                IsHuntingPet = true
-                local sheckles = LocalPlayer:FindFirstChild("leaderstats") and LocalPlayer.leaderstats:FindFirstChild("Sheckles")
-                local currentMoney = sheckles and sheckles.Value or 0
-                
-                -- Buka gembok TP kalau uang berkurang ATAU waktu toleransi (5 detik) habis
-                if currentMoney <= (petInitialMoney - petExpectedPrice) or os.clock() > petGraceTime then
-                    petGraceTime = 0
-                    IsHuntingPet = false
-                    -- TOGGLE DIBIARKAN TETAP ON SESUAI REQUEST
-                end
-            else
-                local targetPetName = nil
-                for pet, isSelected in pairs(config.SelectedPets) do
-                    if isSelected then targetPetName = pet break end
-                end
-                
-                if not targetPetName then
-                    activePetPrompt = nil
-                    IsHuntingPet = false
-                    continue
-                end
-                
-                -- Reset target jika lu ganti pilihan di UI
-                if targetPetName ~= lastPetName then
-                    activePetPrompt = nil
-                    lastPetName = targetPetName
-                end
-                
-                -- Cari target jika belum ada atau target lama hilang
-                if not activePetPrompt or not activePetPrompt.Parent or not activePetPrompt:IsDescendantOf(workspace) then
-                    activePetPrompt = nil
-                    local targetPriceStr = PetData[targetPetName].PriceStr
-                    for _, obj in pairs(workspace:GetDescendants()) do
-                        if obj:IsA("ProximityPrompt") and obj.ActionText == "Buy" and obj.ObjectText == targetPriceStr then
-                            activePetPrompt = obj
-                            break -- Kunci ke prompt pertama yang ketemu
-                        end
-                    end
-                end
-                
-                -- Eksekusi target yang dikunci
-                if activePetPrompt then
-                    IsHuntingPet = true
-                    local targetPos, targetCFrame = getPromptLocation(activePetPrompt)
-                    if targetPos then
-                        local char = LocalPlayer.Character
-                        if char and char:FindFirstChild("HumanoidRootPart") then
-                            if (char.HumanoidRootPart.Position - targetPos).Magnitude > 10 then
-                                tweenToLocation(targetCFrame)
-                            else
-                                stopTween()
-                                
-                                -- Catat saldo sebelum klik Buy
-                                local sheckles = LocalPlayer:FindFirstChild("leaderstats") and LocalPlayer.leaderstats:FindFirstChild("Sheckles")
-                                petInitialMoney = sheckles and sheckles.Value or 0
-                                petExpectedPrice = PetData[targetPetName].PriceNum
-                                
-                                if fireproximityprompt then fireproximityprompt(activePetPrompt, 1, true) end
-                                
-                                activePetPrompt = nil
-                                petGraceTime = os.clock() + 5 -- Gembok TP selama 5 detik untuk nunggu transaksi
-                            end
-                        end
-                    else
-                        activePetPrompt = nil
-                    end
-                else
-                    IsHuntingPet = false
-                    stopTween()
-                end
-            end
-        else
-            activePetPrompt = nil
-            petGraceTime = 0
-            if IsHuntingPet then IsHuntingPet = false; stopTween() end
-        end
-    end
-end)
-
--- Loop 4: Auto Sell All
+-- Auto Sell All
 task.spawn(function()
     while task.wait(1.5) do
         if config.AutoSell and Networking then
@@ -501,7 +461,7 @@ task.spawn(function()
     end
 end)
 
--- Loop 5 & 6: Auto Buy Seeds & Gears
+-- Auto Buy Seeds & Gears
 task.spawn(function()
     while task.wait(1) do
         if config.AutoBuySeed and Networking then
