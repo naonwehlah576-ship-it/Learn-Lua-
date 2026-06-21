@@ -1,7 +1,7 @@
 -- =====================================================================
--- GROW A GARDEN 2 - AUTOMATION PREMIUM HUB (V4.1 - PET TWEEN FIX)
+-- GROW A GARDEN 2 - AUTOMATION PREMIUM HUB (V5 - SMOOTH TWEEN & TP LOCK)
 -- Features: Auto Harvest+TP, Auto Sell, Auto Buy, Rare Seed, Auto Pet
--- Fixes: Model/Attachment Position Error, Flexible Text Matching
+-- Fixes: Anti-Stutter Tweening, Absolute TP Lock during Hunt
 -- =====================================================================
 
 local Players = game:GetService("Players")
@@ -25,7 +25,7 @@ if not Networking then
     end
 end
 
--- 2. DATA & CONFIG SYSTEM
+-- 2. DATA & CONFIG SYSTEM (Exact Match dengan lambang ¢)
 local PetData = {
     ["Frog"] = { PriceStr = "¢10,000", PriceNum = 10000 },
     ["Bunny"] = { PriceStr = "¢20,000", PriceNum = 20000 },
@@ -41,33 +41,26 @@ local PetData = {
 }
 local PetOrder = {"Frog", "Bunny", "Owl", "Deer", "Robin", "Bee", "Monkey", "Bear", "Golden Dragonfly", "Unicorn", "Racoon"}
 
-local FILE_NAME = "GAG2_Automation_Config_v4.json"
+local FILE_NAME = "GAG2_Automation_Config_v5.json"
 local config = {
     AutoHarvest = false, AutoSell = false, AutoBuySeed = false, 
     AutoBuyGear = false, AutoClaimRare = false, AutoBuyPet = false,
     TweenSpeed = "50",
-    SelectedSeeds = {}, SelectedGears = {}, SelectedPets = {},
-    IsHunting = false 
+    SelectedSeeds = {}, SelectedGears = {}, SelectedPets = {}
 }
 
 local toggleVisuals = {}
 local petCheckboxes = {}
 
 local function saveConfig()
-    if writefile then
-        local saveTable = {}
-        for k, v in pairs(config) do if k ~= "IsHunting" then saveTable[k] = v end end
-        pcall(function() writefile(FILE_NAME, HttpService:JSONEncode(saveTable)) end)
-    end
+    if writefile then pcall(function() writefile(FILE_NAME, HttpService:JSONEncode(config)) end) end
 end
 
 local function loadConfig()
     if readfile and isfile and isfile(FILE_NAME) then
         local success, decoded = pcall(function() return HttpService:JSONDecode(readfile(FILE_NAME)) end)
         if success and type(decoded) == "table" then
-            for k, v in pairs(decoded) do
-                if config[k] ~= nil and k ~= "IsHunting" then config[k] = v end
-            end
+            for k, v in pairs(decoded) do if config[k] ~= nil then config[k] = v end end
         end
     end
 end
@@ -243,7 +236,7 @@ createTextBox(LeftPanel, "Tween Speed:", "TweenSpeed", 185)
 createToggle(LeftPanel, "Auto Buy Pet", "AutoBuyPet", 220)
 
 -- =====================================================================
--- 4. UTILITY FUNCTIONS (UPDATED FOR SAFE CFRAME/POSITION DETECT)
+-- 4. UTILITY FUNCTIONS (UPDATED FOR SMOOTH TWEEN & TP LOCK)
 -- =====================================================================
 local function getGardenSpawnPoint()
     local plotId = LocalPlayer:GetAttribute("PlotId")
@@ -258,13 +251,9 @@ local function getGardenSpawnPoint()
 end
 
 local function getPromptLocation(prompt)
-    -- Fungsi ini nge-bypass error kalau ProximityPrompt ada di dalem Model/Attachment
-    if prompt.Parent:IsA("BasePart") then
-        return prompt.Parent.Position, prompt.Parent.CFrame
-    elseif prompt.Parent:IsA("Attachment") then
-        return prompt.Parent.WorldPosition, prompt.Parent.WorldCFrame
-    elseif prompt.Parent:IsA("Model") then
-        return prompt.Parent:GetPivot().Position, prompt.Parent:GetPivot()
+    if prompt.Parent:IsA("BasePart") then return prompt.Parent.Position, prompt.Parent.CFrame
+    elseif prompt.Parent:IsA("Attachment") then return prompt.Parent.WorldPosition, prompt.Parent.WorldCFrame
+    elseif prompt.Parent:IsA("Model") then return prompt.Parent:GetPivot().Position, prompt.Parent:GetPivot()
     else
         local part = prompt:FindFirstAncestorWhichIsA("BasePart")
         if part then return part.Position, part.CFrame end
@@ -273,17 +262,55 @@ local function getPromptLocation(prompt)
 end
 
 local currentTween = nil
+local currentTweenTarget = nil
+
 local function tweenToLocation(targetCFrame)
     local char = LocalPlayer.Character
     if not char or not char:FindFirstChild("HumanoidRootPart") then return end
     local hrp = char.HumanoidRootPart
+    
+    -- ANTI STUTTER: Kalau lagi tween ke arah yang sama, biarin aja gak usah di-reset
+    if currentTween and currentTween.PlaybackState == Enum.PlaybackState.Playing then
+        if currentTweenTarget and (currentTweenTarget - targetCFrame.Position).Magnitude < 3 then
+            return 
+        end
+    end
+
     local speed = tonumber(config.TweenSpeed) or 50
     local distance = (hrp.Position - targetCFrame.Position).Magnitude
-    
     local tInfo = TweenInfo.new(distance / speed, Enum.EasingStyle.Linear)
+    
     if currentTween then currentTween:Cancel() end
+    
+    -- MATIKAN GRAVITASI SEMENTARA BIAR MULUS
+    hrp.Anchored = true 
+    currentTweenTarget = targetCFrame.Position
     currentTween = TweenService:Create(hrp, tInfo, {CFrame = targetCFrame})
+    
+    currentTween.Completed:Connect(function()
+        hrp.Anchored = false -- Nyalain lagi pas sampe
+    end)
+    
     currentTween:Play()
+end
+
+local function stopTween()
+    if currentTween then currentTween:Cancel() end
+    local char = LocalPlayer.Character
+    if char and char:FindFirstChild("HumanoidRootPart") then
+        char.HumanoidRootPart.Anchored = false
+    end
+end
+
+-- ABSOLUTE TP LOCK CHECKER
+local function isActivelyHunting()
+    if config.AutoClaimRare then return true end
+    if config.AutoBuyPet then
+        for _, isSel in pairs(config.SelectedPets) do
+            if isSel then return true end
+        end
+    end
+    return false
 end
 
 -- =====================================================================
@@ -294,7 +321,8 @@ end
 task.spawn(function()
     while task.wait(2) do
         if config.AutoHarvest then
-            if not config.IsHunting then
+            -- TP HANYA KALAU GAK LAGI NYARI PET/RARE SEED
+            if not isActivelyHunting() then
                 local spawnPt = getGardenSpawnPoint()
                 if spawnPt and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
                     local hrp = LocalPlayer.Character.HumanoidRootPart
@@ -327,20 +355,19 @@ task.spawn(function()
             if targetPrompt then
                 local targetPos, targetCFrame = getPromptLocation(targetPrompt)
                 if targetPos and targetCFrame then
-                    config.IsHunting = true
                     local char = LocalPlayer.Character
                     if char and char:FindFirstChild("HumanoidRootPart") then
                         if (char.HumanoidRootPart.Position - targetPos).Magnitude > 10 then
                             tweenToLocation(targetCFrame)
                         else
-                            if currentTween then currentTween:Cancel() end
+                            stopTween()
                             if fireproximityprompt then fireproximityprompt(targetPrompt, 1, true) end
                         end
                     end
                 end
-            else
-                if config.IsHunting and not config.AutoBuyPet then config.IsHunting = false; if currentTween then currentTween:Cancel() end end
             end
+        else
+            stopTween() -- Kalau toggle dimatiin manual di tengah jalan, batalin tween
         end
     end
 end)
@@ -359,8 +386,7 @@ task.spawn(function()
                 local targetPriceStr = PetData[targetPetName].PriceStr
                 
                 for _, obj in pairs(workspace:GetDescendants()) do
-                    -- Filter string.find biar ke-detect walau ada spasi nyangkut
-                    if obj:IsA("ProximityPrompt") and obj.ActionText == "Buy" and obj.ObjectText and string.find(obj.ObjectText, targetPriceStr, 1, true) then
+                    if obj:IsA("ProximityPrompt") and obj.ActionText == "Buy" and obj.ObjectText == targetPriceStr then
                         targetPrompt = obj
                         break
                     end
@@ -369,38 +395,38 @@ task.spawn(function()
                 if targetPrompt then
                     local targetPos, targetCFrame = getPromptLocation(targetPrompt)
                     if targetPos and targetCFrame then
-                        config.IsHunting = true
                         local char = LocalPlayer.Character
                         if char and char:FindFirstChild("HumanoidRootPart") then
                             if (char.HumanoidRootPart.Position - targetPos).Magnitude > 10 then
                                 tweenToLocation(targetCFrame)
                             else
-                                if currentTween then currentTween:Cancel() end
+                                stopTween() -- Udah sampe, berenti terbang
                                 
                                 local sheckles = LocalPlayer:FindFirstChild("leaderstats") and LocalPlayer.leaderstats:FindFirstChild("Sheckles")
                                 local initialMoney = sheckles and sheckles.Value or 0
                                 
                                 if fireproximityprompt then fireproximityprompt(targetPrompt, 1, true) end
                                 
-                                task.wait(0.5)
-                                local currentMoney = sheckles and sheckles.Value or 0
+                                -- TUNGGU 1 DETIK BUAT PROSES PEMBELIAN
+                                task.wait(1)
                                 
+                                local currentMoney = sheckles and sheckles.Value or 0
                                 if currentMoney <= (initialMoney - PetData[targetPetName].PriceNum) then
+                                    -- PEMBELIAN SUKSES
                                     config.AutoBuyPet = false
                                     config.SelectedPets[targetPetName] = false
-                                    config.IsHunting = false
-                                    if toggleVisuals["AutoBuyPet"] then toggleVisuals["AutoBuyPet"]() end
-                                    if petCheckboxes[targetPetName] then petCheckboxes[targetPetName]() end
+                                    
+                                    -- Update GUI Button biar mati otomatis
+                                    task.spawn(function()
+                                        if toggleVisuals["AutoBuyPet"] then toggleVisuals["AutoBuyPet"]() end
+                                        if petCheckboxes[targetPetName] then petCheckboxes[targetPetName]() end
+                                    end)
                                     saveConfig()
                                 end
                             end
                         end
                     end
-                else
-                    if config.IsHunting and not config.AutoClaimRare then config.IsHunting = false end
                 end
-            else
-                if config.IsHunting and not config.AutoClaimRare then config.IsHunting = false end
             end
         end
     end
