@@ -27,17 +27,17 @@ end
 
 -- 2. DATA & CONFIG SYSTEM
 local PetData = {
-    ["Frog"] = { PriceStr = "10,000", PriceNum = 10000 },
-    ["Bunny"] = { PriceStr = "20,000", PriceNum = 20000 },
-    ["Owl"] = { PriceStr = "25,000", PriceNum = 25000 },
-    ["Deer"] = { PriceStr = "50,000", PriceNum = 50000 },
-    ["Robin"] = { PriceStr = "75,000", PriceNum = 75000 },
-    ["Bee"] = { PriceStr = "1,000,000", PriceNum = 1000000 },
-    ["Monkey"] = { PriceStr = "3,000,000", PriceNum = 3000000 },
-    ["Bear"] = { PriceStr = "5,000,000", PriceNum = 5000000 },
-    ["Golden Dragonfly"] = { PriceStr = "9,000,000", PriceNum = 9000000 },
-    ["Unicorn"] = { PriceStr = "12,000,000", PriceNum = 12000000 },
-    ["Racoon"] = { PriceStr = "15,000,000", PriceNum = 15000000 }
+    ["Frog"] = { PriceStr = "¢10,000", PriceNum = 10000 },
+    ["Bunny"] = { PriceStr = "¢20,000", PriceNum = 20000 },
+    ["Owl"] = { PriceStr = "¢25,000", PriceNum = 25000 },
+    ["Deer"] = { PriceStr = "¢50,000", PriceNum = 50000 },
+    ["Robin"] = { PriceStr = "¢75,000", PriceNum = 75000 },
+    ["Bee"] = { PriceStr = "¢1,000,000", PriceNum = 1000000 },
+    ["Monkey"] = { PriceStr = "¢3,000,000", PriceNum = 3000000 },
+    ["Bear"] = { PriceStr = "¢5,000,000", PriceNum = 5000000 },
+    ["Golden Dragonfly"] = { PriceStr = "¢9,000,000", PriceNum = 9000000 },
+    ["Unicorn"] = { PriceStr = "¢12,000,000", PriceNum = 12000000 },
+    ["Racoon"] = { PriceStr = "¢15,000,000", PriceNum = 15000000 }
 }
 local PetOrder = {"Frog", "Bunny", "Owl", "Deer", "Robin", "Bee", "Monkey", "Bear", "Golden Dragonfly", "Unicorn", "Racoon"}
 
