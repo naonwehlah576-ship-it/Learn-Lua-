@@ -522,7 +522,7 @@ end)
 -- =====================================================================
 
 task.spawn(function()
-    while task.wait(2) do
+    while task.wait(1) do
         if config.AutoHarvest then
             if Hunt.State == "IDLE" then
                 local spawnPt = getGardenSpawnPoint()
