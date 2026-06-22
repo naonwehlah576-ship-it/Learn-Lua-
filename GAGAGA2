@@ -18,9 +18,9 @@ task.spawn(function()
 end)
 -- =====================================================================
 -- =====================================================================
--- GROW A GARDEN 2 - AUTOMATION PREMIUM HUB (V9.6 - GHOST PROMPT FIX)
+-- GROW A GARDEN 2 - AUTOMATION PREMIUM HUB (V9.7 - AUTO FAVORITE UPDATE)
 -- Features: Auto Harvest+TP, Auto Sell, Auto Buy, Rare Seed, Auto Pet, Auto Plant
--- Fixes: Added .Enabled check to ignore purchased walking pets
+-- Fixes: Added Auto Favorite by Weight (kg), Resized GUI, Faster Harvest (0.1s)
 -- =====================================================================
 
 local Players = game:GetService("Players")
@@ -64,7 +64,8 @@ local FILE_NAME = "GAG2_Automation_Config_v9.json"
 local config = {
     AutoHarvest = false, AutoSell = false, AutoBuySeed = false, 
     AutoBuyGear = false, AutoClaimRare = false, AutoBuyPet = false, AutoPlant = false,
-    TweenSpeed = "50", WalkSpeed = "40", MoveMethod = "SpamTP",
+    AutoFavorite = false, -- FITUR BARU
+    TweenSpeed = "50", WalkSpeed = "40", MoveMethod = "SpamTP", FavoriteThreshold = "100", -- TEXTBOX BARU
     SelectedSeeds = {}, SelectedGears = {}, SelectedPets = {}, SelectedPlantSeeds = {}
 }
 
@@ -103,37 +104,61 @@ if existingGui then existingGui:Destroy() end
 pcall(function() ScreenGui.Parent = game:GetService("CoreGui") end)
 if not ScreenGui.Parent then ScreenGui.Parent = PlayerGui end
 
-local MainFrame = Instance.new("Frame"); MainFrame.Size = UDim2.new(0, 920, 0, 390); MainFrame.Position = UDim2.new(0.5, -460, 0.5, -195)
-MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20); MainFrame.BorderSizePixel = 0; MainFrame.ClipsDescendants = true; MainFrame.Parent = ScreenGui
+local MainFrame = Instance.new("Frame");
+-- GUI DIPERBESAR TINGGINYA (390 -> 460) BIAR MUAT MENU BARU
+MainFrame.Size = UDim2.new(0, 920, 0, 460); MainFrame.Position = UDim2.new(0.5, -460, 0.5, -230)
+MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20); MainFrame.BorderSizePixel = 0;
+MainFrame.ClipsDescendants = true; MainFrame.Parent = ScreenGui
 local MainCorner = Instance.new("UICorner"); MainCorner.CornerRadius = UDim.new(0, 8); MainCorner.Parent = MainFrame
 
-local Topbar = Instance.new("Frame"); Topbar.Size = UDim2.new(1, 0, 0, 35); Topbar.BackgroundColor3 = Color3.fromRGB(28, 28, 28); Topbar.BorderSizePixel = 0; Topbar.Parent = MainFrame
-local TopbarCorner = Instance.new("UICorner"); TopbarCorner.CornerRadius = UDim.new(0, 8); TopbarCorner.Parent = Topbar
-local Title = Instance.new("TextLabel"); Title.Size = UDim2.new(1, -80, 1, 0); Title.Position = UDim2.new(0, 12, 0, 0)
-Title.BackgroundTransparency = 1; Title.Text = "Grow a Garden 2 Hub (v9.6 - GHOST PROMPT FIX)"; Title.TextColor3 = Color3.fromRGB(240, 240, 240); Title.Font = Enum.Font.GothamBold; Title.TextSize = 14; Title.TextXAlignment = Enum.TextXAlignment.Left; Title.Parent = Topbar
+local Topbar = Instance.new("Frame");
+Topbar.Size = UDim2.new(1, 0, 0, 35); Topbar.BackgroundColor3 = Color3.fromRGB(28, 28, 28); Topbar.BorderSizePixel = 0; Topbar.Parent = MainFrame
+local TopbarCorner = Instance.new("UICorner");
+TopbarCorner.CornerRadius = UDim.new(0, 8); TopbarCorner.Parent = Topbar
+local Title = Instance.new("TextLabel"); Title.Size = UDim2.new(1, -80, 1, 0);
+Title.Position = UDim2.new(0, 12, 0, 0)
+Title.BackgroundTransparency = 1; Title.Text = "Grow a Garden 2 Hub (v9.7 - AUTO FAVORITE)";
+Title.TextColor3 = Color3.fromRGB(240, 240, 240); Title.Font = Enum.Font.GothamBold; Title.TextSize = 14; Title.TextXAlignment = Enum.TextXAlignment.Left; Title.Parent = Topbar
 
-local CloseBtn = Instance.new("TextButton"); CloseBtn.Size = UDim2.new(0, 30, 0, 30); CloseBtn.Position = UDim2.new(1, -32, 0, 2)
-CloseBtn.BackgroundTransparency = 1; CloseBtn.Text = "✕"; CloseBtn.TextColor3 = Color3.fromRGB(150, 150, 150); CloseBtn.Font = Enum.Font.GothamBold; CloseBtn.TextSize = 16; CloseBtn.Parent = Topbar
+local CloseBtn = Instance.new("TextButton");
+CloseBtn.Size = UDim2.new(0, 30, 0, 30); CloseBtn.Position = UDim2.new(1, -32, 0, 2)
+CloseBtn.BackgroundTransparency = 1; CloseBtn.Text = "✕";
+CloseBtn.TextColor3 = Color3.fromRGB(150, 150, 150); CloseBtn.Font = Enum.Font.GothamBold; CloseBtn.TextSize = 16; CloseBtn.Parent = Topbar
 CloseBtn.MouseButton1Click:Connect(function() ScreenGui:Destroy() end)
-local MinBtn = Instance.new("TextButton"); MinBtn.Size = UDim2.new(0, 30, 0, 30); MinBtn.Position = UDim2.new(1, -62, 0, 2)
-MinBtn.BackgroundTransparency = 1; MinBtn.Text = "—"; MinBtn.TextColor3 = Color3.fromRGB(150, 150, 150); MinBtn.Font = Enum.Font.GothamBold; MinBtn.TextSize = 16; MinBtn.Parent = Topbar
+local MinBtn = Instance.new("TextButton");
+MinBtn.Size = UDim2.new(0, 30, 0, 30); MinBtn.Position = UDim2.new(1, -62, 0, 2)
+MinBtn.BackgroundTransparency = 1; MinBtn.Text = "—";
+MinBtn.TextColor3 = Color3.fromRGB(150, 150, 150); MinBtn.Font = Enum.Font.GothamBold; MinBtn.TextSize = 16;
+MinBtn.Parent = Topbar
 local isMinimized = false
-MinBtn.MouseButton1Click:Connect(function() isMinimized = not isMinimized; TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quint), {Size = isMinimized and UDim2.new(0, 920, 0, 35) or UDim2.new(0, 920, 0, 390)}):Play() end)
+MinBtn.MouseButton1Click:Connect(function() isMinimized = not isMinimized; TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quint), {Size = isMinimized and UDim2.new(0, 920, 0, 35) or UDim2.new(0, 920, 0, 460)}):Play() end)
 
 local dragging, dragInput, dragStart, startPos
 Topbar.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging = true; dragStart = input.Position; startPos = MainFrame.Position; input.Changed:Connect(function() if input.UserInputState == Enum.UserInputState.End then dragging = false end end) end end)
 Topbar.InputChanged:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then dragInput = input end end)
-UserInputService.InputChanged:Connect(function(input) if input == dragInput and dragging then local delta = input.Position - dragStart; MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y) end end)
+UserInputService.InputChanged:Connect(function(input) if input == dragInput and dragging then local delta = input.Position - dragStart;
+MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y) end end)
 
-local Container = Instance.new("Frame"); Container.Size = UDim2.new(1, -20, 1, -55); Container.Position = UDim2.new(0, 10, 0, 45); Container.BackgroundTransparency = 1; Container.Parent = MainFrame
-local function createPanel(xPos) local pnl = Instance.new("Frame"); pnl.Size = UDim2.new(0, 175, 1, 0); pnl.Position = UDim2.new(0, xPos, 0, 0); pnl.BackgroundColor3 = Color3.fromRGB(25, 25, 25); pnl.BorderSizePixel = 0; pnl.Parent = Container; local c = Instance.new("UICorner"); c.CornerRadius = UDim.new(0, 6); c.Parent = pnl; return pnl end
+local Container = Instance.new("Frame");
+Container.Size = UDim2.new(1, -20, 1, -55); Container.Position = UDim2.new(0, 10, 0, 45); Container.BackgroundTransparency = 1;
+Container.Parent = MainFrame
+local function createPanel(xPos) local pnl = Instance.new("Frame"); pnl.Size = UDim2.new(0, 175, 1, 0);
+pnl.Position = UDim2.new(0, xPos, 0, 0); pnl.BackgroundColor3 = Color3.fromRGB(25, 25, 25); pnl.BorderSizePixel = 0; pnl.Parent = Container;
+local c = Instance.new("UICorner"); c.CornerRadius = UDim.new(0, 6); c.Parent = pnl; return pnl end
 
-local LeftPanel = createPanel(0); local SeedPanel = createPanel(183); local GearPanel = createPanel(366); local PetPanel = createPanel(549); local PlantPanel = createPanel(732)
+local LeftPanel = createPanel(0);
+local SeedPanel = createPanel(183); local GearPanel = createPanel(366); local PetPanel = createPanel(549);
+local PlantPanel = createPanel(732)
 
 local function createScrollList(parent, titleText)
-    local lbl = Instance.new("TextLabel"); lbl.Size = UDim2.new(1, 0, 0, 25); lbl.BackgroundTransparency = 1; lbl.Text = titleText; lbl.TextColor3 = Color3.fromRGB(180, 180, 180); lbl.Font = Enum.Font.GothamBold; lbl.TextSize = 12; lbl.Parent = parent
-    local sf = Instance.new("ScrollingFrame"); sf.Size = UDim2.new(1, -10, 1, -35); sf.Position = UDim2.new(0, 5, 0, 30); sf.BackgroundTransparency = 1; sf.BorderSizePixel = 0; sf.ScrollBarThickness = 3; sf.ScrollBarImageColor3 = Color3.fromRGB(80, 80, 80); sf.CanvasSize = UDim2.new(0, 0, 0, 0); sf.Parent = parent
-    local layout = Instance.new("UIListLayout"); layout.Padding = UDim.new(0, 4); layout.SortOrder = Enum.SortOrder.LayoutOrder; layout.Parent = sf
+    local lbl = Instance.new("TextLabel"); lbl.Size = UDim2.new(1, 0, 0, 25);
+    lbl.BackgroundTransparency = 1; lbl.Text = titleText; lbl.TextColor3 = Color3.fromRGB(180, 180, 180); lbl.Font = Enum.Font.GothamBold; lbl.TextSize = 12;
+    lbl.Parent = parent
+    local sf = Instance.new("ScrollingFrame"); sf.Size = UDim2.new(1, -10, 1, -35);
+    sf.Position = UDim2.new(0, 5, 0, 30); sf.BackgroundTransparency = 1; sf.BorderSizePixel = 0; sf.ScrollBarThickness = 3; sf.ScrollBarImageColor3 = Color3.fromRGB(80, 80, 80);
+    sf.CanvasSize = UDim2.new(0, 0, 0, 0); sf.Parent = parent
+    local layout = Instance.new("UIListLayout"); layout.Padding = UDim.new(0, 4);
+    layout.SortOrder = Enum.SortOrder.LayoutOrder; layout.Parent = sf
     layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() sf.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 10) end)
     return sf
 end
@@ -144,11 +169,18 @@ local PetScroll = createScrollList(PetPanel, "SHOP: PETS")
 local PlantScroll = createScrollList(PlantPanel, "PLANT: SEEDS")
 
 local function createToggle(parent, text, configKey, yPos)
-    local frame = Instance.new("Frame"); frame.Size = UDim2.new(1, -16, 0, 30); frame.Position = UDim2.new(0, 8, 0, yPos); frame.BackgroundTransparency = 1; frame.Parent = parent
-    local btn = Instance.new("TextButton"); btn.Size = UDim2.new(0, 20, 0, 20); btn.Position = UDim2.new(0, 2, 0, 5); btn.BorderSizePixel = 0; btn.Text = ""; btn.Parent = frame
+    local frame = Instance.new("Frame");
+    frame.Size = UDim2.new(1, -16, 0, 30); frame.Position = UDim2.new(0, 8, 0, yPos); frame.BackgroundTransparency = 1;
+    frame.Parent = parent
+    local btn = Instance.new("TextButton"); btn.Size = UDim2.new(0, 20, 0, 20);
+    btn.Position = UDim2.new(0, 2, 0, 5); btn.BorderSizePixel = 0; btn.Text = "";
+    btn.Parent = frame
     btn.BackgroundColor3 = config[configKey] and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(45, 45, 45)
-    local btnCorner = Instance.new("UICorner"); btnCorner.CornerRadius = UDim.new(0, 4); btnCorner.Parent = btn
-    local label = Instance.new("TextLabel"); label.Size = UDim2.new(1, -30, 1, 0); label.Position = UDim2.new(0, 30, 0, 0); label.BackgroundTransparency = 1; label.Text = text; label.TextColor3 = Color3.fromRGB(220, 220, 220); label.Font = Enum.Font.Gotham; label.TextSize = 12; label.TextXAlignment = Enum.TextXAlignment.Left; label.Parent = frame
+    local btnCorner = Instance.new("UICorner");
+    btnCorner.CornerRadius = UDim.new(0, 4); btnCorner.Parent = btn
+    local label = Instance.new("TextLabel"); label.Size = UDim2.new(1, -30, 1, 0);
+    label.Position = UDim2.new(0, 30, 0, 0); label.BackgroundTransparency = 1; label.Text = text; label.TextColor3 = Color3.fromRGB(220, 220, 220); label.Font = Enum.Font.Gotham;
+    label.TextSize = 12; label.TextXAlignment = Enum.TextXAlignment.Left; label.Parent = frame
     btn.MouseButton1Click:Connect(function() 
         config[configKey] = not config[configKey]
         TweenService:Create(btn, TweenInfo.new(0.2), {BackgroundColor3 = config[configKey] and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(45, 45, 45)}):Play()
@@ -157,18 +189,34 @@ local function createToggle(parent, text, configKey, yPos)
 end
 
 local function createTextBox(parent, labelText, configKey, yPos)
-    local frame = Instance.new("Frame"); frame.Size = UDim2.new(1, -16, 0, 30); frame.Position = UDim2.new(0, 8, 0, yPos); frame.BackgroundTransparency = 1; frame.Parent = parent
-    local label = Instance.new("TextLabel"); label.Size = UDim2.new(0.5, 0, 1, 0); label.BackgroundTransparency = 1; label.Text = labelText; label.TextColor3 = Color3.fromRGB(220, 220, 220); label.Font = Enum.Font.Gotham; label.TextSize = 12; label.TextXAlignment = Enum.TextXAlignment.Left; label.Parent = frame
-    local box = Instance.new("TextBox"); box.Size = UDim2.new(0.5, -4, 0, 24); box.Position = UDim2.new(0.5, 4, 0, 3); box.BackgroundColor3 = Color3.fromRGB(45, 45, 45); box.BorderSizePixel = 0; box.Text = tostring(config[configKey]); box.TextColor3 = Color3.fromRGB(255, 255, 255); box.Font = Enum.Font.Gotham; box.TextSize = 12; box.Parent = frame
-    local boxCorner = Instance.new("UICorner"); boxCorner.CornerRadius = UDim.new(0, 4); boxCorner.Parent = box
+    local frame = Instance.new("Frame");
+    frame.Size = UDim2.new(1, -16, 0, 30); frame.Position = UDim2.new(0, 8, 0, yPos); frame.BackgroundTransparency = 1;
+    frame.Parent = parent
+    local label = Instance.new("TextLabel"); label.Size = UDim2.new(0.5, 0, 1, 0); label.BackgroundTransparency = 1;
+    label.Text = labelText; label.TextColor3 = Color3.fromRGB(220, 220, 220); label.Font = Enum.Font.Gotham; label.TextSize = 12; label.TextXAlignment = Enum.TextXAlignment.Left;
+    label.Parent = frame
+    local box = Instance.new("TextBox"); box.Size = UDim2.new(0.5, -4, 0, 24);
+    box.Position = UDim2.new(0.5, 4, 0, 3); box.BackgroundColor3 = Color3.fromRGB(45, 45, 45); box.BorderSizePixel = 0; box.Text = tostring(config[configKey]);
+    box.TextColor3 = Color3.fromRGB(255, 255, 255); box.Font = Enum.Font.Gotham; box.TextSize = 12;
+    box.Parent = frame
+    local boxCorner = Instance.new("UICorner"); boxCorner.CornerRadius = UDim.new(0, 4);
+    boxCorner.Parent = box
     box.FocusLost:Connect(function() local num = tonumber(box.Text); if num then config[configKey] = tostring(num) else box.Text = config[configKey] end; saveConfig() end)
 end
 
 local function createMultiModeButton(parent, labelText, configKey, optionsTable, yPos)
-    local frame = Instance.new("Frame"); frame.Size = UDim2.new(1, -16, 0, 30); frame.Position = UDim2.new(0, 8, 0, yPos); frame.BackgroundTransparency = 1; frame.Parent = parent
-    local label = Instance.new("TextLabel"); label.Size = UDim2.new(0.5, 0, 1, 0); label.BackgroundTransparency = 1; label.Text = labelText; label.TextColor3 = Color3.fromRGB(220, 220, 220); label.Font = Enum.Font.Gotham; label.TextSize = 12; label.TextXAlignment = Enum.TextXAlignment.Left; label.Parent = frame
-    local btn = Instance.new("TextButton"); btn.Size = UDim2.new(0.5, -4, 0, 24); btn.Position = UDim2.new(0.5, 4, 0, 3); btn.BackgroundColor3 = Color3.fromRGB(0, 170, 255); btn.BorderSizePixel = 0; btn.Text = config[configKey]; btn.TextColor3 = Color3.fromRGB(255, 255, 255); btn.Font = Enum.Font.GothamBold; btn.TextSize = 12; btn.Parent = frame
-    local btnCorner = Instance.new("UICorner"); btnCorner.CornerRadius = UDim.new(0, 4); btnCorner.Parent = btn
+    local frame = Instance.new("Frame");
+    frame.Size = UDim2.new(1, -16, 0, 30); frame.Position = UDim2.new(0, 8, 0, yPos); frame.BackgroundTransparency = 1;
+    frame.Parent = parent
+    local label = Instance.new("TextLabel"); label.Size = UDim2.new(0.5, 0, 1, 0); label.BackgroundTransparency = 1;
+    label.Text = labelText; label.TextColor3 = Color3.fromRGB(220, 220, 220); label.Font = Enum.Font.Gotham; label.TextSize = 12; label.TextXAlignment = Enum.TextXAlignment.Left;
+    label.Parent = frame
+    local btn = Instance.new("TextButton"); btn.Size = UDim2.new(0.5, -4, 0, 24);
+    btn.Position = UDim2.new(0.5, 4, 0, 3); btn.BackgroundColor3 = Color3.fromRGB(0, 170, 255); btn.BorderSizePixel = 0; btn.Text = config[configKey];
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255); btn.Font = Enum.Font.GothamBold; btn.TextSize = 12;
+    btn.Parent = frame
+    local btnCorner = Instance.new("UICorner"); btnCorner.CornerRadius = UDim.new(0, 4);
+    btnCorner.Parent = btn
     
     btn.MouseButton1Click:Connect(function()
         local currentIndex = table.find(optionsTable, config[configKey]) or 1
@@ -186,11 +234,20 @@ local function populateCheckboxList(scrollFrame, sourceDataContainer, configTarg
         for _, item in pairs(sourceDataContainer:GetChildren()) do
             if item:IsA("GuiObject") and not item:IsA("UIListLayout") and not item:IsA("UIGridLayout") and item.Name ~= "GenerateItems" and item.Name ~= "ItemTemplate" then
                 local itemName = item.Name
-                local row = Instance.new("Frame"); row.Name = itemName; row.Size = UDim2.new(1, -6, 0, 26); row.BackgroundTransparency = 1; row.Parent = scrollFrame
-                local chk = Instance.new("TextButton"); chk.Size = UDim2.new(0, 16, 0, 16); chk.Position = UDim2.new(0, 4, 0, 5); chk.BorderSizePixel = 0; chk.TextColor3 = Color3.fromRGB(255, 255, 255); chk.Font = Enum.Font.GothamBold; chk.TextSize = 10; chk.Parent = row
-                chk.BackgroundColor3 = configTargetTable[itemName] and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(45, 45, 45); chk.Text = configTargetTable[itemName] and "✓" or ""
-                local chkCorner = Instance.new("UICorner"); chkCorner.CornerRadius = UDim.new(0, 3); chkCorner.Parent = chk
-                local txt = Instance.new("TextLabel"); txt.Size = UDim2.new(1, -28, 1, 0); txt.Position = UDim2.new(0, 26, 0, 0); txt.BackgroundTransparency = 1; txt.Text = itemName; txt.TextColor3 = Color3.fromRGB(190, 190, 190); txt.Font = Enum.Font.Gotham; txt.TextSize = 11; txt.TextXAlignment = Enum.TextXAlignment.Left; txt.Parent = row
+                local row = Instance.new("Frame");
+                row.Name = itemName; row.Size = UDim2.new(1, -6, 0, 26); row.BackgroundTransparency = 1;
+                row.Parent = scrollFrame
+                local chk = Instance.new("TextButton");
+                chk.Size = UDim2.new(0, 16, 0, 16); chk.Position = UDim2.new(0, 4, 0, 5); chk.BorderSizePixel = 0; chk.TextColor3 = Color3.fromRGB(255, 255, 255);
+                chk.Font = Enum.Font.GothamBold; chk.TextSize = 10; chk.Parent = row
+                chk.BackgroundColor3 = configTargetTable[itemName] and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(45, 45, 45);
+                chk.Text = configTargetTable[itemName] and "✓" or ""
+                local chkCorner = Instance.new("UICorner");
+                chkCorner.CornerRadius = UDim.new(0, 3); chkCorner.Parent = chk
+                local txt = Instance.new("TextLabel");
+                txt.Size = UDim2.new(1, -28, 1, 0); txt.Position = UDim2.new(0, 26, 0, 0); txt.BackgroundTransparency = 1; txt.Text = itemName;
+                txt.TextColor3 = Color3.fromRGB(190, 190, 190); txt.Font = Enum.Font.Gotham; txt.TextSize = 11; txt.TextXAlignment = Enum.TextXAlignment.Left;
+                txt.Parent = row
                 chk.MouseButton1Click:Connect(function()
                     configTargetTable[itemName] = not configTargetTable[itemName]
                     chk.BackgroundColor3 = configTargetTable[itemName] and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(45, 45, 45); chk.Text = configTargetTable[itemName] and "✓" or ""; saveConfig()
@@ -205,11 +262,20 @@ end
 
 local function populatePetList()
     for i, petName in ipairs(PetOrder) do
-        local row = Instance.new("Frame"); row.Name = petName; row.Size = UDim2.new(1, -6, 0, 26); row.BackgroundTransparency = 1; row.LayoutOrder = i; row.Parent = PetScroll
-        local chk = Instance.new("TextButton"); chk.Size = UDim2.new(0, 16, 0, 16); chk.Position = UDim2.new(0, 4, 0, 5); chk.BorderSizePixel = 0; chk.TextColor3 = Color3.fromRGB(255, 255, 255); chk.Font = Enum.Font.GothamBold; chk.TextSize = 10; chk.Parent = row
-        chk.BackgroundColor3 = config.SelectedPets[petName] and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(45, 45, 45); chk.Text = config.SelectedPets[petName] and "✓" or ""
-        local chkCorner = Instance.new("UICorner"); chkCorner.CornerRadius = UDim.new(0, 3); chkCorner.Parent = chk
-        local txt = Instance.new("TextLabel"); txt.Size = UDim2.new(1, -28, 1, 0); txt.Position = UDim2.new(0, 26, 0, 0); txt.BackgroundTransparency = 1; txt.Text = petName; txt.TextColor3 = Color3.fromRGB(190, 190, 190); txt.Font = Enum.Font.Gotham; txt.TextSize = 10; txt.TextXAlignment = Enum.TextXAlignment.Left; txt.Parent = row
+        local row = Instance.new("Frame");
+        row.Name = petName; row.Size = UDim2.new(1, -6, 0, 26); row.BackgroundTransparency = 1; row.LayoutOrder = i;
+        row.Parent = PetScroll
+        local chk = Instance.new("TextButton"); chk.Size = UDim2.new(0, 16, 0, 16);
+        chk.Position = UDim2.new(0, 4, 0, 5); chk.BorderSizePixel = 0; chk.TextColor3 = Color3.fromRGB(255, 255, 255); chk.Font = Enum.Font.GothamBold; chk.TextSize = 10;
+        chk.Parent = row
+        chk.BackgroundColor3 = config.SelectedPets[petName] and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(45, 45, 45);
+        chk.Text = config.SelectedPets[petName] and "✓" or ""
+        local chkCorner = Instance.new("UICorner");
+        chkCorner.CornerRadius = UDim.new(0, 3); chkCorner.Parent = chk
+        local txt = Instance.new("TextLabel");
+        txt.Size = UDim2.new(1, -28, 1, 0); txt.Position = UDim2.new(0, 26, 0, 0); txt.BackgroundTransparency = 1; txt.Text = petName;
+        txt.TextColor3 = Color3.fromRGB(190, 190, 190); txt.Font = Enum.Font.Gotham; txt.TextSize = 10; txt.TextXAlignment = Enum.TextXAlignment.Left;
+        txt.Parent = row
         
         chk.MouseButton1Click:Connect(function()
             config.SelectedPets[petName] = not config.SelectedPets[petName]
@@ -240,6 +306,8 @@ createMultiModeButton(LeftPanel, "Move Method:", "MoveMethod", {"Tween", "SpamTP
 createToggle(LeftPanel, "Auto Buy Pet", "AutoBuyPet", 255)
 createToggle(LeftPanel, "Auto Plant Area", "AutoPlant", 290)
 createTextBox(LeftPanel, "Walk Speed:", "WalkSpeed", 325)
+createToggle(LeftPanel, "Auto Favorite (>kg)", "AutoFavorite", 360) -- TOGGLE BARU
+createTextBox(LeftPanel, "Fav Threshold (kg):", "FavoriteThreshold", 395) -- TEXTBOX BARU
 
 -- =====================================================================
 -- 4. UTILITY FUNCTIONS & MOVEMENT ENGINES
@@ -277,6 +345,7 @@ local currentTween = nil
 local currentTweenTarget = nil
 local noclipConnection = nil
 local currentOrbitConnection = nil 
+
 local orbitAngle = 0               
 
 local function toggleNoclip(state)
@@ -291,13 +360,16 @@ local function toggleNoclip(state)
             end)
         end
     else
-        if noclipConnection then noclipConnection:Disconnect(); noclipConnection = nil end
+        if noclipConnection then noclipConnection:Disconnect();
+        noclipConnection = nil end
     end
 end
 
 local function stopMovement()
-    if currentTween then currentTween:Cancel(); currentTween = nil end
-    if currentOrbitConnection then currentOrbitConnection:Disconnect(); currentOrbitConnection = nil end
+    if currentTween then currentTween:Cancel();
+    currentTween = nil end
+    if currentOrbitConnection then currentOrbitConnection:Disconnect();
+    currentOrbitConnection = nil end
     local char = LocalPlayer.Character
     if char then
         if char:FindFirstChild("HumanoidRootPart") then char.HumanoidRootPart.Anchored = false end
@@ -335,7 +407,9 @@ local function startSpamTP(targetObj)
         end
         
         local targetPos, targetCFrame = getPromptLocation(targetObj)
-        if not targetCFrame then stopMovement(); return end
+ 
+        if not targetCFrame then stopMovement();
+        return end
         
         char:PivotTo(targetCFrame)
         
@@ -362,7 +436,7 @@ local function startSpiralFlight(targetObj)
     local char = LocalPlayer.Character
     if not char or not char:FindFirstChild("HumanoidRootPart") then return end
     local hrp = char.HumanoidRootPart
-    
+  
     toggleNoclip(true)
     hrp.Anchored = true 
     
@@ -380,6 +454,7 @@ local function startSpiralFlight(targetObj)
         end
         
         local targetPos, _ = getPromptLocation(targetObj)
+       
         if not targetPos then stopMovement(); return end
         
         orbitAngle = orbitAngle + (orbitSpeed * deltaTime)
@@ -388,6 +463,7 @@ local function startSpiralFlight(targetObj)
         
         local distToTarget = (hrp.Position - targetPos).Magnitude
         local moveAlpha = math.clamp((approachSpeed * deltaTime) / (hrp.Position - orbitPos).Magnitude, 0, 1)
+ 
         hrp.CFrame = hrp.CFrame:Lerp(CFrame.new(orbitPos, targetPos), moveAlpha)
         
         if distToTarget <= (orbitRadius + 2) then
@@ -446,21 +522,24 @@ task.spawn(function()
             if config.AutoClaimRare then
                 local rareTarget = scanForRare()
                 if rareTarget then
-                    Hunt.State = "FLYING"; Hunt.Target = rareTarget; Hunt.Type = "RARE"; continue
+                    Hunt.State = "FLYING";
+                    Hunt.Target = rareTarget; Hunt.Type = "RARE"; continue
                 end
             end
             
             if config.AutoBuyPet then
                 local petTarget, priceNum = scanForPet()
                 if petTarget then
-                    Hunt.State = "FLYING"; Hunt.Target = petTarget; Hunt.Type = "PET"; Hunt.ExpectedPrice = priceNum; continue
+                    Hunt.State = "FLYING";
+                    Hunt.Target = petTarget; Hunt.Type = "PET"; Hunt.ExpectedPrice = priceNum; continue
                 end
             end
 
         elseif Hunt.State == "FLYING" then
             -- FIX PENTING: Cek .Enabled
             if not Hunt.Target or not Hunt.Target.Parent or not Hunt.Target:IsDescendantOf(workspace) or not Hunt.Target.Enabled then
-                Hunt.State = "IDLE"; Hunt.Target = nil; stopMovement(); continue
+                Hunt.State = "IDLE"; Hunt.Target = nil; stopMovement();
+                continue
             end
             
             if config.MoveMethod == "SpamTP" then
@@ -468,7 +547,8 @@ task.spawn(function()
                 
             elseif config.MoveMethod == "Walk" then
                 local targetPos, _ = getPromptLocation(Hunt.Target)
-                if not targetPos then Hunt.State = "IDLE"; Hunt.Target = nil; stopMovement(); continue end
+                if not targetPos then Hunt.State = "IDLE";
+                Hunt.Target = nil; stopMovement(); continue end
                 
                 local char = LocalPlayer.Character
                 if char and char:FindFirstChild("HumanoidRootPart") and char:FindFirstChild("Humanoid") then
@@ -495,22 +575,27 @@ task.spawn(function()
 
             -- FIX: State kembali IDLE kalau target dimatiin (Enabled = false)
             if Hunt.Target and not Hunt.Target.Enabled then
-                Hunt.State = "IDLE"; Hunt.Target = nil; stopMovement()
+                Hunt.State = "IDLE"; Hunt.Target = nil;
+                stopMovement()
                 continue
             end
 
             if Hunt.Type == "PET" then
                 local currentMoney = getCurrentMoney()
                 if currentMoney <= (Hunt.InitialMoney - Hunt.ExpectedPrice) then
-                    Hunt.State = "IDLE"; Hunt.Target = nil; stopMovement()
+                    Hunt.State = "IDLE"; Hunt.Target = nil;
+                    stopMovement()
                 elseif os.clock() > Hunt.GraceTimer then
-                    Hunt.State = "IDLE"; Hunt.Target = nil; stopMovement()
+                    Hunt.State = "IDLE";
+                    Hunt.Target = nil; stopMovement()
                 end
             elseif Hunt.Type == "RARE" then
                 if not Hunt.Target or not Hunt.Target.Parent or not Hunt.Target:IsDescendantOf(workspace) then
-                    Hunt.State = "IDLE"; Hunt.Target = nil; stopMovement()
+                    Hunt.State = "IDLE";
+                    Hunt.Target = nil; stopMovement()
                 elseif os.clock() > Hunt.GraceTimer then
-                    Hunt.State = "IDLE"; Hunt.Target = nil; stopMovement()
+                    Hunt.State = "IDLE";
+                    Hunt.Target = nil; stopMovement()
                 end
             end
         end
@@ -518,19 +603,19 @@ task.spawn(function()
 end)
 
 -- =====================================================================
--- 6. BACKGROUND LOOPS (Harvest, Sell, Buy Shop, Auto Plant)
+-- 6. BACKGROUND LOOPS (Harvest, Sell, Buy Shop, Auto Plant, Auto Favorite)
 -- =====================================================================
 
 task.spawn(function()
-    while task.wait(1) do
+    while task.wait(0.1) do -- KECEPATAN HARVEST JADI 0.1 BIAR NGEBUT
         if config.AutoHarvest then
             if Hunt.State == "IDLE" then
                 local spawnPt = getGardenSpawnPoint()
                 if spawnPt and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
                     local hrp = LocalPlayer.Character.HumanoidRootPart
-                    if (hrp.Position - spawnPt.Position).Magnitude > 20 then
+                    if (hrp.Position - spawnPt.Position).Magnitude > 60 then
                         hrp.CFrame = spawnPt.CFrame + Vector3.new(0, 3, 0)
-                        task.wait(0.5)
+                        task.wait(0.1)
                     end
                 end
             end
@@ -580,13 +665,15 @@ task.spawn(function()
                     local seedNameLower = string.lower(seedName)
                     for _, tool in pairs(char:GetChildren()) do
                         if tool:IsA("Tool") and string.find(string.lower(tool.Name), seedNameLower) then
-                            seedTool = tool; break
+                            seedTool = tool;
+                            break
                         end
                     end
                     if not seedTool and LocalPlayer:FindFirstChild("Backpack") then
                         for _, tool in pairs(LocalPlayer.Backpack:GetChildren()) do
                             if tool:IsA("Tool") and string.find(string.lower(tool.Name), seedNameLower) then
-                                seedTool = tool; break
+                                seedTool = tool;
+                                break
                             end
                         end
                     end
@@ -634,6 +721,28 @@ task.spawn(function()
                 end
             else
                 task.wait(2) 
+            end
+        end
+    end
+end)
+
+-- LOOPING BARU: AUTO FAVORITE
+task.spawn(function()
+    while task.wait(0.1) do
+        if config.AutoFavorite then
+            local targetKg = tonumber(config.FavoriteThreshold) or 100
+            if LocalPlayer:FindFirstChild("Backpack") then
+                for _, item in pairs(LocalPlayer.Backpack:GetChildren()) do
+                    local weight = item:GetAttribute("Weight")
+                    
+                    if weight and type(weight) == "number" and weight >= targetKg then
+                        if not item:GetAttribute("IsFavorite") then
+                            item:SetAttribute("IsFavorite", true)
+                            local nama = item:GetAttribute("FruitName") or item.Name
+                            print("🛡️ LOCK AMAN: " .. nama .. " | Berat: " .. weight .. " kg")
+                        end
+                    end
+                end
             end
         end
     end
