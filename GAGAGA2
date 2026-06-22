@@ -18,9 +18,8 @@ task.spawn(function()
 end)
 -- =====================================================================
 -- =====================================================================
--- GROW A GARDEN 2 - AUTOMATION PREMIUM HUB (V9.7 - AUTO FAVORITE UPDATE)
--- Features: Auto Harvest+TP, Auto Sell, Auto Buy, Rare Seed, Auto Pet, Auto Plant
--- Fixes: Added Auto Favorite by Weight (kg), Resized GUI, Faster Harvest (0.1s)
+-- GROW A GARDEN 2 - AUTOMATION PREMIUM HUB (V10)
+-- Features: Smart Transit Pathfinding, Closest Target Priority, Linear Tween
 -- =====================================================================
 
 local Players = game:GetService("Players")
@@ -60,12 +59,12 @@ local PetData = {
 }
 local PetOrder = {"Frog", "Bunny", "Owl", "Deer", "Robin", "Bee", "Monkey", "Bear", "Golden Dragonfly", "Unicorn", "Racoon"}
 
-local FILE_NAME = "GAG2_Automation_Config_v9.json"
+local FILE_NAME = "GAG2_Automation_Config_v10.json"
 local config = {
     AutoHarvest = false, AutoSell = false, AutoBuySeed = false, 
     AutoBuyGear = false, AutoClaimRare = false, AutoBuyPet = false, AutoPlant = false,
-    AutoFavorite = false, -- FITUR BARU
-    TweenSpeed = "50", WalkSpeed = "40", MoveMethod = "SpamTP", FavoriteThreshold = "100", -- TEXTBOX BARU
+    AutoFavorite = false,
+    TweenSpeed = "50", WalkSpeed = "40", MoveMethod = "Tween", FavoriteThreshold = "100",
     SelectedSeeds = {}, SelectedGears = {}, SelectedPets = {}, SelectedPlantSeeds = {}
 }
 
@@ -105,10 +104,11 @@ pcall(function() ScreenGui.Parent = game:GetService("CoreGui") end)
 if not ScreenGui.Parent then ScreenGui.Parent = PlayerGui end
 
 local MainFrame = Instance.new("Frame");
--- GUI DIPERBESAR TINGGINYA (390 -> 460) BIAR MUAT MENU BARU
-MainFrame.Size = UDim2.new(0, 920, 0, 460); MainFrame.Position = UDim2.new(0.5, -460, 0.5, -230)
+MainFrame.Size = UDim2.new(0, 920, 0, 460);
+MainFrame.Position = UDim2.new(0.5, -460, 0.5, -230)
 MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20); MainFrame.BorderSizePixel = 0;
-MainFrame.ClipsDescendants = true; MainFrame.Parent = ScreenGui
+MainFrame.ClipsDescendants = true;
+MainFrame.Parent = ScreenGui
 local MainCorner = Instance.new("UICorner"); MainCorner.CornerRadius = UDim.new(0, 8); MainCorner.Parent = MainFrame
 
 local Topbar = Instance.new("Frame");
@@ -301,16 +301,16 @@ createToggle(LeftPanel, "Auto Sell All", "AutoSell", 45)
 createToggle(LeftPanel, "Auto Buy Seed", "AutoBuySeed", 80)
 createToggle(LeftPanel, "Auto Buy Gear", "AutoBuyGear", 115)
 createToggle(LeftPanel, "Auto Claim Rare Seed", "AutoClaimRare", 150)
-createTextBox(LeftPanel, "Tween Speed:", "TweenSpeed", 185)
+createTextBox(LeftPanel, "Bonus Speed:", "TweenSpeed", 185) 
 createMultiModeButton(LeftPanel, "Move Method:", "MoveMethod", {"Tween", "SpamTP", "Walk"}, 220)
 createToggle(LeftPanel, "Auto Buy Pet", "AutoBuyPet", 255)
 createToggle(LeftPanel, "Auto Plant Area", "AutoPlant", 290)
 createTextBox(LeftPanel, "Walk Speed:", "WalkSpeed", 325)
-createToggle(LeftPanel, "Auto Favorite (>kg)", "AutoFavorite", 360) -- TOGGLE BARU
-createTextBox(LeftPanel, "Fav Threshold (kg):", "FavoriteThreshold", 395) -- TEXTBOX BARU
+createToggle(LeftPanel, "Auto Favorite (>kg)", "AutoFavorite", 360) 
+createTextBox(LeftPanel, "Fav Threshold (kg):", "FavoriteThreshold", 395) 
 
 -- =====================================================================
--- 4. UTILITY FUNCTIONS & MOVEMENT ENGINES
+-- 4. UTILITY FUNCTIONS & SMART PATHFINDING
 -- =====================================================================
 local function getGardenSpawnPoint()
     local plotId = LocalPlayer:GetAttribute("PlotId")
@@ -336,17 +336,60 @@ local function getPromptLocation(prompt)
     return nil, nil
 end
 
+-- ==========================================
+-- SMART TRANSIT CALCULATOR (PATHFINDING)
+-- ==========================================
+local function getBestRoute(targetPos)
+    local char = LocalPlayer.Character
+    if not char or not char:FindFirstChild("HumanoidRootPart") then return math.huge, nil end
+    
+    local currentPos = char.HumanoidRootPart.Position
+    local bestDist = (currentPos - targetPos).Magnitude
+    local bestRoute = nil
+    
+    -- Cek TP Sell & Seeds
+    local teleports = workspace:FindFirstChild("Teleports")
+    if teleports then
+        local sellTP = teleports:FindFirstChild("Sell")
+        if sellTP and sellTP:IsA("BasePart") then
+            local dist = (sellTP.Position - targetPos).Magnitude
+            if dist < bestDist then
+                bestDist = dist
+                bestRoute = "Sell"
+            end
+        end
+        
+        local seedsTP = teleports:FindFirstChild("Seeds")
+        if seedsTP and seedsTP:IsA("BasePart") then
+            local dist = (seedsTP.Position - targetPos).Magnitude
+            if dist < bestDist then
+                bestDist = dist
+                bestRoute = "Seeds"
+            end
+        end
+    end
+    
+    -- Cek TP Garden
+    local spawnPt = getGardenSpawnPoint()
+    if spawnPt and spawnPt:IsA("BasePart") then
+        local dist = (spawnPt.Position - targetPos).Magnitude
+        if dist < bestDist then
+            bestDist = dist
+            bestRoute = "Garden"
+        end
+    end
+    
+    return bestDist, bestRoute -- Return: Effective Distance & Rute Transit (nil jika langsung)
+end
+
 local function getCurrentMoney()
     local sheckles = LocalPlayer:FindFirstChild("leaderstats") and LocalPlayer.leaderstats:FindFirstChild("Sheckles")
     return sheckles and sheckles.Value or 0
 end
 
-local currentTween = nil
 local currentTweenTarget = nil
 local noclipConnection = nil
 local currentOrbitConnection = nil 
-
-local orbitAngle = 0               
 
 local function toggleNoclip(state)
     local char = LocalPlayer.Character
@@ -366,8 +409,6 @@ local function toggleNoclip(state)
 end
 
 local function stopMovement()
-    if currentTween then currentTween:Cancel();
-    currentTween = nil end
     if currentOrbitConnection then currentOrbitConnection:Disconnect();
     currentOrbitConnection = nil end
     local char = LocalPlayer.Character
@@ -385,11 +426,10 @@ local function stopMovement()
 end
 
 -- ==========================================
--- MESIN BARU: SPAM TP (BRUTE FORCE)
+-- MESIN GERAK
 -- ==========================================
 local function startSpamTP(targetObj)
     if currentOrbitConnection then return end 
-    
     stopMovement() 
     
     local char = LocalPlayer.Character
@@ -398,7 +438,6 @@ local function startSpamTP(targetObj)
     toggleNoclip(true) 
     
     currentOrbitConnection = RunService.Heartbeat:Connect(function()
-        -- FIX PENTING: Cek targetObj.Enabled biar gak ngejar ghost prompt!
         if not targetObj or not targetObj.Parent or not targetObj:IsDescendantOf(workspace) or not targetObj.Enabled then
             stopMovement()
             Hunt.State = "IDLE" 
@@ -407,9 +446,7 @@ local function startSpamTP(targetObj)
         end
         
         local targetPos, targetCFrame = getPromptLocation(targetObj)
- 
-        if not targetCFrame then stopMovement();
-        return end
+        if not targetCFrame then stopMovement(); return end
         
         char:PivotTo(targetCFrame)
         
@@ -425,27 +462,19 @@ local function startSpamTP(targetObj)
     end)
 end
 
--- ==========================================
--- MESIN LAMA: SPIRAL FLIGHT (TWEEN)
--- ==========================================
-local function startSpiralFlight(targetObj)
+local function startLinearFlight(targetObj)
     if currentOrbitConnection then return end 
-    
     stopMovement() 
     
     local char = LocalPlayer.Character
     if not char or not char:FindFirstChild("HumanoidRootPart") then return end
     local hrp = char.HumanoidRootPart
+    local humanoid = char:FindFirstChild("Humanoid") 
   
     toggleNoclip(true)
     hrp.Anchored = true 
     
-    local orbitRadius = 4 
-    local orbitSpeed = 5  
-    local approachSpeed = tonumber(config.TweenSpeed) or 50 
-    
     currentOrbitConnection = RunService.Heartbeat:Connect(function(deltaTime)
-        -- FIX PENTING: Cek targetObj.Enabled!
         if not targetObj or not targetObj.Parent or not targetObj:IsDescendantOf(workspace) or not targetObj.Enabled then
             stopMovement()
             Hunt.State = "IDLE" 
@@ -454,82 +483,91 @@ local function startSpiralFlight(targetObj)
         end
         
         local targetPos, _ = getPromptLocation(targetObj)
-       
         if not targetPos then stopMovement(); return end
+
+        local baseWalkSpeed = 16 
+        if humanoid then baseWalkSpeed = humanoid.WalkSpeed end
+
+        local bonusSpeed = tonumber(config.TweenSpeed) or 0 
+        local finalApproachSpeed = baseWalkSpeed + bonusSpeed
         
-        orbitAngle = orbitAngle + (orbitSpeed * deltaTime)
-        local offset = Vector3.new(math.cos(orbitAngle) * orbitRadius, 0, math.sin(orbitAngle) * orbitRadius)
-        local orbitPos = targetPos + offset
+        local currentPos = hrp.Position
+        local distToTarget = (currentPos - targetPos).Magnitude
         
-        local distToTarget = (hrp.Position - targetPos).Magnitude
-        local moveAlpha = math.clamp((approachSpeed * deltaTime) / (hrp.Position - orbitPos).Magnitude, 0, 1)
- 
-        hrp.CFrame = hrp.CFrame:Lerp(CFrame.new(orbitPos, targetPos), moveAlpha)
-        
-        if distToTarget <= (orbitRadius + 2) then
+        if distToTarget > 5 then
+            local moveDist = finalApproachSpeed * deltaTime
+            local moveAlpha = math.clamp(moveDist / distToTarget, 0, 1)
+            
+            local nextPos = currentPos:Lerp(targetPos, moveAlpha)
+            hrp.CFrame = CFrame.new(nextPos)
+        else
             if Hunt.State == "FLYING" then
                 if Hunt.Type == "PET" then Hunt.InitialMoney = getCurrentMoney() end
                 Hunt.State = "BUYING"
                 Hunt.GraceTimer = os.clock() + 5
             end
-            
-            if fireproximityprompt then 
-                fireproximityprompt(targetObj, 1, true) 
-            end
+        end
+
+        if distToTarget <= 15 then
+            if fireproximityprompt then fireproximityprompt(targetObj, 1, true) end
         end
     end)
 end
 
 -- =====================================================================
--- RARE EVENT DETECTOR: Goldmoon/RainbowMoon muncul-hilang di workspace
--- Pakai ChildAdded/ChildRemoved (event-driven), BUKAN polling - jadi 0 cost
--- selama event lagi gak aktif.
+-- TARGET FINDER (PRIORITAS TERDEKAT / EFFICIENCY SCAN)
 -- =====================================================================
 local rareEventActive = false
+local function isRareEventName(name) return name == "Goldmoon" or name == "RainbowMoon" end
+local function recheckRareEvent() rareEventActive = (workspace:FindFirstChild("Goldmoon") ~= nil) or (workspace:FindFirstChild("RainbowMoon") ~= nil) end
+recheckRareEvent() 
 
-local function isRareEventName(name)
-    return name == "Goldmoon" or name == "RainbowMoon"
-end
+workspace.ChildAdded:Connect(function(child) if isRareEventName(child.Name) then rareEventActive = true end end)
+workspace.ChildRemoved:Connect(function(child) if isRareEventName(child.Name) then recheckRareEvent() end end)
 
-local function recheckRareEvent()
-    rareEventActive = (workspace:FindFirstChild("Goldmoon") ~= nil) or (workspace:FindFirstChild("RainbowMoon") ~= nil)
-end
-recheckRareEvent() -- cek sekali di awal, kalau pas script di-run event udah lagi nyala
-
-workspace.ChildAdded:Connect(function(child)
-    if isRareEventName(child.Name) then
-        rareEventActive = true
-    end
-end)
-workspace.ChildRemoved:Connect(function(child)
-    if isRareEventName(child.Name) then
-        recheckRareEvent() -- recheck, soalnya bisa aja event satunya masih nyala
-    end
-end)
-
--- FIX: Nambahin .Enabled supaya mengabaikan Rare Seed yang udah mati
 local function scanForRare()
+    local bestTarget = nil
+    local minDistance = math.huge
+    
     for _, obj in pairs(workspace:GetDescendants()) do
         if obj:IsA("ProximityPrompt") and obj.Enabled and obj.ActionText == "CLAIM" and (obj.ObjectText == "Gold Seed" or obj.ObjectText == "Rainbow Seed") then
-            return obj
+            local tPos, _ = getPromptLocation(obj)
+            if tPos then
+                local effDist, _ = getBestRoute(tPos)
+                if effDist < minDistance then
+                    minDistance = effDist
+                    bestTarget = obj
+                end
+            end
         end
     end
-    return nil
+    return bestTarget
 end
 
--- FIX: Nambahin .Enabled supaya mengabaikan Pet yang lagi jalan ke kebun (Prompt dimatiin server)
 local function scanForPet()
+    local bestTarget = nil
+    local bestPrice = 0
+    local minDistance = math.huge
+    
     for _, petName in ipairs(PetOrder) do
         if config.SelectedPets[petName] and PetData[petName] then
             local targetPriceStr = PetData[petName].PriceStr
             for _, obj in pairs(workspace:GetDescendants()) do
                 if obj:IsA("ProximityPrompt") and obj.Enabled and obj.ActionText == "Buy" and obj.ObjectText == targetPriceStr then
-                    return obj, PetData[petName].PriceNum
+                    local tPos, _ = getPromptLocation(obj)
+                    if tPos then
+                        local effDist, _ = getBestRoute(tPos)
+                        if effDist < minDistance then
+                            minDistance = effDist
+                            bestTarget = obj
+                            bestPrice = PetData[petName].PriceNum
+                        end
+                    end
                 end
             end
         end
     end
-    return nil, 0
+    return bestTarget, bestPrice
 end
 
 -- =====================================================================
@@ -549,33 +587,47 @@ task.spawn(function()
             if config.AutoClaimRare and rareEventActive then
                 local rareTarget = scanForRare()
                 if rareTarget then
-                    Hunt.State = "FLYING";
-                    Hunt.Target = rareTarget; Hunt.Type = "RARE"; continue
+                    -- CEK JALUR TRANSIT SEBELUM TERBANG
+                    local tPos, _ = getPromptLocation(rareTarget)
+                    if tPos then
+                        local _, route = getBestRoute(tPos)
+                        if route and Networking and Networking.TeleportButton and Networking.TeleportButton.Request then
+                            print("🚏 Jalur Pintas Aktif! Transit ke: " .. route)
+                            Networking.TeleportButton.Request:Fire(route)
+                            task.wait(0.3) -- Jeda biar badan mendarat sempurna
+                        end
+                    end
+                    Hunt.State = "FLYING"; Hunt.Target = rareTarget; Hunt.Type = "RARE"; continue
                 end
             end
             
             if config.AutoBuyPet then
                 local petTarget, priceNum = scanForPet()
                 if petTarget then
-                    Hunt.State = "FLYING";
-                    Hunt.Target = petTarget; Hunt.Type = "PET"; Hunt.ExpectedPrice = priceNum; continue
+                    -- CEK JALUR TRANSIT SEBELUM TERBANG
+                    local tPos, _ = getPromptLocation(petTarget)
+                    if tPos then
+                        local _, route = getBestRoute(tPos)
+                        if route and Networking and Networking.TeleportButton and Networking.TeleportButton.Request then
+                            print("🚏 Jalur Pintas Aktif! Transit ke: " .. route)
+                            Networking.TeleportButton.Request:Fire(route)
+                            task.wait(0.3) -- Jeda biar badan mendarat sempurna
+                        end
+                    end
+                    Hunt.State = "FLYING"; Hunt.Target = petTarget; Hunt.Type = "PET"; Hunt.ExpectedPrice = priceNum; continue
                 end
             end
 
         elseif Hunt.State == "FLYING" then
-            -- FIX PENTING: Cek .Enabled
             if not Hunt.Target or not Hunt.Target.Parent or not Hunt.Target:IsDescendantOf(workspace) or not Hunt.Target.Enabled then
-                Hunt.State = "IDLE"; Hunt.Target = nil; stopMovement();
-                continue
+                Hunt.State = "IDLE"; Hunt.Target = nil; stopMovement(); continue
             end
             
             if config.MoveMethod == "SpamTP" then
                 startSpamTP(Hunt.Target)
-                
             elseif config.MoveMethod == "Walk" then
                 local targetPos, _ = getPromptLocation(Hunt.Target)
-                if not targetPos then Hunt.State = "IDLE";
-                Hunt.Target = nil; stopMovement(); continue end
+                if not targetPos then Hunt.State = "IDLE"; Hunt.Target = nil; stopMovement(); continue end
                 
                 local char = LocalPlayer.Character
                 if char and char:FindFirstChild("HumanoidRootPart") and char:FindFirstChild("Humanoid") then
@@ -590,9 +642,8 @@ task.spawn(function()
                         Hunt.GraceTimer = os.clock() + 5
                     end
                 end
-                
             else
-                startSpiralFlight(Hunt.Target)
+                startLinearFlight(Hunt.Target) 
             end
 
         elseif Hunt.State == "BUYING" then
@@ -600,29 +651,22 @@ task.spawn(function()
                 if fireproximityprompt then fireproximityprompt(Hunt.Target, 1, true) end
             end
 
-            -- FIX: State kembali IDLE kalau target dimatiin (Enabled = false)
             if Hunt.Target and not Hunt.Target.Enabled then
-                Hunt.State = "IDLE"; Hunt.Target = nil;
-                stopMovement()
-                continue
+                Hunt.State = "IDLE"; Hunt.Target = nil; stopMovement(); continue
             end
 
             if Hunt.Type == "PET" then
                 local currentMoney = getCurrentMoney()
                 if currentMoney <= (Hunt.InitialMoney - Hunt.ExpectedPrice) then
-                    Hunt.State = "IDLE"; Hunt.Target = nil;
-                    stopMovement()
+                    Hunt.State = "IDLE"; Hunt.Target = nil; stopMovement()
                 elseif os.clock() > Hunt.GraceTimer then
-                    Hunt.State = "IDLE";
-                    Hunt.Target = nil; stopMovement()
+                    Hunt.State = "IDLE"; Hunt.Target = nil; stopMovement()
                 end
             elseif Hunt.Type == "RARE" then
                 if not Hunt.Target or not Hunt.Target.Parent or not Hunt.Target:IsDescendantOf(workspace) then
-                    Hunt.State = "IDLE";
-                    Hunt.Target = nil; stopMovement()
+                    Hunt.State = "IDLE"; Hunt.Target = nil; stopMovement()
                 elseif os.clock() > Hunt.GraceTimer then
-                    Hunt.State = "IDLE";
-                    Hunt.Target = nil; stopMovement()
+                    Hunt.State = "IDLE"; Hunt.Target = nil; stopMovement()
                 end
             end
         end
@@ -630,10 +674,8 @@ task.spawn(function()
 end)
 
 -- =====================================================================
--- 6. BACKGROUND LOOPS (Harvest, Sell, Buy Shop, Auto Plant, Auto Favorite)
+-- 6. BACKGROUND LOOPS
 -- =====================================================================
-
--- TP ke spawn point tetep dicek tiap 0.5s, gak perlu tiap frame
 local harvestQueue = {}
 local harvestQueueSet = {}
 
@@ -650,7 +692,7 @@ task.spawn(function()
                     end
                 end
             end
-            -- ISI QUEUE: cuma masukin prompt yang belom ada di queue, biar gak dobel
+  
             for _, obj in pairs(workspace:GetDescendants()) do
                 if obj:IsA("ProximityPrompt") and obj.Enabled and obj.ActionText == "Harvest" then
                     if not harvestQueueSet[obj] then
@@ -666,7 +708,6 @@ task.spawn(function()
     end
 end)
 
--- FIRE: 1 prompt per FRAME (Heartbeat ngikut deltaTime asli, otomatis nyesuain FPS lo, gak ditebak fixed)
 RunService.Heartbeat:Connect(function()
     if not config.AutoHarvest then return end
     while #harvestQueue > 0 do
@@ -674,12 +715,10 @@ RunService.Heartbeat:Connect(function()
         harvestQueueSet[obj] = nil
         if obj and obj.Parent and obj.Enabled and obj:IsDescendantOf(workspace) then
             if fireproximityprompt then fireproximityprompt(obj, 1, true) end
-            break -- berhenti, 1 prompt aja per frame ini
+            break 
         end
-        -- kalau prompt ternyata udah invalid (mati/keambil), langsung skip ke next tanpa nunggu frame berikutnya
     end
 end)
-
 
 task.spawn(function()
     while task.wait(4) do
@@ -717,15 +756,13 @@ task.spawn(function()
                     local seedNameLower = string.lower(seedName)
                     for _, tool in pairs(char:GetChildren()) do
                         if tool:IsA("Tool") and string.find(string.lower(tool.Name), seedNameLower) then
-                            seedTool = tool;
-                            break
+                            seedTool = tool; break
                         end
                     end
                     if not seedTool and LocalPlayer:FindFirstChild("Backpack") then
                         for _, tool in pairs(LocalPlayer.Backpack:GetChildren()) do
                             if tool:IsA("Tool") and string.find(string.lower(tool.Name), seedNameLower) then
-                                seedTool = tool;
-                                break
+                                seedTool = tool; break
                             end
                         end
                     end
@@ -758,7 +795,6 @@ task.spawn(function()
                                         if not config.AutoPlant then break end 
                                         
                                         local targetPos = (bedCFrame * CFrame.new(x, bedSize.Y/2, z)).Position
-                                        
                                         if Networking and Networking.Plant and Networking.Plant.PlantSeed then
                                             Networking.Plant.PlantSeed:Fire(targetPos, seedValue, seedTool)
                                             task.wait(0.05) 
@@ -778,7 +814,7 @@ task.spawn(function()
     end
 end)
 
--- LOOPING BARU: AUTO FAVORITE (FIX SERVER SYNC - TANPA SPY)
+-- LOOPING BARU: AUTO FAVORITE
 task.spawn(function()
     while task.wait(2.5) do
         if config.AutoFavorite then
@@ -786,26 +822,21 @@ task.spawn(function()
             if LocalPlayer:FindFirstChild("Backpack") then
                 for _, item in pairs(LocalPlayer.Backpack:GetChildren()) do
                     local weight = item:GetAttribute("Weight")
-                   
+                    
                     if weight and type(weight) == "number" and weight >= targetKg then
                         if not item:GetAttribute("IsFavorite") then
-                            -- 1. Centang di layar lu (Client)
                             item:SetAttribute("IsFavorite", true)
                             
                             local nama = item:GetAttribute("FruitName") or item.Name
-                            local itemId = item:GetAttribute("Id") -- Ambil ID unik buahnya
+                            local itemId = item:GetAttribute("Id") 
                             
-                            -- 2. TEKNIK TEMBAK BUTA KE SERVER
                             if Networking and itemId then
                                 for _, kategori in pairs(Networking) do
                                     if type(kategori) == "table" then
                                         for namaFungsi, objRemote in pairs(kategori) do
                                             local namaLower = string.lower(namaFungsi)
-                                            
-                                            -- Cari fungsi yang ada kata 'favorite' atau 'lock'
                                             if string.find(namaLower, "favorite") or string.find(namaLower, "lock") then
                                                 pcall(function()
-                                                    -- Spam tembak kombinasi argumen ke server
                                                     if type(objRemote) == "table" and objRemote.Fire then
                                                         objRemote:Fire(itemId, true)
                                                         objRemote:Fire(item, true)
@@ -819,7 +850,6 @@ task.spawn(function()
                                     end
                                 end
                             end
-                            
                             print("🛡️ LOCK SERVER AMAN: " .. nama .. " | Berat: " .. weight .. " kg")
                         end
                     end
