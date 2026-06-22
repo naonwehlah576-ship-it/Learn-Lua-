@@ -778,7 +778,7 @@ task.spawn(function()
     end
 end)
 
--- LOOPING BARU: AUTO FAVORITE
+-- LOOPING BARU: AUTO FAVORITE (FIX SERVER SYNC - TANPA SPY)
 task.spawn(function()
     while task.wait(2.5) do
         if config.AutoFavorite then
@@ -786,12 +786,41 @@ task.spawn(function()
             if LocalPlayer:FindFirstChild("Backpack") then
                 for _, item in pairs(LocalPlayer.Backpack:GetChildren()) do
                     local weight = item:GetAttribute("Weight")
-                    
+                   
                     if weight and type(weight) == "number" and weight >= targetKg then
                         if not item:GetAttribute("IsFavorite") then
+                            -- 1. Centang di layar lu (Client)
                             item:SetAttribute("IsFavorite", true)
+                            
                             local nama = item:GetAttribute("FruitName") or item.Name
-                            print("🛡️ LOCK AMAN: " .. nama .. " | Berat: " .. weight .. " kg")
+                            local itemId = item:GetAttribute("Id") -- Ambil ID unik buahnya
+                            
+                            -- 2. TEKNIK TEMBAK BUTA KE SERVER
+                            if Networking and itemId then
+                                for _, kategori in pairs(Networking) do
+                                    if type(kategori) == "table" then
+                                        for namaFungsi, objRemote in pairs(kategori) do
+                                            local namaLower = string.lower(namaFungsi)
+                                            
+                                            -- Cari fungsi yang ada kata 'favorite' atau 'lock'
+                                            if string.find(namaLower, "favorite") or string.find(namaLower, "lock") then
+                                                pcall(function()
+                                                    -- Spam tembak kombinasi argumen ke server
+                                                    if type(objRemote) == "table" and objRemote.Fire then
+                                                        objRemote:Fire(itemId, true)
+                                                        objRemote:Fire(item, true)
+                                                    elseif type(objRemote) == "function" then
+                                                        objRemote(itemId, true)
+                                                        objRemote(item, true)
+                                                    end
+                                                end)
+                                            end
+                                        end
+                                    end
+                                end
+                            end
+                            
+                            print("🛡️ LOCK SERVER AMAN: " .. nama .. " | Berat: " .. weight .. " kg")
                         end
                     end
                 end
