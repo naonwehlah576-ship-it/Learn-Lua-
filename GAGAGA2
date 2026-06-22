@@ -7,7 +7,6 @@ end
 
 task.spawn(function()
     local VirtualInputManager = game:GetService("VirtualInputManager")
-    -- Script bakal nge-spam pencet Y setiap 1 detik selama 20 detik awal
     for i = 1, 20 do
         pcall(function()
             VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Y, false, game)
@@ -19,9 +18,9 @@ task.spawn(function()
 end)
 -- =====================================================================
 -- =====================================================================
--- GROW A GARDEN 2 - AUTOMATION PREMIUM HUB (V9 - TP / TWEEN METHOD)
--- Features: Auto Harvest+TP, Auto Sell, Auto Buy, Rare Seed, Auto Pet
--- Fixes: Added Move Method (TP/Tween), Spam ProximityPrompt Fix
+-- GROW A GARDEN 2 - AUTOMATION PREMIUM HUB (V9.5 - BRUTE FORCE SPAM TP)
+-- Features: Auto Harvest+TP, Auto Sell, Auto Buy, Rare Seed, Auto Pet, Auto Plant
+-- Fixes: Added "SpamTP" Mode to out-spam server Anti-Cheat rubberbanding
 -- =====================================================================
 
 local Players = game:GetService("Players")
@@ -64,9 +63,9 @@ local PetOrder = {"Frog", "Bunny", "Owl", "Deer", "Robin", "Bee", "Monkey", "Bea
 local FILE_NAME = "GAG2_Automation_Config_v9.json"
 local config = {
     AutoHarvest = false, AutoSell = false, AutoBuySeed = false, 
-    AutoBuyGear = false, AutoClaimRare = false, AutoBuyPet = false,
-    TweenSpeed = "50", MoveMethod = "Tween", -- Opsi Baru: "Tween" atau "TP"
-    SelectedSeeds = {}, SelectedGears = {}, SelectedPets = {}
+    AutoBuyGear = false, AutoClaimRare = false, AutoBuyPet = false, AutoPlant = false,
+    TweenSpeed = "50", WalkSpeed = "40", MoveMethod = "SpamTP",
+    SelectedSeeds = {}, SelectedGears = {}, SelectedPets = {}, SelectedPlantSeeds = {}
 }
 
 -- STATE MACHINE VARIABLES
@@ -104,14 +103,14 @@ if existingGui then existingGui:Destroy() end
 pcall(function() ScreenGui.Parent = game:GetService("CoreGui") end)
 if not ScreenGui.Parent then ScreenGui.Parent = PlayerGui end
 
-local MainFrame = Instance.new("Frame"); MainFrame.Size = UDim2.new(0, 740, 0, 390); MainFrame.Position = UDim2.new(0.5, -370, 0.5, -195)
+local MainFrame = Instance.new("Frame"); MainFrame.Size = UDim2.new(0, 920, 0, 390); MainFrame.Position = UDim2.new(0.5, -460, 0.5, -195)
 MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20); MainFrame.BorderSizePixel = 0; MainFrame.ClipsDescendants = true; MainFrame.Parent = ScreenGui
 local MainCorner = Instance.new("UICorner"); MainCorner.CornerRadius = UDim.new(0, 8); MainCorner.Parent = MainFrame
 
 local Topbar = Instance.new("Frame"); Topbar.Size = UDim2.new(1, 0, 0, 35); Topbar.BackgroundColor3 = Color3.fromRGB(28, 28, 28); Topbar.BorderSizePixel = 0; Topbar.Parent = MainFrame
 local TopbarCorner = Instance.new("UICorner"); TopbarCorner.CornerRadius = UDim.new(0, 8); TopbarCorner.Parent = Topbar
 local Title = Instance.new("TextLabel"); Title.Size = UDim2.new(1, -80, 1, 0); Title.Position = UDim2.new(0, 12, 0, 0)
-Title.BackgroundTransparency = 1; Title.Text = "Grow a Garden 2 Hub"; Title.TextColor3 = Color3.fromRGB(240, 240, 240); Title.Font = Enum.Font.GothamBold; Title.TextSize = 14; Title.TextXAlignment = Enum.TextXAlignment.Left; Title.Parent = Topbar
+Title.BackgroundTransparency = 1; Title.Text = "Grow a Garden 2 Hub (v9.5 - BRUTE FORCE TP)"; Title.TextColor3 = Color3.fromRGB(240, 240, 240); Title.Font = Enum.Font.GothamBold; Title.TextSize = 14; Title.TextXAlignment = Enum.TextXAlignment.Left; Title.Parent = Topbar
 
 local CloseBtn = Instance.new("TextButton"); CloseBtn.Size = UDim2.new(0, 30, 0, 30); CloseBtn.Position = UDim2.new(1, -32, 0, 2)
 CloseBtn.BackgroundTransparency = 1; CloseBtn.Text = "✕"; CloseBtn.TextColor3 = Color3.fromRGB(150, 150, 150); CloseBtn.Font = Enum.Font.GothamBold; CloseBtn.TextSize = 16; CloseBtn.Parent = Topbar
@@ -119,7 +118,7 @@ CloseBtn.MouseButton1Click:Connect(function() ScreenGui:Destroy() end)
 local MinBtn = Instance.new("TextButton"); MinBtn.Size = UDim2.new(0, 30, 0, 30); MinBtn.Position = UDim2.new(1, -62, 0, 2)
 MinBtn.BackgroundTransparency = 1; MinBtn.Text = "—"; MinBtn.TextColor3 = Color3.fromRGB(150, 150, 150); MinBtn.Font = Enum.Font.GothamBold; MinBtn.TextSize = 16; MinBtn.Parent = Topbar
 local isMinimized = false
-MinBtn.MouseButton1Click:Connect(function() isMinimized = not isMinimized; TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quint), {Size = isMinimized and UDim2.new(0, 740, 0, 35) or UDim2.new(0, 740, 0, 390)}):Play() end)
+MinBtn.MouseButton1Click:Connect(function() isMinimized = not isMinimized; TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quint), {Size = isMinimized and UDim2.new(0, 920, 0, 35) or UDim2.new(0, 920, 0, 390)}):Play() end)
 
 local dragging, dragInput, dragStart, startPos
 Topbar.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging = true; dragStart = input.Position; startPos = MainFrame.Position; input.Changed:Connect(function() if input.UserInputState == Enum.UserInputState.End then dragging = false end end) end end)
@@ -129,7 +128,7 @@ UserInputService.InputChanged:Connect(function(input) if input == dragInput and 
 local Container = Instance.new("Frame"); Container.Size = UDim2.new(1, -20, 1, -55); Container.Position = UDim2.new(0, 10, 0, 45); Container.BackgroundTransparency = 1; Container.Parent = MainFrame
 local function createPanel(xPos) local pnl = Instance.new("Frame"); pnl.Size = UDim2.new(0, 175, 1, 0); pnl.Position = UDim2.new(0, xPos, 0, 0); pnl.BackgroundColor3 = Color3.fromRGB(25, 25, 25); pnl.BorderSizePixel = 0; pnl.Parent = Container; local c = Instance.new("UICorner"); c.CornerRadius = UDim.new(0, 6); c.Parent = pnl; return pnl end
 
-local LeftPanel = createPanel(0); local SeedPanel = createPanel(183); local GearPanel = createPanel(366); local PetPanel = createPanel(549)
+local LeftPanel = createPanel(0); local SeedPanel = createPanel(183); local GearPanel = createPanel(366); local PetPanel = createPanel(549); local PlantPanel = createPanel(732)
 
 local function createScrollList(parent, titleText)
     local lbl = Instance.new("TextLabel"); lbl.Size = UDim2.new(1, 0, 0, 25); lbl.BackgroundTransparency = 1; lbl.Text = titleText; lbl.TextColor3 = Color3.fromRGB(180, 180, 180); lbl.Font = Enum.Font.GothamBold; lbl.TextSize = 12; lbl.Parent = parent
@@ -139,9 +138,10 @@ local function createScrollList(parent, titleText)
     return sf
 end
 
-local SeedScroll = createScrollList(SeedPanel, "SEED SELECTION")
-local GearScroll = createScrollList(GearPanel, "GEAR SELECTION")
-local PetScroll = createScrollList(PetPanel, "PET SELECTION")
+local SeedScroll = createScrollList(SeedPanel, "SHOP: SEEDS")
+local GearScroll = createScrollList(GearPanel, "SHOP: GEARS")
+local PetScroll = createScrollList(PetPanel, "SHOP: PETS")
+local PlantScroll = createScrollList(PlantPanel, "PLANT: SEEDS")
 
 local function createToggle(parent, text, configKey, yPos)
     local frame = Instance.new("Frame"); frame.Size = UDim2.new(1, -16, 0, 30); frame.Position = UDim2.new(0, 8, 0, yPos); frame.BackgroundTransparency = 1; frame.Parent = parent
@@ -164,13 +164,16 @@ local function createTextBox(parent, labelText, configKey, yPos)
     box.FocusLost:Connect(function() local num = tonumber(box.Text); if num then config[configKey] = tostring(num) else box.Text = config[configKey] end; saveConfig() end)
 end
 
-local function createModeButton(parent, labelText, configKey, option1, option2, yPos)
+local function createMultiModeButton(parent, labelText, configKey, optionsTable, yPos)
     local frame = Instance.new("Frame"); frame.Size = UDim2.new(1, -16, 0, 30); frame.Position = UDim2.new(0, 8, 0, yPos); frame.BackgroundTransparency = 1; frame.Parent = parent
     local label = Instance.new("TextLabel"); label.Size = UDim2.new(0.5, 0, 1, 0); label.BackgroundTransparency = 1; label.Text = labelText; label.TextColor3 = Color3.fromRGB(220, 220, 220); label.Font = Enum.Font.Gotham; label.TextSize = 12; label.TextXAlignment = Enum.TextXAlignment.Left; label.Parent = frame
     local btn = Instance.new("TextButton"); btn.Size = UDim2.new(0.5, -4, 0, 24); btn.Position = UDim2.new(0.5, 4, 0, 3); btn.BackgroundColor3 = Color3.fromRGB(0, 170, 255); btn.BorderSizePixel = 0; btn.Text = config[configKey]; btn.TextColor3 = Color3.fromRGB(255, 255, 255); btn.Font = Enum.Font.GothamBold; btn.TextSize = 12; btn.Parent = frame
     local btnCorner = Instance.new("UICorner"); btnCorner.CornerRadius = UDim.new(0, 4); btnCorner.Parent = btn
+    
     btn.MouseButton1Click:Connect(function()
-        config[configKey] = config[configKey] == option1 and option2 or option1
+        local currentIndex = table.find(optionsTable, config[configKey]) or 1
+        local nextIndex = (currentIndex % #optionsTable) + 1
+        config[configKey] = optionsTable[nextIndex]
         btn.Text = config[configKey]
         saveConfig()
     end)
@@ -209,14 +212,9 @@ local function populatePetList()
         local txt = Instance.new("TextLabel"); txt.Size = UDim2.new(1, -28, 1, 0); txt.Position = UDim2.new(0, 26, 0, 0); txt.BackgroundTransparency = 1; txt.Text = petName; txt.TextColor3 = Color3.fromRGB(190, 190, 190); txt.Font = Enum.Font.Gotham; txt.TextSize = 10; txt.TextXAlignment = Enum.TextXAlignment.Left; txt.Parent = row
         
         chk.MouseButton1Click:Connect(function()
-            for p, _ in pairs(config.SelectedPets) do config.SelectedPets[p] = false; end
-            config.SelectedPets[petName] = true
-            for _, child in pairs(PetScroll:GetChildren()) do
-                if child:IsA("Frame") and child:FindFirstChild("TextButton") then
-                    child.TextButton.BackgroundColor3 = config.SelectedPets[child.Name] and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(45, 45, 45)
-                    child.TextButton.Text = config.SelectedPets[child.Name] and "✓" or ""
-                end
-            end
+            config.SelectedPets[petName] = not config.SelectedPets[petName]
+            chk.BackgroundColor3 = config.SelectedPets[petName] and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(45, 45, 45)
+            chk.Text = config.SelectedPets[petName] and "✓" or ""
             saveConfig()
         end)
     end
@@ -225,7 +223,11 @@ populatePetList()
 
 local SeedShopUI = PlayerGui:WaitForChild("SeedShop", 5) and PlayerGui.SeedShop:WaitForChild("Frame", 5) and PlayerGui.SeedShop.Frame:WaitForChild("NormalShop", 5)
 local GearShopUI = PlayerGui:WaitForChild("GearShop", 5) and PlayerGui.GearShop:WaitForChild("Frame", 5) and PlayerGui.GearShop.Frame:WaitForChild("ScrollingFrame", 5)
-if SeedShopUI then populateCheckboxList(SeedScroll, SeedShopUI, config.SelectedSeeds) end
+
+if SeedShopUI then 
+    populateCheckboxList(SeedScroll, SeedShopUI, config.SelectedSeeds) 
+    populateCheckboxList(PlantScroll, SeedShopUI, config.SelectedPlantSeeds) 
+end
 if GearShopUI then populateCheckboxList(GearScroll, GearShopUI, config.SelectedGears) end
 
 createToggle(LeftPanel, "Auto Collect/Harvest", "AutoHarvest", 10)
@@ -234,11 +236,13 @@ createToggle(LeftPanel, "Auto Buy Seed", "AutoBuySeed", 80)
 createToggle(LeftPanel, "Auto Buy Gear", "AutoBuyGear", 115)
 createToggle(LeftPanel, "Auto Claim Rare Seed", "AutoClaimRare", 150)
 createTextBox(LeftPanel, "Tween Speed:", "TweenSpeed", 185)
-createModeButton(LeftPanel, "Move Method:", "MoveMethod", "Tween", "TP", 220)
+createMultiModeButton(LeftPanel, "Move Method:", "MoveMethod", {"Tween", "SpamTP", "Walk"}, 220) -- DIGANTI JADI SpamTP
 createToggle(LeftPanel, "Auto Buy Pet", "AutoBuyPet", 255)
+createToggle(LeftPanel, "Auto Plant Area", "AutoPlant", 290)
+createTextBox(LeftPanel, "Walk Speed:", "WalkSpeed", 325)
 
 -- =====================================================================
--- 4. UTILITY FUNCTIONS
+-- 4. UTILITY FUNCTIONS & MOVEMENT ENGINES
 -- =====================================================================
 local function getGardenSpawnPoint()
     local plotId = LocalPlayer:GetAttribute("PlotId")
@@ -272,6 +276,8 @@ end
 local currentTween = nil
 local currentTweenTarget = nil
 local noclipConnection = nil
+local currentOrbitConnection = nil 
+local orbitAngle = 0               
 
 local function toggleNoclip(state)
     local char = LocalPlayer.Character
@@ -289,46 +295,115 @@ local function toggleNoclip(state)
     end
 end
 
-local function stopTween()
+local function stopMovement()
     if currentTween then currentTween:Cancel(); currentTween = nil end
+    if currentOrbitConnection then currentOrbitConnection:Disconnect(); currentOrbitConnection = nil end
     local char = LocalPlayer.Character
-    if char and char:FindFirstChild("HumanoidRootPart") then char.HumanoidRootPart.Anchored = false end
+    if char then
+        if char:FindFirstChild("HumanoidRootPart") then char.HumanoidRootPart.Anchored = false end
+        if char:FindFirstChild("Humanoid") then
+            char.Humanoid.WalkSpeed = 16
+            if char.PrimaryPart then
+                char.Humanoid:MoveTo(char.PrimaryPart.Position)
+            end
+        end
+    end
     toggleNoclip(false)
     currentTweenTarget = nil
 end
 
-local function moveToLocation(targetCFrame)
+-- ==========================================
+-- MESIN BARU: SPAM TP (BRUTE FORCE)
+-- ==========================================
+local function startSpamTP(targetObj)
+    if currentOrbitConnection then return end 
+    
+    stopMovement() 
+    
+    local char = LocalPlayer.Character
+    if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+    
+    toggleNoclip(true) -- Noclip wajib nyala biar gak mental kebentur tanah pas di TP balik
+    
+    currentOrbitConnection = RunService.Heartbeat:Connect(function()
+        -- KONDISI BERHENTI: Target hilang dari map
+        if not targetObj or not targetObj.Parent or not targetObj:IsDescendantOf(workspace) then
+            stopMovement()
+            Hunt.State = "IDLE" 
+            Hunt.Target = nil
+            return
+        end
+        
+        local targetPos, targetCFrame = getPromptLocation(targetObj)
+        if not targetCFrame then stopMovement(); return end
+        
+        -- 1. SPAM TP TERUS-TERUSAN SETIAP FRAME (Ngelawan Anti-Cheat)
+        char:PivotTo(targetCFrame)
+        
+        -- 2. SPAM KLIK PROXIMITY BARENGAN SAMA TP
+        if fireproximityprompt then 
+            fireproximityprompt(targetObj, 1, true) 
+        end
+        
+        -- 3. Jaga state tetep di BUYING biar ngecek duit
+        if Hunt.State == "FLYING" then
+            if Hunt.Type == "PET" then Hunt.InitialMoney = getCurrentMoney() end
+            Hunt.State = "BUYING"
+            Hunt.GraceTimer = os.clock() + 10 -- Kasih waktu 10 detik buat gelut sama server
+        end
+    end)
+end
+
+-- ==========================================
+-- MESIN LAMA: SPIRAL FLIGHT (TWEEN)
+-- ==========================================
+local function startSpiralFlight(targetObj)
+    if currentOrbitConnection then return end 
+    
+    stopMovement() 
+    
     local char = LocalPlayer.Character
     if not char or not char:FindFirstChild("HumanoidRootPart") then return end
     local hrp = char.HumanoidRootPart
     
-    if config.MoveMethod == "TP" then
-        -- MODE TELEPORT INSTAN
-        stopTween()
-        hrp.CFrame = targetCFrame
-        task.wait(0.1) -- Jeda bentar biar server nangkep perpindahan lu
-    else
-        -- MODE TWEEN
-        if currentTweenTarget and (currentTweenTarget - targetCFrame.Position).Magnitude < 10 then return end
+    toggleNoclip(true)
+    hrp.Anchored = true 
+    
+    local orbitRadius = 4 
+    local orbitSpeed = 5  
+    local approachSpeed = tonumber(config.TweenSpeed) or 50 
+    
+    currentOrbitConnection = RunService.Heartbeat:Connect(function(deltaTime)
+        if not targetObj or not targetObj.Parent or not targetObj:IsDescendantOf(workspace) then
+            stopMovement()
+            Hunt.State = "IDLE" 
+            Hunt.Target = nil
+            return
+        end
         
-        local speed = tonumber(config.TweenSpeed) or 50
-        local distance = (hrp.Position - targetCFrame.Position).Magnitude
-        local tInfo = TweenInfo.new(distance / speed, Enum.EasingStyle.Linear)
+        local targetPos, _ = getPromptLocation(targetObj)
+        if not targetPos then stopMovement(); return end
         
-        if currentTween then currentTween:Cancel() end
+        orbitAngle = orbitAngle + (orbitSpeed * deltaTime)
+        local offset = Vector3.new(math.cos(orbitAngle) * orbitRadius, 0, math.sin(orbitAngle) * orbitRadius)
+        local orbitPos = targetPos + offset
         
-        toggleNoclip(true)
-        hrp.Anchored = true 
+        local distToTarget = (hrp.Position - targetPos).Magnitude
+        local moveAlpha = math.clamp((approachSpeed * deltaTime) / (hrp.Position - orbitPos).Magnitude, 0, 1)
+        hrp.CFrame = hrp.CFrame:Lerp(CFrame.new(orbitPos, targetPos), moveAlpha)
         
-        currentTweenTarget = targetCFrame.Position
-        currentTween = TweenService:Create(hrp, tInfo, {CFrame = targetCFrame})
-        currentTween.Completed:Connect(function()
-            hrp.Anchored = false
-            toggleNoclip(false)
-            currentTweenTarget = nil
-        end)
-        currentTween:Play()
-    end
+        if distToTarget <= (orbitRadius + 2) then
+            if Hunt.State == "FLYING" then
+                if Hunt.Type == "PET" then Hunt.InitialMoney = getCurrentMoney() end
+                Hunt.State = "BUYING"
+                Hunt.GraceTimer = os.clock() + 5
+            end
+            
+            if fireproximityprompt then 
+                fireproximityprompt(targetObj, 1, true) 
+            end
+        end
+    end)
 end
 
 local function scanForRare()
@@ -341,15 +416,13 @@ local function scanForRare()
 end
 
 local function scanForPet()
-    local targetPetName = nil
-    for pet, isSelected in pairs(config.SelectedPets) do
-        if isSelected then targetPetName = pet break end
-    end
-    if targetPetName and PetData[targetPetName] then
-        local targetPriceStr = PetData[targetPetName].PriceStr
-        for _, obj in pairs(workspace:GetDescendants()) do
-            if obj:IsA("ProximityPrompt") and obj.ActionText == "Buy" and obj.ObjectText == targetPriceStr then
-                return obj, PetData[targetPetName].PriceNum
+    for _, petName in ipairs(PetOrder) do
+        if config.SelectedPets[petName] and PetData[petName] then
+            local targetPriceStr = PetData[petName].PriceStr
+            for _, obj in pairs(workspace:GetDescendants()) do
+                if obj:IsA("ProximityPrompt") and obj.ActionText == "Buy" and obj.ObjectText == targetPriceStr then
+                    return obj, PetData[petName].PriceNum
+                end
             end
         end
     end
@@ -364,7 +437,7 @@ task.spawn(function()
     while task.wait(0.2) do
         if not config.AutoBuyPet and not config.AutoClaimRare then
             if Hunt.State ~= "IDLE" then
-                Hunt.State = "IDLE"; Hunt.Target = nil; stopTween()
+                Hunt.State = "IDLE"; Hunt.Target = nil; stopMovement()
             end
             continue
         end
@@ -386,46 +459,56 @@ task.spawn(function()
 
         elseif Hunt.State == "FLYING" then
             if not Hunt.Target or not Hunt.Target.Parent or not Hunt.Target:IsDescendantOf(workspace) then
-                Hunt.State = "IDLE"; Hunt.Target = nil; stopTween(); continue
+                Hunt.State = "IDLE"; Hunt.Target = nil; stopMovement(); continue
             end
             
-            local targetPos, targetCFrame = getPromptLocation(Hunt.Target)
-            if not targetPos then
-                Hunt.State = "IDLE"; Hunt.Target = nil; stopTween(); continue
-            end
-
-            local char = LocalPlayer.Character
-            if char and char:FindFirstChild("HumanoidRootPart") then
-                local dist = (char.HumanoidRootPart.Position - targetPos).Magnitude
-                if dist > 5 then
-                    -- Eksekusi pergerakan (Tween atau TP)
-                    moveToLocation(targetCFrame)
-                else
-                    stopTween()
-                    if Hunt.Type == "PET" then Hunt.InitialMoney = getCurrentMoney() end
-                    Hunt.State = "BUYING"
-                    Hunt.GraceTimer = os.clock() + 5
+            -- EKSEKUSI BRUTE FORCE SPAM TP
+            if config.MoveMethod == "SpamTP" then
+                startSpamTP(Hunt.Target)
+                
+            -- MODE WALK
+            elseif config.MoveMethod == "Walk" then
+                local targetPos, _ = getPromptLocation(Hunt.Target)
+                if not targetPos then Hunt.State = "IDLE"; Hunt.Target = nil; stopMovement(); continue end
+                
+                local char = LocalPlayer.Character
+                if char and char:FindFirstChild("HumanoidRootPart") and char:FindFirstChild("Humanoid") then
+                    local dist = (char.HumanoidRootPart.Position - targetPos).Magnitude
+                    if dist > 5 then
+                        char.Humanoid.WalkSpeed = tonumber(config.WalkSpeed) or 40
+                        char.Humanoid:MoveTo(targetPos)
+                    else
+                        stopMovement()
+                        if Hunt.Type == "PET" then Hunt.InitialMoney = getCurrentMoney() end
+                        Hunt.State = "BUYING"
+                        Hunt.GraceTimer = os.clock() + 5
+                    end
                 end
+                
+            else
+                -- MODE TWEEN (SPIRAL FLIGHT)
+                startSpiralFlight(Hunt.Target)
             end
 
         elseif Hunt.State == "BUYING" then
-            -- SISTEM SPAM FIREPROXIMITYPROMPT
-            if Hunt.Target and Hunt.Target:IsDescendantOf(workspace) then
+            -- Fallback backup spam buat Walk Mode (kalo SpamTP dan Tween udah di-handle di dalem Heartbeat)
+            if config.MoveMethod == "Walk" and Hunt.Target and Hunt.Target:IsDescendantOf(workspace) then
                 if fireproximityprompt then fireproximityprompt(Hunt.Target, 1, true) end
             end
 
+            -- CEK DUIT & ILANGNYA TARGET (Biar Berhenti)
             if Hunt.Type == "PET" then
                 local currentMoney = getCurrentMoney()
                 if currentMoney <= (Hunt.InitialMoney - Hunt.ExpectedPrice) then
-                    Hunt.State = "IDLE"; Hunt.Target = nil
+                    Hunt.State = "IDLE"; Hunt.Target = nil; stopMovement()
                 elseif os.clock() > Hunt.GraceTimer then
-                    Hunt.State = "IDLE"; Hunt.Target = nil
+                    Hunt.State = "IDLE"; Hunt.Target = nil; stopMovement()
                 end
             elseif Hunt.Type == "RARE" then
                 if not Hunt.Target or not Hunt.Target.Parent or not Hunt.Target:IsDescendantOf(workspace) then
-                    Hunt.State = "IDLE"; Hunt.Target = nil
+                    Hunt.State = "IDLE"; Hunt.Target = nil; stopMovement()
                 elseif os.clock() > Hunt.GraceTimer then
-                    Hunt.State = "IDLE"; Hunt.Target = nil
+                    Hunt.State = "IDLE"; Hunt.Target = nil; stopMovement()
                 end
             end
         end
@@ -433,7 +516,7 @@ task.spawn(function()
 end)
 
 -- =====================================================================
--- 6. BACKGROUND LOOPS (Harvest, Sell, Buy Shop)
+-- 6. BACKGROUND LOOPS (Harvest, Sell, Buy Shop, Auto Plant)
 -- =====================================================================
 
 task.spawn(function()
@@ -476,6 +559,78 @@ task.spawn(function()
         if config.AutoBuyGear and Networking then
             for gearName, isSelected in pairs(config.SelectedGears) do
                 if isSelected and GearShopUI and GearShopUI:FindFirstChild(gearName) then pcall(function() Networking.GearShop.PurchaseGear:Fire(gearName) end) end
+            end
+        end
+    end
+end)
+
+task.spawn(function()
+    while task.wait(1) do
+        if config.AutoPlant then
+            local char = LocalPlayer.Character
+            if not char then continue end
+
+            local seedTool = nil
+
+            for seedName, isSelected in pairs(config.SelectedPlantSeeds) do
+                if isSelected then
+                    local seedNameLower = string.lower(seedName)
+                    for _, tool in pairs(char:GetChildren()) do
+                        if tool:IsA("Tool") and string.find(string.lower(tool.Name), seedNameLower) then
+                            seedTool = tool; break
+                        end
+                    end
+                    if not seedTool and LocalPlayer:FindFirstChild("Backpack") then
+                        for _, tool in pairs(LocalPlayer.Backpack:GetChildren()) do
+                            if tool:IsA("Tool") and string.find(string.lower(tool.Name), seedNameLower) then
+                                seedTool = tool; break
+                            end
+                        end
+                    end
+                    if seedTool then break end 
+                end
+            end
+
+            if seedTool and seedTool:GetAttribute("SeedTool") then
+                local seedValue = seedTool:GetAttribute("SeedTool")
+                
+                if seedTool.Parent ~= char then
+                    seedTool.Parent = char
+                    task.wait(0.2)
+                end
+
+                local plotId = LocalPlayer:GetAttribute("PlotId")
+                if plotId then
+                    local gardens = workspace:FindFirstChild("Gardens")
+                    local myPlot = gardens and gardens:FindFirstChild("Plot" .. tostring(plotId))
+                    
+                    if myPlot and myPlot:FindFirstChild("Visual") then
+                        local spacing = 2.5 
+                        
+                        for _, bed in pairs(myPlot.Visual:GetChildren()) do
+                            if string.find(bed.Name, "BedSection") then
+                                local bedCFrame, bedSize = bed:GetBoundingBox()
+                                
+                                for x = -bedSize.X/2 + spacing, bedSize.X/2 - spacing, spacing do
+                                    for z = -bedSize.Z/2 + spacing, bedSize.Z/2 - spacing, spacing do
+                                        if not config.AutoPlant then break end 
+                                        
+                                        local targetPos = (bedCFrame * CFrame.new(x, bedSize.Y/2, z)).Position
+                                        
+                                        if Networking and Networking.Plant and Networking.Plant.PlantSeed then
+                                            Networking.Plant.PlantSeed:Fire(targetPos, seedValue, seedTool)
+                                            task.wait(0.05) 
+                                        end
+                                    end
+                                    if not config.AutoPlant then break end
+                                end
+                            end
+                            if not config.AutoPlant then break end
+                        end
+                    end
+                end
+            else
+                task.wait(2) 
             end
         end
     end
