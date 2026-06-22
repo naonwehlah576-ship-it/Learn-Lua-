@@ -480,6 +480,33 @@ local function startSpiralFlight(targetObj)
     end)
 end
 
+-- =====================================================================
+-- RARE EVENT DETECTOR: Goldmoon/RainbowMoon muncul-hilang di workspace
+-- Pakai ChildAdded/ChildRemoved (event-driven), BUKAN polling - jadi 0 cost
+-- selama event lagi gak aktif.
+-- =====================================================================
+local rareEventActive = false
+
+local function isRareEventName(name)
+    return name == "Goldmoon" or name == "RainbowMoon"
+end
+
+local function recheckRareEvent()
+    rareEventActive = (workspace:FindFirstChild("Goldmoon") ~= nil) or (workspace:FindFirstChild("RainbowMoon") ~= nil)
+end
+recheckRareEvent() -- cek sekali di awal, kalau pas script di-run event udah lagi nyala
+
+workspace.ChildAdded:Connect(function(child)
+    if isRareEventName(child.Name) then
+        rareEventActive = true
+    end
+end)
+workspace.ChildRemoved:Connect(function(child)
+    if isRareEventName(child.Name) then
+        recheckRareEvent() -- recheck, soalnya bisa aja event satunya masih nyala
+    end
+end)
+
 -- FIX: Nambahin .Enabled supaya mengabaikan Rare Seed yang udah mati
 local function scanForRare()
     for _, obj in pairs(workspace:GetDescendants()) do
@@ -519,7 +546,7 @@ task.spawn(function()
         end
 
         if Hunt.State == "IDLE" then
-            if config.AutoClaimRare then
+            if config.AutoClaimRare and rareEventActive then
                 local rareTarget = scanForRare()
                 if rareTarget then
                     Hunt.State = "FLYING";
@@ -606,8 +633,12 @@ end)
 -- 6. BACKGROUND LOOPS (Harvest, Sell, Buy Shop, Auto Plant, Auto Favorite)
 -- =====================================================================
 
+-- TP ke spawn point tetep dicek tiap 0.5s, gak perlu tiap frame
+local harvestQueue = {}
+local harvestQueueSet = {}
+
 task.spawn(function()
-    while task.wait(0.1) do -- KECEPATAN HARVEST JADI 0.1 BIAR NGEBUT
+    while task.wait(0.5) do
         if config.AutoHarvest then
             if Hunt.State == "IDLE" then
                 local spawnPt = getGardenSpawnPoint()
@@ -619,18 +650,39 @@ task.spawn(function()
                     end
                 end
             end
+            -- ISI QUEUE: cuma masukin prompt yang belom ada di queue, biar gak dobel
             for _, obj in pairs(workspace:GetDescendants()) do
-                -- FIX tambahan: pastikan Prompt untuk harvest juga masih aktif
                 if obj:IsA("ProximityPrompt") and obj.Enabled and obj.ActionText == "Harvest" then
-                    if fireproximityprompt then task.spawn(fireproximityprompt, obj, 1, true) end
+                    if not harvestQueueSet[obj] then
+                        harvestQueueSet[obj] = true
+                        table.insert(harvestQueue, obj)
+                    end
                 end
             end
+        else
+            table.clear(harvestQueue)
+            table.clear(harvestQueueSet)
         end
     end
 end)
 
+-- FIRE: 1 prompt per FRAME (Heartbeat ngikut deltaTime asli, otomatis nyesuain FPS lo, gak ditebak fixed)
+RunService.Heartbeat:Connect(function()
+    if not config.AutoHarvest then return end
+    while #harvestQueue > 0 do
+        local obj = table.remove(harvestQueue, 1)
+        harvestQueueSet[obj] = nil
+        if obj and obj.Parent and obj.Enabled and obj:IsDescendantOf(workspace) then
+            if fireproximityprompt then fireproximityprompt(obj, 1, true) end
+            break -- berhenti, 1 prompt aja per frame ini
+        end
+        -- kalau prompt ternyata udah invalid (mati/keambil), langsung skip ke next tanpa nunggu frame berikutnya
+    end
+end)
+
+
 task.spawn(function()
-    while task.wait(1.5) do
+    while task.wait(4) do
         if config.AutoSell and Networking then
             pcall(function() if Networking.NPCS and Networking.NPCS.SellAll then if typeof(Networking.NPCS.SellAll) == "table" and Networking.NPCS.SellAll.Fire then Networking.NPCS.SellAll:Fire() elseif typeof(Networking.NPCS.SellAll) == "function" then Networking.NPCS.SellAll() end end end)
         end
@@ -728,7 +780,7 @@ end)
 
 -- LOOPING BARU: AUTO FAVORITE
 task.spawn(function()
-    while task.wait(0.1) do
+    while task.wait(2.5) do
         if config.AutoFavorite then
             local targetKg = tonumber(config.FavoriteThreshold) or 100
             if LocalPlayer:FindFirstChild("Backpack") then
