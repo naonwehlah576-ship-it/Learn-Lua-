@@ -18,9 +18,9 @@ task.spawn(function()
 end)
 -- =====================================================================
 -- =====================================================================
--- GROW A GARDEN 2 - AUTOMATION PREMIUM HUB (V9.5 - BRUTE FORCE SPAM TP)
+-- GROW A GARDEN 2 - AUTOMATION PREMIUM HUB (V9.6 - GHOST PROMPT FIX)
 -- Features: Auto Harvest+TP, Auto Sell, Auto Buy, Rare Seed, Auto Pet, Auto Plant
--- Fixes: Added "SpamTP" Mode to out-spam server Anti-Cheat rubberbanding
+-- Fixes: Added .Enabled check to ignore purchased walking pets
 -- =====================================================================
 
 local Players = game:GetService("Players")
@@ -110,7 +110,7 @@ local MainCorner = Instance.new("UICorner"); MainCorner.CornerRadius = UDim.new(
 local Topbar = Instance.new("Frame"); Topbar.Size = UDim2.new(1, 0, 0, 35); Topbar.BackgroundColor3 = Color3.fromRGB(28, 28, 28); Topbar.BorderSizePixel = 0; Topbar.Parent = MainFrame
 local TopbarCorner = Instance.new("UICorner"); TopbarCorner.CornerRadius = UDim.new(0, 8); TopbarCorner.Parent = Topbar
 local Title = Instance.new("TextLabel"); Title.Size = UDim2.new(1, -80, 1, 0); Title.Position = UDim2.new(0, 12, 0, 0)
-Title.BackgroundTransparency = 1; Title.Text = "Grow a Garden 2 Hub (v9.5 - BRUTE FORCE TP)"; Title.TextColor3 = Color3.fromRGB(240, 240, 240); Title.Font = Enum.Font.GothamBold; Title.TextSize = 14; Title.TextXAlignment = Enum.TextXAlignment.Left; Title.Parent = Topbar
+Title.BackgroundTransparency = 1; Title.Text = "Grow a Garden 2 Hub (v9.6 - GHOST PROMPT FIX)"; Title.TextColor3 = Color3.fromRGB(240, 240, 240); Title.Font = Enum.Font.GothamBold; Title.TextSize = 14; Title.TextXAlignment = Enum.TextXAlignment.Left; Title.Parent = Topbar
 
 local CloseBtn = Instance.new("TextButton"); CloseBtn.Size = UDim2.new(0, 30, 0, 30); CloseBtn.Position = UDim2.new(1, -32, 0, 2)
 CloseBtn.BackgroundTransparency = 1; CloseBtn.Text = "✕"; CloseBtn.TextColor3 = Color3.fromRGB(150, 150, 150); CloseBtn.Font = Enum.Font.GothamBold; CloseBtn.TextSize = 16; CloseBtn.Parent = Topbar
@@ -236,7 +236,7 @@ createToggle(LeftPanel, "Auto Buy Seed", "AutoBuySeed", 80)
 createToggle(LeftPanel, "Auto Buy Gear", "AutoBuyGear", 115)
 createToggle(LeftPanel, "Auto Claim Rare Seed", "AutoClaimRare", 150)
 createTextBox(LeftPanel, "Tween Speed:", "TweenSpeed", 185)
-createMultiModeButton(LeftPanel, "Move Method:", "MoveMethod", {"Tween", "SpamTP", "Walk"}, 220) -- DIGANTI JADI SpamTP
+createMultiModeButton(LeftPanel, "Move Method:", "MoveMethod", {"Tween", "SpamTP", "Walk"}, 220)
 createToggle(LeftPanel, "Auto Buy Pet", "AutoBuyPet", 255)
 createToggle(LeftPanel, "Auto Plant Area", "AutoPlant", 290)
 createTextBox(LeftPanel, "Walk Speed:", "WalkSpeed", 325)
@@ -323,11 +323,11 @@ local function startSpamTP(targetObj)
     local char = LocalPlayer.Character
     if not char or not char:FindFirstChild("HumanoidRootPart") then return end
     
-    toggleNoclip(true) -- Noclip wajib nyala biar gak mental kebentur tanah pas di TP balik
+    toggleNoclip(true) 
     
     currentOrbitConnection = RunService.Heartbeat:Connect(function()
-        -- KONDISI BERHENTI: Target hilang dari map
-        if not targetObj or not targetObj.Parent or not targetObj:IsDescendantOf(workspace) then
+        -- FIX PENTING: Cek targetObj.Enabled biar gak ngejar ghost prompt!
+        if not targetObj or not targetObj.Parent or not targetObj:IsDescendantOf(workspace) or not targetObj.Enabled then
             stopMovement()
             Hunt.State = "IDLE" 
             Hunt.Target = nil
@@ -337,19 +337,16 @@ local function startSpamTP(targetObj)
         local targetPos, targetCFrame = getPromptLocation(targetObj)
         if not targetCFrame then stopMovement(); return end
         
-        -- 1. SPAM TP TERUS-TERUSAN SETIAP FRAME (Ngelawan Anti-Cheat)
         char:PivotTo(targetCFrame)
         
-        -- 2. SPAM KLIK PROXIMITY BARENGAN SAMA TP
         if fireproximityprompt then 
             fireproximityprompt(targetObj, 1, true) 
         end
         
-        -- 3. Jaga state tetep di BUYING biar ngecek duit
         if Hunt.State == "FLYING" then
             if Hunt.Type == "PET" then Hunt.InitialMoney = getCurrentMoney() end
             Hunt.State = "BUYING"
-            Hunt.GraceTimer = os.clock() + 10 -- Kasih waktu 10 detik buat gelut sama server
+            Hunt.GraceTimer = os.clock() + 10
         end
     end)
 end
@@ -374,7 +371,8 @@ local function startSpiralFlight(targetObj)
     local approachSpeed = tonumber(config.TweenSpeed) or 50 
     
     currentOrbitConnection = RunService.Heartbeat:Connect(function(deltaTime)
-        if not targetObj or not targetObj.Parent or not targetObj:IsDescendantOf(workspace) then
+        -- FIX PENTING: Cek targetObj.Enabled!
+        if not targetObj or not targetObj.Parent or not targetObj:IsDescendantOf(workspace) or not targetObj.Enabled then
             stopMovement()
             Hunt.State = "IDLE" 
             Hunt.Target = nil
@@ -406,21 +404,23 @@ local function startSpiralFlight(targetObj)
     end)
 end
 
+-- FIX: Nambahin .Enabled supaya mengabaikan Rare Seed yang udah mati
 local function scanForRare()
     for _, obj in pairs(workspace:GetDescendants()) do
-        if obj:IsA("ProximityPrompt") and obj.ActionText == "CLAIM" and (obj.ObjectText == "Gold Seed" or obj.ObjectText == "Rainbow Seed") then
+        if obj:IsA("ProximityPrompt") and obj.Enabled and obj.ActionText == "CLAIM" and (obj.ObjectText == "Gold Seed" or obj.ObjectText == "Rainbow Seed") then
             return obj
         end
     end
     return nil
 end
 
+-- FIX: Nambahin .Enabled supaya mengabaikan Pet yang lagi jalan ke kebun (Prompt dimatiin server)
 local function scanForPet()
     for _, petName in ipairs(PetOrder) do
         if config.SelectedPets[petName] and PetData[petName] then
             local targetPriceStr = PetData[petName].PriceStr
             for _, obj in pairs(workspace:GetDescendants()) do
-                if obj:IsA("ProximityPrompt") and obj.ActionText == "Buy" and obj.ObjectText == targetPriceStr then
+                if obj:IsA("ProximityPrompt") and obj.Enabled and obj.ActionText == "Buy" and obj.ObjectText == targetPriceStr then
                     return obj, PetData[petName].PriceNum
                 end
             end
@@ -458,15 +458,14 @@ task.spawn(function()
             end
 
         elseif Hunt.State == "FLYING" then
-            if not Hunt.Target or not Hunt.Target.Parent or not Hunt.Target:IsDescendantOf(workspace) then
+            -- FIX PENTING: Cek .Enabled
+            if not Hunt.Target or not Hunt.Target.Parent or not Hunt.Target:IsDescendantOf(workspace) or not Hunt.Target.Enabled then
                 Hunt.State = "IDLE"; Hunt.Target = nil; stopMovement(); continue
             end
             
-            -- EKSEKUSI BRUTE FORCE SPAM TP
             if config.MoveMethod == "SpamTP" then
                 startSpamTP(Hunt.Target)
                 
-            -- MODE WALK
             elseif config.MoveMethod == "Walk" then
                 local targetPos, _ = getPromptLocation(Hunt.Target)
                 if not targetPos then Hunt.State = "IDLE"; Hunt.Target = nil; stopMovement(); continue end
@@ -486,17 +485,20 @@ task.spawn(function()
                 end
                 
             else
-                -- MODE TWEEN (SPIRAL FLIGHT)
                 startSpiralFlight(Hunt.Target)
             end
 
         elseif Hunt.State == "BUYING" then
-            -- Fallback backup spam buat Walk Mode (kalo SpamTP dan Tween udah di-handle di dalem Heartbeat)
-            if config.MoveMethod == "Walk" and Hunt.Target and Hunt.Target:IsDescendantOf(workspace) then
+            if config.MoveMethod == "Walk" and Hunt.Target and Hunt.Target:IsDescendantOf(workspace) and Hunt.Target.Enabled then
                 if fireproximityprompt then fireproximityprompt(Hunt.Target, 1, true) end
             end
 
-            -- CEK DUIT & ILANGNYA TARGET (Biar Berhenti)
+            -- FIX: State kembali IDLE kalau target dimatiin (Enabled = false)
+            if Hunt.Target and not Hunt.Target.Enabled then
+                Hunt.State = "IDLE"; Hunt.Target = nil; stopMovement()
+                continue
+            end
+
             if Hunt.Type == "PET" then
                 local currentMoney = getCurrentMoney()
                 if currentMoney <= (Hunt.InitialMoney - Hunt.ExpectedPrice) then
@@ -533,7 +535,8 @@ task.spawn(function()
                 end
             end
             for _, obj in pairs(workspace:GetDescendants()) do
-                if obj:IsA("ProximityPrompt") and obj.ActionText == "Harvest" then
+                -- FIX tambahan: pastikan Prompt untuk harvest juga masih aktif
+                if obj:IsA("ProximityPrompt") and obj.Enabled and obj.ActionText == "Harvest" then
                     if fireproximityprompt then task.spawn(fireproximityprompt, obj, 1, true) end
                 end
             end
