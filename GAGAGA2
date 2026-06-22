@@ -19,7 +19,7 @@ end)
 -- =====================================================================
 -- =====================================================================
 -- GROW A GARDEN 2 - AUTOMATION PREMIUM HUB
--- Features: Smart Transit Pathfinding, Closest Target Priority, Linear Tween, Auto Boost FPS (30s), Stealth Minimize (RightCtrl)
+-- Features: Smart Transit, Closest Priority, Tween, FPS Boost, Stealth Mode, Custom Name Favorite, Rare Seed Anti-TP Fix
 -- =====================================================================
 
 local Players = game:GetService("Players")
@@ -59,12 +59,12 @@ local PetData = {
 }
 local PetOrder = {"Frog", "Bunny", "Owl", "Deer", "Robin", "Bee", "Monkey", "Bear", "Golden Dragonfly", "Unicorn", "Racoon"}
 
-local FILE_NAME = "GAG2_Automation_Config_v9.json" -- PATEN V9 LU AMAN BANG
+local FILE_NAME = "GAG2_Automation_Config_v9.json" 
 local config = {
     AutoHarvest = false, AutoSell = false, AutoBuySeed = false, 
     AutoBuyGear = false, AutoClaimRare = false, AutoBuyPet = false, AutoPlant = false,
     AutoFavorite = false, AutoBoostFPS = false,
-    TweenSpeed = "50", WalkSpeed = "40", MoveMethod = "Tween", FavoriteThreshold = "100",
+    TweenSpeed = "50", WalkSpeed = "40", MoveMethod = "Tween", FavoriteThreshold = "100", FavoriteNames = "",
     SelectedSeeds = {}, SelectedGears = {}, SelectedPets = {}, SelectedPlantSeeds = {}
 }
 
@@ -104,9 +104,9 @@ pcall(function() ScreenGui.Parent = game:GetService("CoreGui") end)
 if not ScreenGui.Parent then ScreenGui.Parent = PlayerGui end
 
 local MainFrame = Instance.new("Frame");
-MainFrame.Size = UDim2.new(0, 920, 0, 500); 
-MainFrame.AnchorPoint = Vector2.new(0.5, 0.5) -- LOCK JANGKAR TENGAH
-MainFrame.Position = UDim2.new(0.5, 0, 0.5, 0) -- LOCK POSISI TENGAH MAP
+MainFrame.Size = UDim2.new(0, 920, 0, 520);
+MainFrame.AnchorPoint = Vector2.new(0.5, 0.5) 
+MainFrame.Position = UDim2.new(0.5, 0, 0.5, 0) 
 MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20); MainFrame.BorderSizePixel = 0;
 MainFrame.ClipsDescendants = true;
 MainFrame.Parent = ScreenGui
@@ -119,7 +119,7 @@ uiScale.Parent = MainFrame
 local function updateScale()
     local viewport = workspace.CurrentCamera.ViewportSize
     local scaleX = viewport.X / 960 
-    local scaleY = viewport.Y / 540
+    local scaleY = viewport.Y / 550
     local minScale = math.min(scaleX, scaleY)
     if minScale < 1 then uiScale.Scale = minScale else uiScale.Scale = 1 end
 end
@@ -153,7 +153,7 @@ MinBtn.BackgroundTransparency = 1; MinBtn.Text = "—";
 MinBtn.TextColor3 = Color3.fromRGB(150, 150, 150); MinBtn.Font = Enum.Font.GothamBold; MinBtn.TextSize = 16;
 MinBtn.Parent = Topbar
 local isMinimized = false
-MinBtn.MouseButton1Click:Connect(function() isMinimized = not isMinimized; TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quint), {Size = isMinimized and UDim2.new(0, 920, 0, 35) or UDim2.new(0, 920, 0, 500)}):Play() end)
+MinBtn.MouseButton1Click:Connect(function() isMinimized = not isMinimized; TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quint), {Size = isMinimized and UDim2.new(0, 920, 0, 35) or UDim2.new(0, 920, 0, 520)}):Play() end)
 
 local dragging, dragInput, dragStart, startPos
 Topbar.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging = true; dragStart = input.Position; startPos = MainFrame.Position; input.Changed:Connect(function() if input.UserInputState == Enum.UserInputState.End then dragging = false end end) end end)
@@ -223,7 +223,15 @@ local function createTextBox(parent, labelText, configKey, yPos)
     box.Parent = frame
     local boxCorner = Instance.new("UICorner"); boxCorner.CornerRadius = UDim.new(0, 4);
     boxCorner.Parent = box
-    box.FocusLost:Connect(function() local num = tonumber(box.Text); if num then config[configKey] = tostring(num) else box.Text = config[configKey] end; saveConfig() end)
+    box.FocusLost:Connect(function() 
+        if configKey == "FavoriteNames" then
+            config[configKey] = box.Text
+        else
+            local num = tonumber(box.Text)
+            if num then config[configKey] = tostring(num) else box.Text = config[configKey] end
+        end
+        saveConfig() 
+    end)
 end
 
 local function createMultiModeButton(parent, labelText, configKey, optionsTable, yPos)
@@ -331,6 +339,7 @@ createTextBox(LeftPanel, "Walk Speed:", "WalkSpeed", 325)
 createToggle(LeftPanel, "Auto Favorite (>kg)", "AutoFavorite", 360) 
 createTextBox(LeftPanel, "Fav Threshold (kg):", "FavoriteThreshold", 395)
 createToggle(LeftPanel, "Auto Boost FPS", "AutoBoostFPS", 430) 
+createTextBox(LeftPanel, "Fav Names (,):", "FavoriteNames", 465) 
 
 -- =====================================================================
 -- 4. UTILITY FUNCTIONS & SMART PATHFINDING
@@ -697,7 +706,9 @@ local harvestQueueSet = {}
 task.spawn(function()
     while task.wait(0.5) do
         if config.AutoHarvest then
-            if Hunt.State == "IDLE" then
+            -- FIX BARU: Cuma berlaku untuk Rare Seed (Event), Pet tetep bisa narik lu pulang
+            local isHuntingRare = config.AutoClaimRare and rareEventActive
+            if Hunt.State == "IDLE" and not isHuntingRare then
                 local spawnPt = getGardenSpawnPoint()
                 if spawnPt and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
                     local hrp = LocalPlayer.Character.HumanoidRootPart
@@ -829,38 +840,53 @@ task.spawn(function()
     end
 end)
 
--- LOOPING AUTO FAVORITE
+-- LOOPING AUTO FAVORITE (DENGAN CUSTOM NAME)
 task.spawn(function()
     while task.wait(2.5) do
         if config.AutoFavorite then
             local targetKg = tonumber(config.FavoriteThreshold) or 100
+            
+            -- Parsing & Bersihin Teks Nama Barang
+            local favNames = {}
+            if config.FavoriteNames and config.FavoriteNames ~= "" then
+                for part in string.gmatch(config.FavoriteNames, "([^,]+)") do
+                    local cleanName = string.match(part, "^%s*(.-)%s*$") -- Buang spasi depan belakang
+                    if cleanName then
+                        favNames[string.lower(cleanName)] = true -- Simpan pakai huruf kecil
+                    end
+                end
+            end
+
             if LocalPlayer:FindFirstChild("Backpack") then
                 for _, item in pairs(LocalPlayer.Backpack:GetChildren()) do
-                    local weight = item:GetAttribute("Weight")
+                    local weight = item:GetAttribute("Weight") or 0
+                    local fruitName = item:GetAttribute("FruitName") or item.Name
+                    local fruitNameLower = string.lower(fruitName)
                     
-                    if weight and type(weight) == "number" and weight >= targetKg then
-                        if not item:GetAttribute("IsFavorite") then
-                            item:SetAttribute("IsFavorite", true)
-                            
-                            local nama = item:GetAttribute("FruitName") or item.Name
-                            local itemId = item:GetAttribute("Id") 
-                            
-                            if Networking and itemId then
-                                for _, kategori in pairs(Networking) do
-                                    if type(kategori) == "table" then
-                                        for namaFungsi, objRemote in pairs(kategori) do
-                                            local namaLower = string.lower(namaFungsi)
-                                            if string.find(namaLower, "favorite") or string.find(namaLower, "lock") then
-                                                pcall(function()
-                                                    if type(objRemote) == "table" and objRemote.Fire then
-                                                        objRemote:Fire(itemId, true)
-                                                        objRemote:Fire(item, true)
-                                                    elseif type(objRemote) == "function" then
-                                                        objRemote(itemId, true)
-                                                        objRemote(item, true)
-                                                    end
-                                                end)
-                                            end
+                    -- Kunci kalau beratnya cukup ATAU namanya ada di daftar TextBox lu
+                    local isHeavy = (type(weight) == "number" and weight >= targetKg)
+                    local isNameMatch = favNames[fruitNameLower]
+
+                    if (isHeavy or isNameMatch) and not item:GetAttribute("IsFavorite") then
+                        item:SetAttribute("IsFavorite", true)
+                        
+                        local itemId = item:GetAttribute("Id") 
+                        
+                        if Networking and itemId then
+                            for _, kategori in pairs(Networking) do
+                                if type(kategori) == "table" then
+                                    for namaFungsi, objRemote in pairs(kategori) do
+                                        local namaLower = string.lower(namaFungsi)
+                                        if string.find(namaLower, "favorite") or string.find(namaLower, "lock") then
+                                            pcall(function()
+                                                if type(objRemote) == "table" and objRemote.Fire then
+                                                    objRemote:Fire(itemId, true)
+                                                    objRemote:Fire(item, true)
+                                                elseif type(objRemote) == "function" then
+                                                    objRemote(itemId, true)
+                                                    objRemote(item, true)
+                                                end
+                                            end)
                                         end
                                     end
                                 end
@@ -875,7 +901,6 @@ end)
 
 -- LOOPING AUTO BOOST FPS (MENGGUSUR KEBUN TETANGGA - TRIGGER TIAP 30 DETIK)
 task.spawn(function()
-    -- Fungsi lokal eksekusi gusur biar gampang dipanggil
     local function eksekusiGusur()
         if config.AutoBoostFPS then
             local myPlotId = LocalPlayer:GetAttribute("PlotId")
@@ -892,11 +917,9 @@ task.spawn(function()
         end
     end
     
-    -- Eksekusi langsung pas script pertama kali di-inject
     task.wait(2)
     eksekusiGusur()
 
-    -- Looping rutin tiap 30 detik semenjak load
     while task.wait(30) do 
         eksekusiGusur()
     end
