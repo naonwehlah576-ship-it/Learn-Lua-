@@ -7,7 +7,7 @@ end
 
 task.spawn(function()
     local VirtualInputManager = game:GetService("VirtualInputManager")
-    for i = 1, 20 do
+    for i = 1, 120 do
         pcall(function()
             VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Y, false, game)
             task.wait(0.1)
