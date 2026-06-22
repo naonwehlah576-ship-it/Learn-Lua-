@@ -18,8 +18,8 @@ task.spawn(function()
 end)
 -- =====================================================================
 -- =====================================================================
--- GROW A GARDEN 2 - AUTOMATION PREMIUM HUB (V10)
--- Features: Smart Transit Pathfinding, Closest Target Priority, Linear Tween
+-- GROW A GARDEN 2 - AUTOMATION PREMIUM HUB
+-- Features: Smart Transit Pathfinding, Closest Target Priority, Linear Tween, Auto Boost FPS
 -- =====================================================================
 
 local Players = game:GetService("Players")
@@ -59,11 +59,11 @@ local PetData = {
 }
 local PetOrder = {"Frog", "Bunny", "Owl", "Deer", "Robin", "Bee", "Monkey", "Bear", "Golden Dragonfly", "Unicorn", "Racoon"}
 
-local FILE_NAME = "GAG2_Automation_Config_v10.json"
+local FILE_NAME = "GAG2_Automation_Config_v9.json" -- PATEN GAK DIUBAH
 local config = {
     AutoHarvest = false, AutoSell = false, AutoBuySeed = false, 
     AutoBuyGear = false, AutoClaimRare = false, AutoBuyPet = false, AutoPlant = false,
-    AutoFavorite = false,
+    AutoFavorite = false, AutoBoostFPS = false,
     TweenSpeed = "50", WalkSpeed = "40", MoveMethod = "Tween", FavoriteThreshold = "100",
     SelectedSeeds = {}, SelectedGears = {}, SelectedPets = {}, SelectedPlantSeeds = {}
 }
@@ -104,8 +104,8 @@ pcall(function() ScreenGui.Parent = game:GetService("CoreGui") end)
 if not ScreenGui.Parent then ScreenGui.Parent = PlayerGui end
 
 local MainFrame = Instance.new("Frame");
-MainFrame.Size = UDim2.new(0, 920, 0, 460);
-MainFrame.Position = UDim2.new(0.5, -460, 0.5, -230)
+MainFrame.Size = UDim2.new(0, 920, 0, 500); -- GUI DIPERBESAR TINGGINYA JADI 500
+MainFrame.Position = UDim2.new(0.5, -460, 0.5, -250)
 MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20); MainFrame.BorderSizePixel = 0;
 MainFrame.ClipsDescendants = true;
 MainFrame.Parent = ScreenGui
@@ -131,7 +131,7 @@ MinBtn.BackgroundTransparency = 1; MinBtn.Text = "—";
 MinBtn.TextColor3 = Color3.fromRGB(150, 150, 150); MinBtn.Font = Enum.Font.GothamBold; MinBtn.TextSize = 16;
 MinBtn.Parent = Topbar
 local isMinimized = false
-MinBtn.MouseButton1Click:Connect(function() isMinimized = not isMinimized; TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quint), {Size = isMinimized and UDim2.new(0, 920, 0, 35) or UDim2.new(0, 920, 0, 460)}):Play() end)
+MinBtn.MouseButton1Click:Connect(function() isMinimized = not isMinimized; TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quint), {Size = isMinimized and UDim2.new(0, 920, 0, 35) or UDim2.new(0, 920, 0, 500)}):Play() end)
 
 local dragging, dragInput, dragStart, startPos
 Topbar.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging = true; dragStart = input.Position; startPos = MainFrame.Position; input.Changed:Connect(function() if input.UserInputState == Enum.UserInputState.End then dragging = false end end) end end)
@@ -307,7 +307,8 @@ createToggle(LeftPanel, "Auto Buy Pet", "AutoBuyPet", 255)
 createToggle(LeftPanel, "Auto Plant Area", "AutoPlant", 290)
 createTextBox(LeftPanel, "Walk Speed:", "WalkSpeed", 325)
 createToggle(LeftPanel, "Auto Favorite (>kg)", "AutoFavorite", 360) 
-createTextBox(LeftPanel, "Fav Threshold (kg):", "FavoriteThreshold", 395) 
+createTextBox(LeftPanel, "Fav Threshold (kg):", "FavoriteThreshold", 395)
+createToggle(LeftPanel, "Auto Boost FPS", "AutoBoostFPS", 430) -- TOGGLE BARU DITAMBAHKAN
 
 -- =====================================================================
 -- 4. UTILITY FUNCTIONS & SMART PATHFINDING
@@ -379,7 +380,7 @@ local function getBestRoute(targetPos)
         end
     end
     
-    return bestDist, bestRoute -- Return: Effective Distance & Rute Transit (nil jika langsung)
+    return bestDist, bestRoute 
 end
 
 local function getCurrentMoney()
@@ -587,14 +588,12 @@ task.spawn(function()
             if config.AutoClaimRare and rareEventActive then
                 local rareTarget = scanForRare()
                 if rareTarget then
-                    -- CEK JALUR TRANSIT SEBELUM TERBANG
                     local tPos, _ = getPromptLocation(rareTarget)
                     if tPos then
                         local _, route = getBestRoute(tPos)
                         if route and Networking and Networking.TeleportButton and Networking.TeleportButton.Request then
-                            print("🚏 Jalur Pintas Aktif! Transit ke: " .. route)
                             Networking.TeleportButton.Request:Fire(route)
-                            task.wait(0.3) -- Jeda biar badan mendarat sempurna
+                            task.wait(0.3) 
                         end
                     end
                     Hunt.State = "FLYING"; Hunt.Target = rareTarget; Hunt.Type = "RARE"; continue
@@ -604,14 +603,12 @@ task.spawn(function()
             if config.AutoBuyPet then
                 local petTarget, priceNum = scanForPet()
                 if petTarget then
-                    -- CEK JALUR TRANSIT SEBELUM TERBANG
                     local tPos, _ = getPromptLocation(petTarget)
                     if tPos then
                         local _, route = getBestRoute(tPos)
                         if route and Networking and Networking.TeleportButton and Networking.TeleportButton.Request then
-                            print("🚏 Jalur Pintas Aktif! Transit ke: " .. route)
                             Networking.TeleportButton.Request:Fire(route)
-                            task.wait(0.3) -- Jeda biar badan mendarat sempurna
+                            task.wait(0.3) 
                         end
                     end
                     Hunt.State = "FLYING"; Hunt.Target = petTarget; Hunt.Type = "PET"; Hunt.ExpectedPrice = priceNum; continue
@@ -674,7 +671,7 @@ task.spawn(function()
 end)
 
 -- =====================================================================
--- 6. BACKGROUND LOOPS
+-- 6. BACKGROUND LOOPS (Harvest, Sell, Buy, AutoFPS, dll)
 -- =====================================================================
 local harvestQueue = {}
 local harvestQueueSet = {}
@@ -814,7 +811,7 @@ task.spawn(function()
     end
 end)
 
--- LOOPING BARU: AUTO FAVORITE
+-- LOOPING AUTO FAVORITE
 task.spawn(function()
     while task.wait(2.5) do
         if config.AutoFavorite then
@@ -850,8 +847,27 @@ task.spawn(function()
                                     end
                                 end
                             end
-                            print("🛡️ LOCK SERVER AMAN: " .. nama .. " | Berat: " .. weight .. " kg")
                         end
+                    end
+                end
+            end
+        end
+    end
+end)
+
+-- LOOPING BARU: AUTO BOOST FPS (MENGGUSUR KEBUN TETANGGA TIAP 1 MENIT)
+task.spawn(function()
+    while task.wait(60) do -- Nunggu 1 menit
+        if config.AutoBoostFPS then
+            local myPlotId = LocalPlayer:GetAttribute("PlotId")
+            local gardensFolder = workspace:FindFirstChild("Gardens")
+
+            if gardensFolder and myPlotId then
+                local myPlotName = "Plot" .. tostring(myPlotId)
+                for _, plot in pairs(gardensFolder:GetChildren()) do
+                    -- Cari yang namanya berbau "Plot" tapi bukan "Plot" lu
+                    if string.find(plot.Name, "Plot") and plot.Name ~= myPlotName then
+                        plot:Destroy()
                     end
                 end
             end
