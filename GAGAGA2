@@ -18,9 +18,10 @@ task.spawn(function()
     end
 end)
 -- =====================================================================
--- GROW A GARDEN 2 - AUTOMATION PREMIUM HUB (V9 - TRUE AFK STATE MACHINE)
+-- =====================================================================
+-- GROW A GARDEN 2 - AUTOMATION PREMIUM HUB (V9 - TP / TWEEN METHOD)
 -- Features: Auto Harvest+TP, Auto Sell, Auto Buy, Rare Seed, Auto Pet
--- Fixes: ABSOLUTELY NO AUTO-TOGGLE OFF, Unified Hunt Engine, Perfect TP Lock
+-- Fixes: Added Move Method (TP/Tween), Spam ProximityPrompt Fix
 -- =====================================================================
 
 local Players = game:GetService("Players")
@@ -60,19 +61,19 @@ local PetData = {
 }
 local PetOrder = {"Frog", "Bunny", "Owl", "Deer", "Robin", "Bee", "Monkey", "Bear", "Golden Dragonfly", "Unicorn", "Racoon"}
 
-local FILE_NAME = "GAG2_Automation_Config_v8.json"
+local FILE_NAME = "GAG2_Automation_Config_v9.json"
 local config = {
     AutoHarvest = false, AutoSell = false, AutoBuySeed = false, 
     AutoBuyGear = false, AutoClaimRare = false, AutoBuyPet = false,
-    TweenSpeed = "50",
+    TweenSpeed = "50", MoveMethod = "Tween", -- Opsi Baru: "Tween" atau "TP"
     SelectedSeeds = {}, SelectedGears = {}, SelectedPets = {}
 }
 
--- STATE MACHINE VARIABLES (Pusat Kendali AFK Sejati)
+-- STATE MACHINE VARIABLES
 local Hunt = {
-    State = "IDLE", -- "IDLE", "FLYING", "BUYING"
+    State = "IDLE", 
     Target = nil,
-    Type = nil, -- "RARE" atau "PET"
+    Type = nil,
     GraceTimer = 0,
     InitialMoney = 0,
     ExpectedPrice = 0
@@ -163,6 +164,18 @@ local function createTextBox(parent, labelText, configKey, yPos)
     box.FocusLost:Connect(function() local num = tonumber(box.Text); if num then config[configKey] = tostring(num) else box.Text = config[configKey] end; saveConfig() end)
 end
 
+local function createModeButton(parent, labelText, configKey, option1, option2, yPos)
+    local frame = Instance.new("Frame"); frame.Size = UDim2.new(1, -16, 0, 30); frame.Position = UDim2.new(0, 8, 0, yPos); frame.BackgroundTransparency = 1; frame.Parent = parent
+    local label = Instance.new("TextLabel"); label.Size = UDim2.new(0.5, 0, 1, 0); label.BackgroundTransparency = 1; label.Text = labelText; label.TextColor3 = Color3.fromRGB(220, 220, 220); label.Font = Enum.Font.Gotham; label.TextSize = 12; label.TextXAlignment = Enum.TextXAlignment.Left; label.Parent = frame
+    local btn = Instance.new("TextButton"); btn.Size = UDim2.new(0.5, -4, 0, 24); btn.Position = UDim2.new(0.5, 4, 0, 3); btn.BackgroundColor3 = Color3.fromRGB(0, 170, 255); btn.BorderSizePixel = 0; btn.Text = config[configKey]; btn.TextColor3 = Color3.fromRGB(255, 255, 255); btn.Font = Enum.Font.GothamBold; btn.TextSize = 12; btn.Parent = frame
+    local btnCorner = Instance.new("UICorner"); btnCorner.CornerRadius = UDim.new(0, 4); btnCorner.Parent = btn
+    btn.MouseButton1Click:Connect(function()
+        config[configKey] = config[configKey] == option1 and option2 or option1
+        btn.Text = config[configKey]
+        saveConfig()
+    end)
+end
+
 local function populateCheckboxList(scrollFrame, sourceDataContainer, configTargetTable)
     local function renderItems()
         for _, child in pairs(scrollFrame:GetChildren()) do if child:IsA("Frame") then child:Destroy() end end
@@ -198,7 +211,6 @@ local function populatePetList()
         chk.MouseButton1Click:Connect(function()
             for p, _ in pairs(config.SelectedPets) do config.SelectedPets[p] = false; end
             config.SelectedPets[petName] = true
-            -- Visual Update for all checkboxes in the list
             for _, child in pairs(PetScroll:GetChildren()) do
                 if child:IsA("Frame") and child:FindFirstChild("TextButton") then
                     child.TextButton.BackgroundColor3 = config.SelectedPets[child.Name] and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(45, 45, 45)
@@ -222,7 +234,8 @@ createToggle(LeftPanel, "Auto Buy Seed", "AutoBuySeed", 80)
 createToggle(LeftPanel, "Auto Buy Gear", "AutoBuyGear", 115)
 createToggle(LeftPanel, "Auto Claim Rare Seed", "AutoClaimRare", 150)
 createTextBox(LeftPanel, "Tween Speed:", "TweenSpeed", 185)
-createToggle(LeftPanel, "Auto Buy Pet", "AutoBuyPet", 220)
+createModeButton(LeftPanel, "Move Method:", "MoveMethod", "Tween", "TP", 220)
+createToggle(LeftPanel, "Auto Buy Pet", "AutoBuyPet", 255)
 
 -- =====================================================================
 -- 4. UTILITY FUNCTIONS
@@ -276,39 +289,46 @@ local function toggleNoclip(state)
     end
 end
 
-local function tweenToLocation(targetCFrame)
-    local char = LocalPlayer.Character
-    if not char or not char:FindFirstChild("HumanoidRootPart") then return end
-    local hrp = char.HumanoidRootPart
-    
-    -- ANTI STUTTER: Kalo lu udah terbang lurus ke titik itu, gak usah reset tween
-    if currentTweenTarget and (currentTweenTarget - targetCFrame.Position).Magnitude < 10 then return end
-    
-    local speed = tonumber(config.TweenSpeed) or 50
-    local distance = (hrp.Position - targetCFrame.Position).Magnitude
-    local tInfo = TweenInfo.new(distance / speed, Enum.EasingStyle.Linear)
-    
-    if currentTween then currentTween:Cancel() end
-    
-    toggleNoclip(true)
-    hrp.Anchored = true 
-    
-    currentTweenTarget = targetCFrame.Position
-    currentTween = TweenService:Create(hrp, tInfo, {CFrame = targetCFrame})
-    currentTween.Completed:Connect(function()
-        hrp.Anchored = false
-        toggleNoclip(false)
-        currentTweenTarget = nil
-    end)
-    currentTween:Play()
-end
-
 local function stopTween()
     if currentTween then currentTween:Cancel(); currentTween = nil end
     local char = LocalPlayer.Character
     if char and char:FindFirstChild("HumanoidRootPart") then char.HumanoidRootPart.Anchored = false end
     toggleNoclip(false)
     currentTweenTarget = nil
+end
+
+local function moveToLocation(targetCFrame)
+    local char = LocalPlayer.Character
+    if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+    local hrp = char.HumanoidRootPart
+    
+    if config.MoveMethod == "TP" then
+        -- MODE TELEPORT INSTAN
+        stopTween()
+        hrp.CFrame = targetCFrame
+        task.wait(0.1) -- Jeda bentar biar server nangkep perpindahan lu
+    else
+        -- MODE TWEEN
+        if currentTweenTarget and (currentTweenTarget - targetCFrame.Position).Magnitude < 10 then return end
+        
+        local speed = tonumber(config.TweenSpeed) or 50
+        local distance = (hrp.Position - targetCFrame.Position).Magnitude
+        local tInfo = TweenInfo.new(distance / speed, Enum.EasingStyle.Linear)
+        
+        if currentTween then currentTween:Cancel() end
+        
+        toggleNoclip(true)
+        hrp.Anchored = true 
+        
+        currentTweenTarget = targetCFrame.Position
+        currentTween = TweenService:Create(hrp, tInfo, {CFrame = targetCFrame})
+        currentTween.Completed:Connect(function()
+            hrp.Anchored = false
+            toggleNoclip(false)
+            currentTweenTarget = nil
+        end)
+        currentTween:Play()
+    end
 end
 
 local function scanForRare()
@@ -337,47 +357,34 @@ local function scanForPet()
 end
 
 -- =====================================================================
--- 5. THE UNIFIED HUNT ENGINE (AFK SEJATI STATE MACHINE) - SPAM FIX
+-- 5. THE UNIFIED HUNT ENGINE (AFK SEJATI STATE MACHINE)
 -- =====================================================================
 
 task.spawn(function()
     while task.wait(0.2) do
-        -- SAFETY: Kalau user mematikan kedua toggle secara manual, reset status ke IDLE
         if not config.AutoBuyPet and not config.AutoClaimRare then
             if Hunt.State ~= "IDLE" then
-                Hunt.State = "IDLE"
-                Hunt.Target = nil
-                stopTween()
+                Hunt.State = "IDLE"; Hunt.Target = nil; stopTween()
             end
             continue
         end
 
         if Hunt.State == "IDLE" then
-            -- Cari Rare Seed (Prioritas 1)
             if config.AutoClaimRare then
                 local rareTarget = scanForRare()
                 if rareTarget then
-                    Hunt.State = "FLYING"
-                    Hunt.Target = rareTarget
-                    Hunt.Type = "RARE"
-                    continue
+                    Hunt.State = "FLYING"; Hunt.Target = rareTarget; Hunt.Type = "RARE"; continue
                 end
             end
             
-            -- Cari Pet (Prioritas 2)
             if config.AutoBuyPet then
                 local petTarget, priceNum = scanForPet()
                 if petTarget then
-                    Hunt.State = "FLYING"
-                    Hunt.Target = petTarget
-                    Hunt.Type = "PET"
-                    Hunt.ExpectedPrice = priceNum
-                    continue
+                    Hunt.State = "FLYING"; Hunt.Target = petTarget; Hunt.Type = "PET"; Hunt.ExpectedPrice = priceNum; continue
                 end
             end
 
         elseif Hunt.State == "FLYING" then
-            -- Kalau prompt hilang sebelum kita sampai
             if not Hunt.Target or not Hunt.Target.Parent or not Hunt.Target:IsDescendantOf(workspace) then
                 Hunt.State = "IDLE"; Hunt.Target = nil; stopTween(); continue
             end
@@ -390,52 +397,35 @@ task.spawn(function()
             local char = LocalPlayer.Character
             if char and char:FindFirstChild("HumanoidRootPart") then
                 local dist = (char.HumanoidRootPart.Position - targetPos).Magnitude
-                -- Jarak dipersempit jadi 5 biar lebih nempel ke target!
                 if dist > 5 then
-                    tweenToLocation(targetCFrame)
+                    -- Eksekusi pergerakan (Tween atau TP)
+                    moveToLocation(targetCFrame)
                 else
-                    -- SAMPAI TUJUAN -> Masuk ke mode BUYING
                     stopTween()
-                    
-                    if Hunt.Type == "PET" then
-                        Hunt.InitialMoney = getCurrentMoney()
-                    end
-                    
+                    if Hunt.Type == "PET" then Hunt.InitialMoney = getCurrentMoney() end
                     Hunt.State = "BUYING"
-                    Hunt.GraceTimer = os.clock() + 5 -- Toleransi 5 detik
+                    Hunt.GraceTimer = os.clock() + 5
                 end
             end
 
         elseif Hunt.State == "BUYING" then
-            -- SPAM FIREPROX DISINI! Selama di mode BUYING, dia bakal pencet E terus-terusan
+            -- SISTEM SPAM FIREPROXIMITYPROMPT
             if Hunt.Target and Hunt.Target:IsDescendantOf(workspace) then
-                if fireproximityprompt then 
-                    fireproximityprompt(Hunt.Target, 1, true) 
-                end
+                if fireproximityprompt then fireproximityprompt(Hunt.Target, 1, true) end
             end
 
             if Hunt.Type == "PET" then
                 local currentMoney = getCurrentMoney()
-                -- CEK KESUKSESAN TRANSAKSI (Duit Ngurang)
                 if currentMoney <= (Hunt.InitialMoney - Hunt.ExpectedPrice) then
-                    -- SUKSES BELI! Gembok dibuka, balik ke kebun. TOGGLE TETAP ON!
-                    Hunt.State = "IDLE"
-                    Hunt.Target = nil
+                    Hunt.State = "IDLE"; Hunt.Target = nil
                 elseif os.clock() > Hunt.GraceTimer then
-                    -- WAKTU HABIS (TIMEOUT), transaksi gagal.
-                    Hunt.State = "IDLE"
-                    Hunt.Target = nil
+                    Hunt.State = "IDLE"; Hunt.Target = nil
                 end
-                
             elseif Hunt.Type == "RARE" then
                 if not Hunt.Target or not Hunt.Target.Parent or not Hunt.Target:IsDescendantOf(workspace) then
-                    -- SUKSES! (Target lenyap)
-                    Hunt.State = "IDLE"
-                    Hunt.Target = nil
+                    Hunt.State = "IDLE"; Hunt.Target = nil
                 elseif os.clock() > Hunt.GraceTimer then
-                    -- TIMEOUT
-                    Hunt.State = "IDLE"
-                    Hunt.Target = nil
+                    Hunt.State = "IDLE"; Hunt.Target = nil
                 end
             end
         end
@@ -446,22 +436,19 @@ end)
 -- 6. BACKGROUND LOOPS (Harvest, Sell, Buy Shop)
 -- =====================================================================
 
--- Auto Harvest & Garden TP
 task.spawn(function()
     while task.wait(2) do
         if config.AutoHarvest then
-            -- TP HANYA JALAN JIKA STATUS ADALAH "IDLE"
             if Hunt.State == "IDLE" then
                 local spawnPt = getGardenSpawnPoint()
                 if spawnPt and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
                     local hrp = LocalPlayer.Character.HumanoidRootPart
                     if (hrp.Position - spawnPt.Position).Magnitude > 20 then
                         hrp.CFrame = spawnPt.CFrame + Vector3.new(0, 3, 0)
-                        task.wait(0.1)
+                        task.wait(0.5)
                     end
                 end
             end
-            -- Harvest jalan terus
             for _, obj in pairs(workspace:GetDescendants()) do
                 if obj:IsA("ProximityPrompt") and obj.ActionText == "Harvest" then
                     if fireproximityprompt then task.spawn(fireproximityprompt, obj, 1, true) end
@@ -471,7 +458,6 @@ task.spawn(function()
     end
 end)
 
--- Auto Sell All
 task.spawn(function()
     while task.wait(1.5) do
         if config.AutoSell and Networking then
@@ -480,7 +466,6 @@ task.spawn(function()
     end
 end)
 
--- Auto Buy Seeds & Gears
 task.spawn(function()
     while task.wait(1) do
         if config.AutoBuySeed and Networking then
