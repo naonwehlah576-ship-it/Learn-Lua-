@@ -7,12 +7,12 @@ end
 
 task.spawn(function()
     local VirtualInputManager = game:GetService("VirtualInputManager")
-    -- Script bakal nge-spam pencet Spasi setiap 1 detik selama 10 detik awal
+    -- Script bakal nge-spam pencet Y setiap 1 detik selama 20 detik awal
     for i = 1, 20 do
         pcall(function()
-            VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Space, false, game)
+            VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Y, false, game)
             task.wait(0.1)
-            VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Space, false, game)
+            VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Y, false, game)
         end)
         task.wait(1)
     end
