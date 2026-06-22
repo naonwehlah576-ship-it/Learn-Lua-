@@ -1,5 +1,24 @@
 -- =====================================================================
--- GROW A GARDEN 2 - AUTOMATION PREMIUM HUB (V8 - TRUE AFK STATE MACHINE)
+-- AUTO BYPASS "PRESS ANY KEY" INTRO SCREEN
+-- =====================================================================
+if not game:IsLoaded() then 
+    game.Loaded:Wait() 
+end
+
+task.spawn(function()
+    local VirtualInputManager = game:GetService("VirtualInputManager")
+    -- Script bakal nge-spam pencet Spasi setiap 1 detik selama 10 detik awal
+    for i = 1, 20 do
+        pcall(function()
+            VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Space, false, game)
+            task.wait(0.1)
+            VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Space, false, game)
+        end)
+        task.wait(1)
+    end
+end)
+-- =====================================================================
+-- GROW A GARDEN 2 - AUTOMATION PREMIUM HUB (V9 - TRUE AFK STATE MACHINE)
 -- Features: Auto Harvest+TP, Auto Sell, Auto Buy, Rare Seed, Auto Pet
 -- Fixes: ABSOLUTELY NO AUTO-TOGGLE OFF, Unified Hunt Engine, Perfect TP Lock
 -- =====================================================================
@@ -438,7 +457,7 @@ task.spawn(function()
                     local hrp = LocalPlayer.Character.HumanoidRootPart
                     if (hrp.Position - spawnPt.Position).Magnitude > 20 then
                         hrp.CFrame = spawnPt.CFrame + Vector3.new(0, 3, 0)
-                        task.wait(0.5)
+                        task.wait(0.1)
                     end
                 end
             end
