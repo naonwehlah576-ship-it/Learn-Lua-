@@ -19,7 +19,7 @@ end)
 -- =====================================================================
 -- =====================================================================
 -- GROW A GARDEN 2 - AUTOMATION PREMIUM HUB
--- Features: Toggle All Button, Native Scroll, Master Lists V2, Smart Transit, Anti-AFK
+-- Features: Toggle All Button, Native Scroll, Master Lists V3 (ALL SEEDS), Smart Transit, Anti-AFK
 -- =====================================================================
 
 local Players = game:GetService("Players")
@@ -59,11 +59,12 @@ local PetData = {
 }
 local PetOrder = {"Frog", "Bunny", "Owl", "Deer", "Robin", "Bee", "Monkey", "Bear", "Golden Dragonfly", "Unicorn", "Racoon"}
 
+-- MASTER LIST TANAMAN V3 (SUDAH DITAMBAH POISON APPLE, VENOM SPITTER, MOON BLOOM)
 local MasterPlantList = {
     "Acorn", "Apple", "Bamboo", "Banana", "Blueberry", "Cactus", "Carrot", "Cherry", 
     "Coconut", "Corn", "Dragon Fruit", "Dragon's Breath", "Ghost Pepper", "Gold Seed", "Grape", 
-    "Green Bean", "Mango", "Mushroom", "Pineapple", "Pomegranate", "Rainbow Seed", 
-    "Strawberry", "Sunflower", "Tomato", "Tulip", "Venus Fly Trap"
+    "Green Bean", "Mango", "Moon Bloom", "Mushroom", "Pineapple", "Poison Apple", "Pomegranate", 
+    "Rainbow Seed", "Strawberry", "Sunflower", "Tomato", "Tulip", "Venom Spitter", "Venus Fly Trap"
 }
 
 local MasterGearList = {
