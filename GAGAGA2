@@ -19,7 +19,7 @@ end)
 -- =====================================================================
 -- =====================================================================
 -- GROW A GARDEN 2 - AUTOMATION PREMIUM HUB
--- Features: Smart Transit, Hunt, Tween, Stealth, Fav by Price, Anti-AFK, Scrollable Settings
+-- Features: Toggle All Button, Native Scroll, Master Lists V2, Smart Transit, Anti-AFK
 -- =====================================================================
 
 local Players = game:GetService("Players")
@@ -43,7 +43,7 @@ if not Networking then
     end
 end
 
--- 2. DATA & CONFIG SYSTEM
+-- 2. DATA, CONFIG & MASTER LISTS
 local PetData = {
     ["Frog"] = { PriceStr = "¢10,000", PriceNum = 10000 },
     ["Bunny"] = { PriceStr = "¢20,000", PriceNum = 20000 },
@@ -59,14 +59,31 @@ local PetData = {
 }
 local PetOrder = {"Frog", "Bunny", "Owl", "Deer", "Robin", "Bee", "Monkey", "Bear", "Golden Dragonfly", "Unicorn", "Racoon"}
 
-local FILE_NAME = "GAG2_Automation_Config_v9.json" 
+local MasterPlantList = {
+    "Acorn", "Apple", "Bamboo", "Banana", "Blueberry", "Cactus", "Carrot", "Cherry", 
+    "Coconut", "Corn", "Dragon Fruit", "Dragon's Breath", "Ghost Pepper", "Gold Seed", "Grape", 
+    "Green Bean", "Mango", "Mushroom", "Pineapple", "Pomegranate", "Rainbow Seed", 
+    "Strawberry", "Sunflower", "Tomato", "Tulip", "Venus Fly Trap"
+}
+
+local MasterGearList = {
+    "Basic Pot", "Common Sprinkler", "Common Watering Can", "Flashbang", "Freeze Ray", 
+    "Gnome", "Grappling Hook", "Invisibility Mushroom", "Jump Mushroom", "Lantern", 
+    "Legendary Sprinkler", "Megaphone", "Pet Server Teleporter", "Player Magnet", 
+    "Power Hose", "Rainbow Carpet", "Rare Sprinkler", "Shackles", "Shrink Mushroom", 
+    "Sign", "Speed Mushroom", "Spice Spritzer Sprinkler", "Super Sprinkler", 
+    "Super Watering Can", "Supersize Mushroom", "Teleporter", "Trowel", 
+    "Uncommon Sprinkler", "Vine Wrapper", "Wheelbarrow"
+}
+
+local FILE_NAME = "GAG2_Automation_Config_v14.json" 
 local config = {
     AutoHarvest = false, AutoSell = false, AutoBuySeed = false, 
     AutoBuyGear = false, AutoClaimRare = false, AutoBuyPet = false, AutoPlant = false,
     AutoFavorite = false, AutoBoostFPS = false, AntiAFK = false,
     TweenSpeed = "50", WalkSpeed = "40", MoveMethod = "Tween", FavoriteThreshold = "100", 
     FavoriteNames = "", FavoritePrice = "1000000",
-    SelectedSeeds = {}, SelectedGears = {}, SelectedPets = {}, SelectedPlantSeeds = {}
+    SelectedSeeds = {}, SelectedGears = {}, SelectedPets = {}, SelectedPlantSeeds = {}, SelectedHarvests = {}
 }
 
 local Hunt = { State = "IDLE", Target = nil, Type = nil, GraceTimer = 0, InitialMoney = 0, ExpectedPrice = 0 }
@@ -80,7 +97,7 @@ local function loadConfig()
 end
 loadConfig()
 
--- 3. GUI CREATION
+-- 3. GUI CREATION (TAB SYSTEM)
 local ScreenGui = Instance.new("ScreenGui"); ScreenGui.Name = "GAG2_Automation_Hub"; ScreenGui.ResetOnSpawn = false; ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 local existingGui = game:GetService("CoreGui"):FindFirstChild("GAG2_Automation_Hub") or PlayerGui:FindFirstChild("GAG2_Automation_Hub")
 if existingGui then existingGui:Destroy() end
@@ -107,30 +124,75 @@ Topbar.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInp
 Topbar.InputChanged:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then dragInput = input end end)
 UserInputService.InputChanged:Connect(function(input) if input == dragInput and dragging then local delta = input.Position - dragStart; MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y) end end)
 
-local Container = Instance.new("Frame"); Container.Size = UDim2.new(1, -20, 1, -55); Container.Position = UDim2.new(0, 10, 0, 45); Container.BackgroundTransparency = 1; Container.Parent = MainFrame
-local function createPanel(xPos) local pnl = Instance.new("Frame"); pnl.Size = UDim2.new(0, 175, 1, 0); pnl.Position = UDim2.new(0, xPos, 0, 0); pnl.BackgroundColor3 = Color3.fromRGB(25, 25, 25); pnl.BorderSizePixel = 0; pnl.Parent = Container; local c = Instance.new("UICorner"); c.CornerRadius = UDim.new(0, 6); c.Parent = pnl; return pnl end
+-- TAB NAVIGATOR
+local TabContainer = Instance.new("Frame"); TabContainer.Size = UDim2.new(1, -20, 0, 30); TabContainer.Position = UDim2.new(0, 10, 0, 40); TabContainer.BackgroundTransparency = 1; TabContainer.Parent = MainFrame
+local TabLayout = Instance.new("UIListLayout"); TabLayout.FillDirection = Enum.FillDirection.Horizontal; TabLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center; TabLayout.Padding = UDim.new(0, 15); TabLayout.Parent = TabContainer
 
-local LeftPanel = createPanel(0); local SeedPanel = createPanel(183); local GearPanel = createPanel(366); local PetPanel = createPanel(549); local PlantPanel = createPanel(732)
+local function createTabButton(text)
+    local btn = Instance.new("TextButton"); btn.Size = UDim2.new(0, 150, 1, 0); btn.BackgroundColor3 = Color3.fromRGB(45, 45, 45); btn.TextColor3 = Color3.fromRGB(200, 200, 200); btn.Font = Enum.Font.GothamBold; btn.TextSize = 12; btn.Text = text; btn.BorderSizePixel = 0; btn.Parent = TabContainer
+    local corner = Instance.new("UICorner"); corner.CornerRadius = UDim.new(0, 6); corner.Parent = btn
+    return btn
+end
 
+local TabSettings = createTabButton("⚙️ MAIN SETTINGS")
+local TabFarming = createTabButton("🌾 AUTO FARMING")
+local TabShop = createTabButton("🛒 AUTO SHOP")
+
+-- CONTENT AREA
+local ContentContainer = Instance.new("Frame"); ContentContainer.Size = UDim2.new(1, -20, 1, -85); ContentContainer.Position = UDim2.new(0, 10, 0, 75); ContentContainer.BackgroundTransparency = 1; ContentContainer.Parent = MainFrame
+local ContentLayout = Instance.new("UIListLayout"); ContentLayout.FillDirection = Enum.FillDirection.Horizontal; ContentLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center; ContentLayout.SortOrder = Enum.SortOrder.LayoutOrder; ContentLayout.Padding = UDim.new(0, 15); ContentLayout.Parent = ContentContainer
+
+local function createPanel(width, order) 
+    local pnl = Instance.new("Frame"); pnl.Size = UDim2.new(0, width, 1, 0); pnl.BackgroundColor3 = Color3.fromRGB(25, 25, 25); pnl.BorderSizePixel = 0; pnl.LayoutOrder = order; pnl.Parent = ContentContainer; 
+    local c = Instance.new("UICorner"); c.CornerRadius = UDim.new(0, 6); c.Parent = pnl; return pnl 
+end
+
+local LeftPanel = createPanel(350, 1)      
+local PlantPanel = createPanel(280, 1)     
+local HarvestPanel = createPanel(280, 2)   
+local SeedPanel = createPanel(280, 1)      
+local GearPanel = createPanel(280, 2)      
+local PetPanel = createPanel(280, 3)       
+
+local function switchTab(tabName)
+    TabSettings.BackgroundColor3 = (tabName == "Settings") and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(45, 45, 45)
+    TabSettings.TextColor3 = (tabName == "Settings") and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(200, 200, 200)
+    TabFarming.BackgroundColor3 = (tabName == "Farming") and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(45, 45, 45)
+    TabFarming.TextColor3 = (tabName == "Farming") and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(200, 200, 200)
+    TabShop.BackgroundColor3 = (tabName == "Shop") and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(45, 45, 45)
+    TabShop.TextColor3 = (tabName == "Shop") and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(200, 200, 200)
+
+    LeftPanel.Visible = (tabName == "Settings")
+    PlantPanel.Visible = (tabName == "Farming")
+    HarvestPanel.Visible = (tabName == "Farming")
+    SeedPanel.Visible = (tabName == "Shop")
+    GearPanel.Visible = (tabName == "Shop")
+    PetPanel.Visible = (tabName == "Shop")
+end
+
+TabSettings.MouseButton1Click:Connect(function() switchTab("Settings") end)
+TabFarming.MouseButton1Click:Connect(function() switchTab("Farming") end)
+TabShop.MouseButton1Click:Connect(function() switchTab("Shop") end)
+switchTab("Settings")
+
+-- SCROLL FIX NATIVE
 local function createScrollList(parent, titleText)
     local lbl = Instance.new("TextLabel"); lbl.Size = UDim2.new(1, 0, 0, 25); lbl.BackgroundTransparency = 1; lbl.Text = titleText; lbl.TextColor3 = Color3.fromRGB(180, 180, 180); lbl.Font = Enum.Font.GothamBold; lbl.TextSize = 12; lbl.Parent = parent
-    local sf = Instance.new("ScrollingFrame"); sf.Size = UDim2.new(1, -10, 1, -35); sf.Position = UDim2.new(0, 5, 0, 30); sf.BackgroundTransparency = 1; sf.BorderSizePixel = 0; sf.ScrollBarThickness = 3; sf.ScrollBarImageColor3 = Color3.fromRGB(80, 80, 80); sf.CanvasSize = UDim2.new(0, 0, 0, 0); sf.Parent = parent
+    local sf = Instance.new("ScrollingFrame"); sf.Size = UDim2.new(1, -10, 1, -35); sf.Position = UDim2.new(0, 5, 0, 30); sf.BackgroundTransparency = 1; sf.BorderSizePixel = 0; sf.ScrollBarThickness = 3; sf.ScrollBarImageColor3 = Color3.fromRGB(80, 80, 80); sf.Parent = parent
+    sf.CanvasSize = UDim2.new(0, 0, 0, 0); sf.AutomaticCanvasSize = Enum.AutomaticSize.Y
     local layout = Instance.new("UIListLayout"); layout.Padding = UDim.new(0, 4); layout.SortOrder = Enum.SortOrder.LayoutOrder; layout.Parent = sf
-    layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() sf.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 10) end)
     return sf
 end
 
--- ==========================================
--- GUI BUILDER (DI-UPDATE PAKAI LAYOUT ORDER)
--- ==========================================
-local SettingsScroll = createScrollList(LeftPanel, "SETTINGS")
+local SettingsScroll = createScrollList(LeftPanel, "GENERAL CONFIGURATION")
 local SeedScroll = createScrollList(SeedPanel, "SHOP: SEEDS")
 local GearScroll = createScrollList(GearPanel, "SHOP: GEARS")
 local PetScroll = createScrollList(PetPanel, "SHOP: PETS")
 local PlantScroll = createScrollList(PlantPanel, "PLANT: SEEDS")
+local HarvestScroll = createScrollList(HarvestPanel, "HARVEST: TARGETS")
 
 local function createToggle(parent, text, configKey, yPos)
-    local frame = Instance.new("Frame"); frame.Size = UDim2.new(1, -16, 0, 30); frame.Position = UDim2.new(0, 8, 0, yPos); frame.BackgroundTransparency = 1; frame.LayoutOrder = yPos; frame.Parent = parent
+    local frame = Instance.new("Frame"); frame.Size = UDim2.new(1, -16, 0, 30); frame.BackgroundTransparency = 1; frame.LayoutOrder = yPos; frame.Parent = parent
     local btn = Instance.new("TextButton"); btn.Size = UDim2.new(0, 20, 0, 20); btn.Position = UDim2.new(0, 2, 0, 5); btn.BorderSizePixel = 0; btn.Text = ""; btn.Parent = frame
     btn.BackgroundColor3 = config[configKey] and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(45, 45, 45)
     local btnCorner = Instance.new("UICorner"); btnCorner.CornerRadius = UDim.new(0, 4); btnCorner.Parent = btn
@@ -139,7 +201,7 @@ local function createToggle(parent, text, configKey, yPos)
 end
 
 local function createTextBox(parent, labelText, configKey, yPos)
-    local frame = Instance.new("Frame"); frame.Size = UDim2.new(1, -16, 0, 30); frame.Position = UDim2.new(0, 8, 0, yPos); frame.BackgroundTransparency = 1; frame.LayoutOrder = yPos; frame.Parent = parent
+    local frame = Instance.new("Frame"); frame.Size = UDim2.new(1, -16, 0, 30); frame.BackgroundTransparency = 1; frame.LayoutOrder = yPos; frame.Parent = parent
     local label = Instance.new("TextLabel"); label.Size = UDim2.new(0.5, 0, 1, 0); label.BackgroundTransparency = 1; label.Text = labelText; label.TextColor3 = Color3.fromRGB(220, 220, 220); label.Font = Enum.Font.Gotham; label.TextSize = 12; label.TextXAlignment = Enum.TextXAlignment.Left; label.Parent = frame
     local box = Instance.new("TextBox"); box.Size = UDim2.new(0.5, -4, 0, 24); box.Position = UDim2.new(0.5, 4, 0, 3); box.BackgroundColor3 = Color3.fromRGB(45, 45, 45); box.BorderSizePixel = 0; box.Text = tostring(config[configKey]); box.TextColor3 = Color3.fromRGB(255, 255, 255); box.Font = Enum.Font.Gotham; box.TextSize = 12; box.Parent = frame
     local boxCorner = Instance.new("UICorner"); boxCorner.CornerRadius = UDim.new(0, 4); boxCorner.Parent = box
@@ -150,7 +212,7 @@ local function createTextBox(parent, labelText, configKey, yPos)
 end
 
 local function createMultiModeButton(parent, labelText, configKey, optionsTable, yPos)
-    local frame = Instance.new("Frame"); frame.Size = UDim2.new(1, -16, 0, 30); frame.Position = UDim2.new(0, 8, 0, yPos); frame.BackgroundTransparency = 1; frame.LayoutOrder = yPos; frame.Parent = parent
+    local frame = Instance.new("Frame"); frame.Size = UDim2.new(1, -16, 0, 30); frame.BackgroundTransparency = 1; frame.LayoutOrder = yPos; frame.Parent = parent
     local label = Instance.new("TextLabel"); label.Size = UDim2.new(0.5, 0, 1, 0); label.BackgroundTransparency = 1; label.Text = labelText; label.TextColor3 = Color3.fromRGB(220, 220, 220); label.Font = Enum.Font.Gotham; label.TextSize = 12; label.TextXAlignment = Enum.TextXAlignment.Left; label.Parent = frame
     local btn = Instance.new("TextButton"); btn.Size = UDim2.new(0.5, -4, 0, 24); btn.Position = UDim2.new(0.5, 4, 0, 3); btn.BackgroundColor3 = Color3.fromRGB(0, 170, 255); btn.BorderSizePixel = 0; btn.Text = config[configKey]; btn.TextColor3 = Color3.fromRGB(255, 255, 255); btn.Font = Enum.Font.GothamBold; btn.TextSize = 12; btn.Parent = frame
     local btnCorner = Instance.new("UICorner"); btnCorner.CornerRadius = UDim.new(0, 4); btnCorner.Parent = btn
@@ -158,70 +220,77 @@ local function createMultiModeButton(parent, labelText, configKey, optionsTable,
 end
 
 local function createStandardButton(parent, text, yPos, callback)
-    local frame = Instance.new("Frame"); frame.Size = UDim2.new(1, -16, 0, 26); frame.Position = UDim2.new(0, 8, 0, yPos); frame.BackgroundTransparency = 1; frame.LayoutOrder = yPos; frame.Parent = parent
+    local frame = Instance.new("Frame"); frame.Size = UDim2.new(1, -16, 0, 26); frame.BackgroundTransparency = 1; frame.LayoutOrder = yPos; frame.Parent = parent
     local btn = Instance.new("TextButton"); btn.Size = UDim2.new(1, 0, 1, 0); btn.BackgroundColor3 = Color3.fromRGB(200, 50, 50); btn.BorderSizePixel = 0; btn.Text = text; btn.TextColor3 = Color3.fromRGB(255, 255, 255); btn.Font = Enum.Font.GothamBold; btn.TextSize = 12; btn.Parent = frame
     local btnCorner = Instance.new("UICorner"); btnCorner.CornerRadius = UDim.new(0, 4); btnCorner.Parent = btn
     btn.MouseButton1Click:Connect(callback)
 end
 
-local function populateCheckboxList(scrollFrame, sourceDataContainer, configTargetTable)
-    local function renderItems()
-        for _, child in pairs(scrollFrame:GetChildren()) do if child:IsA("Frame") then child:Destroy() end end
-        if not sourceDataContainer then return end
-        for _, item in pairs(sourceDataContainer:GetChildren()) do
-            if item:IsA("GuiObject") and not item:IsA("UIListLayout") and not item:IsA("UIGridLayout") and item.Name ~= "GenerateItems" and item.Name ~= "ItemTemplate" then
-                local itemName = item.Name
-                local row = Instance.new("Frame"); row.Name = itemName; row.Size = UDim2.new(1, -6, 0, 26); row.BackgroundTransparency = 1; row.Parent = scrollFrame
-                local chk = Instance.new("TextButton"); chk.Size = UDim2.new(0, 16, 0, 16); chk.Position = UDim2.new(0, 4, 0, 5); chk.BorderSizePixel = 0; chk.TextColor3 = Color3.fromRGB(255, 255, 255); chk.Font = Enum.Font.GothamBold; chk.TextSize = 10; chk.Parent = row
-                chk.BackgroundColor3 = configTargetTable[itemName] and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(45, 45, 45); chk.Text = configTargetTable[itemName] and "✓" or ""
-                local chkCorner = Instance.new("UICorner"); chkCorner.CornerRadius = UDim.new(0, 3); chkCorner.Parent = chk
-                local txt = Instance.new("TextLabel"); txt.Size = UDim2.new(1, -28, 1, 0); txt.Position = UDim2.new(0, 26, 0, 0); txt.BackgroundTransparency = 1; txt.Text = itemName; txt.TextColor3 = Color3.fromRGB(190, 190, 190); txt.Font = Enum.Font.Gotham; txt.TextSize = 11; txt.TextXAlignment = Enum.TextXAlignment.Left; txt.Parent = row
-                chk.MouseButton1Click:Connect(function() configTargetTable[itemName] = not configTargetTable[itemName]; chk.BackgroundColor3 = configTargetTable[itemName] and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(45, 45, 45); chk.Text = configTargetTable[itemName] and "✓" or ""; saveConfig() end)
+-- POPULATE LIST GENERATOR (DENGAN FITUR TOGGLE ALL)
+local function populateFromList(scrollFrame, targetConfigTable, dataList)
+    -- TOMBOL MASTER SELECT ALL (Urutan 0)
+    local rowAll = Instance.new("Frame"); rowAll.Name = "_ToggleAll"; rowAll.Size = UDim2.new(1, -6, 0, 26); rowAll.BackgroundTransparency = 1; rowAll.LayoutOrder = 0; rowAll.Parent = scrollFrame
+    local chkAll = Instance.new("TextButton"); chkAll.Size = UDim2.new(0, 16, 0, 16); chkAll.Position = UDim2.new(0, 4, 0, 5); chkAll.BorderSizePixel = 0; chkAll.TextColor3 = Color3.fromRGB(255, 255, 255); chkAll.Font = Enum.Font.GothamBold; chkAll.TextSize = 10; chkAll.Parent = rowAll
+    chkAll.BackgroundColor3 = Color3.fromRGB(45, 45, 45); chkAll.Text = ""
+    local chkCorner = Instance.new("UICorner"); chkCorner.CornerRadius = UDim.new(0, 3); chkCorner.Parent = chkAll
+    local txtAll = Instance.new("TextLabel"); txtAll.Size = UDim2.new(1, -28, 1, 0); txtAll.Position = UDim2.new(0, 26, 0, 0); txtAll.BackgroundTransparency = 1; txtAll.Text = "-- TOGGLE ALL --"; txtAll.TextColor3 = Color3.fromRGB(255, 210, 50); txtAll.Font = Enum.Font.GothamBold; txtAll.TextSize = 11; txtAll.TextXAlignment = Enum.TextXAlignment.Left; txtAll.Parent = rowAll
+    
+    local isAllSelected = false
+    chkAll.MouseButton1Click:Connect(function()
+        isAllSelected = not isAllSelected
+        chkAll.BackgroundColor3 = isAllSelected and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(45, 45, 45)
+        chkAll.Text = isAllSelected and "✓" or ""
+        
+        for _, itemName in ipairs(dataList) do
+            targetConfigTable[itemName] = isAllSelected
+            local childRow = scrollFrame:FindFirstChild(itemName)
+            if childRow then
+                local childChk = childRow:FindFirstChildOfClass("TextButton")
+                if childChk then
+                    childChk.BackgroundColor3 = isAllSelected and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(45, 45, 45)
+                    childChk.Text = isAllSelected and "✓" or ""
+                end
             end
         end
-    end
-    renderItems()
-    sourceDataContainer.ChildAdded:Connect(renderItems)
-    sourceDataContainer.ChildRemoved:Connect(renderItems)
-end
+        saveConfig()
+    end)
 
-local function populatePetList()
-    for i, petName in ipairs(PetOrder) do
-        local row = Instance.new("Frame"); row.Name = petName; row.Size = UDim2.new(1, -6, 0, 26); row.BackgroundTransparency = 1; row.LayoutOrder = i; row.Parent = PetScroll
+    -- GENERATE ISI LISTNYA
+    for i, itemName in ipairs(dataList) do
+        local row = Instance.new("Frame"); row.Name = itemName; row.Size = UDim2.new(1, -6, 0, 26); row.BackgroundTransparency = 1; row.LayoutOrder = i; row.Parent = scrollFrame
         local chk = Instance.new("TextButton"); chk.Size = UDim2.new(0, 16, 0, 16); chk.Position = UDim2.new(0, 4, 0, 5); chk.BorderSizePixel = 0; chk.TextColor3 = Color3.fromRGB(255, 255, 255); chk.Font = Enum.Font.GothamBold; chk.TextSize = 10; chk.Parent = row
-        chk.BackgroundColor3 = config.SelectedPets[petName] and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(45, 45, 45); chk.Text = config.SelectedPets[petName] and "✓" or ""
-        local chkCorner = Instance.new("UICorner"); chkCorner.CornerRadius = UDim.new(0, 3); chkCorner.Parent = chk
-        local txt = Instance.new("TextLabel"); txt.Size = UDim2.new(1, -28, 1, 0); txt.Position = UDim2.new(0, 26, 0, 0); txt.BackgroundTransparency = 1; txt.Text = petName; txt.TextColor3 = Color3.fromRGB(190, 190, 190); txt.Font = Enum.Font.Gotham; txt.TextSize = 10; txt.TextXAlignment = Enum.TextXAlignment.Left; txt.Parent = row
-        chk.MouseButton1Click:Connect(function() config.SelectedPets[petName] = not config.SelectedPets[petName]; chk.BackgroundColor3 = config.SelectedPets[petName] and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(45, 45, 45); chk.Text = config.SelectedPets[petName] and "✓" or ""; saveConfig() end)
+        chk.BackgroundColor3 = targetConfigTable[itemName] and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(45, 45, 45); chk.Text = targetConfigTable[itemName] and "✓" or ""
+        local itemCorner = Instance.new("UICorner"); itemCorner.CornerRadius = UDim.new(0, 3); itemCorner.Parent = chk
+        local txt = Instance.new("TextLabel"); txt.Size = UDim2.new(1, -28, 1, 0); txt.Position = UDim2.new(0, 26, 0, 0); txt.BackgroundTransparency = 1; txt.Text = itemName; txt.TextColor3 = Color3.fromRGB(190, 190, 190); txt.Font = Enum.Font.Gotham; txt.TextSize = 11; txt.TextXAlignment = Enum.TextXAlignment.Left; txt.Parent = row
+        chk.MouseButton1Click:Connect(function() targetConfigTable[itemName] = not targetConfigTable[itemName]; chk.BackgroundColor3 = targetConfigTable[itemName] and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(45, 45, 45); chk.Text = targetConfigTable[itemName] and "✓" or ""; saveConfig() end)
     end
 end
-populatePetList()
 
-local SeedShopUI = PlayerGui:WaitForChild("SeedShop", 5) and PlayerGui.SeedShop:WaitForChild("Frame", 5) and PlayerGui.SeedShop.Frame:WaitForChild("NormalShop", 5)
-local GearShopUI = PlayerGui:WaitForChild("GearShop", 5) and PlayerGui.GearShop:WaitForChild("Frame", 5) and PlayerGui.GearShop.Frame:WaitForChild("ScrollingFrame", 5)
+-- PANGGIL FUNGSI LIST GENERATOR
+populateFromList(SeedScroll, config.SelectedSeeds, MasterPlantList)
+populateFromList(GearScroll, config.SelectedGears, MasterGearList)
+populateFromList(PetScroll, config.SelectedPets, PetOrder)
+populateFromList(PlantScroll, config.SelectedPlantSeeds, MasterPlantList)
+populateFromList(HarvestScroll, config.SelectedHarvests, MasterPlantList)
 
-if SeedShopUI then populateCheckboxList(SeedScroll, SeedShopUI, config.SelectedSeeds); populateCheckboxList(PlantScroll, SeedShopUI, config.SelectedPlantSeeds) end
-if GearShopUI then populateCheckboxList(GearScroll, GearShopUI, config.SelectedGears) end
-
--- SETTINGS DIMASUKIN KE SCROLLING FRAME
-createToggle(SettingsScroll, "Auto Collect/Harvest", "AutoHarvest", 10)
-createToggle(SettingsScroll, "Auto Sell All", "AutoSell", 45)
-createToggle(SettingsScroll, "Auto Buy Seed", "AutoBuySeed", 80)
-createToggle(SettingsScroll, "Auto Buy Gear", "AutoBuyGear", 115)
-createToggle(SettingsScroll, "Auto Claim Rare Seed", "AutoClaimRare", 150)
-createTextBox(SettingsScroll, "Bonus Speed:", "TweenSpeed", 185) 
-createMultiModeButton(SettingsScroll, "Move Method:", "MoveMethod", {"Tween", "SpamTP", "Walk"}, 220)
-createToggle(SettingsScroll, "Auto Buy Pet", "AutoBuyPet", 255)
-createToggle(SettingsScroll, "Auto Plant Area", "AutoPlant", 290)
-createTextBox(SettingsScroll, "Walk Speed:", "WalkSpeed", 325)
-createToggle(SettingsScroll, "Auto Favorite (>kg)", "AutoFavorite", 360) 
-createTextBox(SettingsScroll, "Fav Threshold (kg):", "FavoriteThreshold", 395)
-createTextBox(SettingsScroll, "Fav Names (,):", "FavoriteNames", 430) 
-createTextBox(SettingsScroll, "Fav Min Price:", "FavoritePrice", 465)
-createToggle(SettingsScroll, "Auto Boost FPS", "AutoBoostFPS", 500) 
-createToggle(SettingsScroll, "Auto Anti-AFK", "AntiAFK", 535) 
-
-createStandardButton(SettingsScroll, "TEST ANTI-AFK", 570, function()
+-- POPULATE SETTINGS TAB
+createToggle(SettingsScroll, "Auto Collect/Harvest", "AutoHarvest", 1)
+createToggle(SettingsScroll, "Auto Plant Area", "AutoPlant", 2)
+createToggle(SettingsScroll, "Auto Sell All", "AutoSell", 3)
+createToggle(SettingsScroll, "Auto Buy Seed", "AutoBuySeed", 4)
+createToggle(SettingsScroll, "Auto Buy Gear", "AutoBuyGear", 5)
+createToggle(SettingsScroll, "Auto Buy Pet", "AutoBuyPet", 6)
+createToggle(SettingsScroll, "Auto Claim Rare Seed", "AutoClaimRare", 7)
+createMultiModeButton(SettingsScroll, "Move Method:", "MoveMethod", {"Tween", "SpamTP", "Walk"}, 8)
+createTextBox(SettingsScroll, "Bonus Tween Speed:", "TweenSpeed", 9) 
+createTextBox(SettingsScroll, "Walk Speed:", "WalkSpeed", 10)
+createToggle(SettingsScroll, "Auto Favorite (Master Switch)", "AutoFavorite", 11) 
+createTextBox(SettingsScroll, "Fav Threshold (>kg):", "FavoriteThreshold", 12)
+createTextBox(SettingsScroll, "Fav Exact Names (,):", "FavoriteNames", 13) 
+createTextBox(SettingsScroll, "Fav Min Price (¢):", "FavoritePrice", 14)
+createToggle(SettingsScroll, "Auto Boost FPS", "AutoBoostFPS", 15) 
+createToggle(SettingsScroll, "Auto Anti-AFK", "AntiAFK", 16) 
+createStandardButton(SettingsScroll, "TEST ANTI-AFK", 17, function()
     local char = LocalPlayer.Character
     if char and char:FindFirstChild("Humanoid") then char.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping) end
     print("✅ [TEST] Anti-AFK dipicu secara manual!")
@@ -450,7 +519,7 @@ task.spawn(function()
 end)
 
 -- =====================================================================
--- 6. BACKGROUND LOOPS (Harvest, Sell, Buy, Plant, Favorite, AntiAFK)
+-- 6. BACKGROUND LOOPS
 -- =====================================================================
 local harvestQueue = {}
 local harvestQueueSet = {}
@@ -466,9 +535,48 @@ task.spawn(function()
                     if (hrp.Position - spawnPt.Position).Magnitude > 60 then hrp.CFrame = spawnPt.CFrame + Vector3.new(0, 3, 0); task.wait(0.1) end
                 end
             end
+            
             for _, obj in pairs(workspace:GetDescendants()) do
                 if obj:IsA("ProximityPrompt") and obj.Enabled and obj.ActionText == "Harvest" then
-                    if not harvestQueueSet[obj] then harvestQueueSet[obj] = true; table.insert(harvestQueue, obj) end
+                    
+                    local hasAnySelection = false
+                    for _, isSelected in pairs(config.SelectedHarvests) do
+                        if isSelected then hasAnySelection = true; break end
+                    end
+                    
+                    local isValid = false
+                    
+                    if not hasAnySelection then
+                        isValid = true 
+                    else
+                        local pName = nil
+                        local p1 = obj.Parent
+                        if p1 then
+                            pName = p1:GetAttribute("CorePartName") or p1:GetAttribute("FruitName") or p1:GetAttribute("SeedName")
+                            if not pName then
+                                local p2 = p1.Parent
+                                if p2 then pName = p2:GetAttribute("CorePartName") or p2:GetAttribute("FruitName") or p2:GetAttribute("SeedName") end
+                            end
+                        end
+                        
+                        if not pName and obj.ObjectText then
+                            for k, v in pairs(config.SelectedHarvests) do
+                                if v and string.find(obj.ObjectText, k) then
+                                    pName = k
+                                    break
+                                end
+                            end
+                        end
+                        
+                        if pName and config.SelectedHarvests[pName] then
+                            isValid = true
+                        end
+                    end
+
+                    if isValid and not harvestQueueSet[obj] then
+                        harvestQueueSet[obj] = true
+                        table.insert(harvestQueue, obj)
+                    end
                 end
             end
         else
@@ -499,9 +607,11 @@ end)
 task.spawn(function()
     while task.wait(1) do
         if config.AutoBuySeed and Networking then
+            local SeedShopUI = PlayerGui:WaitForChild("SeedShop", 5) and PlayerGui.SeedShop:WaitForChild("Frame", 5) and PlayerGui.SeedShop.Frame:WaitForChild("NormalShop", 5)
             for seedName, isSelected in pairs(config.SelectedSeeds) do if isSelected and SeedShopUI and SeedShopUI:FindFirstChild(seedName) then pcall(function() Networking.SeedShop.PurchaseSeed:Fire(seedName, 1) end) end end
         end
         if config.AutoBuyGear and Networking then
+            local GearShopUI = PlayerGui:WaitForChild("GearShop", 5) and PlayerGui.GearShop:WaitForChild("Frame", 5) and PlayerGui.GearShop.Frame:WaitForChild("ScrollingFrame", 5)
             for gearName, isSelected in pairs(config.SelectedGears) do if isSelected and GearShopUI and GearShopUI:FindFirstChild(gearName) then pcall(function() Networking.GearShop.PurchaseGear:Fire(gearName) end) end end
         end
     end
