@@ -18,7 +18,7 @@ task.spawn(function()
 end)
 
 -- =====================================================================
--- GROW A GARDEN 2 - AUTOMATION PREMIUM HUB V24 (FINAL PERFECTED)
+-- GROW A GARDEN 2 - AUTOMATION PREMIUM HUB V24.1 (PERFECTED HARVEST)
 -- Features: Smart Favorite Tab, Condition-Based Auto Sell, Smart Harvest
 -- Config File: GAG2_Automation_Config_v14.json
 -- =====================================================================
@@ -79,7 +79,7 @@ local config = {
     AutoFavorite = false, AutoBoostFPS = false, AntiAFK = false, ForceMutation = true,
     AntiNightThief = true,
     TweenSpeed = "50", WalkSpeed = "40", MoveMethod = "Tween", HarvestLimit = "50", 
-    FavoriteThreshold = "100", FavoritePrice = "0", -- HARGA KEMBALI HADIR!
+    FavoriteThreshold = "100", FavoritePrice = "0",
     SelectedSeeds = {}, SelectedGears = {}, SelectedPets = {}, SelectedPlantSeeds = {}, SelectedHarvests = {},
     SelectedFavSeeds = {} 
 }
@@ -115,7 +115,7 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed) if not gamePr
 
 local Topbar = Instance.new("Frame"); Topbar.Size = UDim2.new(1, 0, 0, 35); Topbar.BackgroundColor3 = Color3.fromRGB(28, 28, 28); Topbar.BorderSizePixel = 0; Topbar.Parent = MainFrame
 local TopbarCorner = Instance.new("UICorner"); TopbarCorner.CornerRadius = UDim.new(0, 8); TopbarCorner.Parent = Topbar
-local Title = Instance.new("TextLabel"); Title.Size = UDim2.new(1, -80, 1, 0); Title.Position = UDim2.new(0, 12, 0, 0); Title.BackgroundTransparency = 1; Title.Text = "Grow a Garden 2 Hub Dafa Goreng v24"; Title.TextColor3 = Color3.fromRGB(240, 240, 240); Title.Font = Enum.Font.GothamBold; Title.TextSize = 14; Title.TextXAlignment = Enum.TextXAlignment.Left; Title.Parent = Topbar
+local Title = Instance.new("TextLabel"); Title.Size = UDim2.new(1, -80, 1, 0); Title.Position = UDim2.new(0, 12, 0, 0); Title.BackgroundTransparency = 1; Title.Text = "Grow a Garden 2 Hub Dafa Goreng v24.1"; Title.TextColor3 = Color3.fromRGB(240, 240, 240); Title.Font = Enum.Font.GothamBold; Title.TextSize = 14; Title.TextXAlignment = Enum.TextXAlignment.Left; Title.Parent = Topbar
 local CloseBtn = Instance.new("TextButton"); CloseBtn.Size = UDim2.new(0, 30, 0, 30); CloseBtn.Position = UDim2.new(1, -32, 0, 2); CloseBtn.BackgroundTransparency = 1; CloseBtn.Text = "✕"; CloseBtn.TextColor3 = Color3.fromRGB(150, 150, 150); CloseBtn.Font = Enum.Font.GothamBold; CloseBtn.TextSize = 16; CloseBtn.Parent = Topbar; CloseBtn.MouseButton1Click:Connect(function() ScreenGui:Destroy() end)
 local MinBtn = Instance.new("TextButton"); MinBtn.Size = UDim2.new(0, 30, 0, 30); MinBtn.Position = UDim2.new(1, -62, 0, 2); MinBtn.BackgroundTransparency = 1; MinBtn.Text = "—"; MinBtn.TextColor3 = Color3.fromRGB(150, 150, 150); MinBtn.Font = Enum.Font.GothamBold; MinBtn.TextSize = 16; MinBtn.Parent = Topbar
 local isMinimized = false; MinBtn.MouseButton1Click:Connect(function() isMinimized = not isMinimized; TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quint), {Size = isMinimized and UDim2.new(0, 920, 0, 35) or UDim2.new(0, 920, 0, 550)}):Play() end)
@@ -319,7 +319,7 @@ createTextBox(SettingsScroll, "Bonus Tween Speed:", "TweenSpeed", 12)
 createTextBox(SettingsScroll, "Walk Speed:", "WalkSpeed", 13)
 createToggle(SettingsScroll, "Auto Favorite (Master Switch)", "AutoFavorite", 14) 
 createTextBox(SettingsScroll, "Fav Threshold (>kg):", "FavoriteThreshold", 15)
-createTextBox(SettingsScroll, "Fav Price (>¢):", "FavoritePrice", 16) -- HARGA ADA DI SINI LAGI!
+createTextBox(SettingsScroll, "Fav Price (>¢):", "FavoritePrice", 16) 
 
 -- =====================================================================
 -- 4. UTILITY FUNCTIONS & SMART PATHFINDING
@@ -537,7 +537,7 @@ task.spawn(function()
 end)
 
 -- =====================================================================
--- 6. INDEPENDENT HARVEST MATRIX CORE
+-- 6. INDEPENDENT HARVEST MATRIX CORE (UPDATE BACA TEKS HTML UI)
 -- =====================================================================
 local harvestQueue = {}
 local harvestQueueSet = {}
@@ -591,12 +591,35 @@ task.spawn(function()
                             local limit = tonumber(config.HarvestLimit) or 50
                             local currentWeight = 0
                             
-                            local sizeMulti = fruitModel:GetAttribute("SizeMulti") or 1
-                            local maxAge = fruitModel:GetAttribute("MaxAge") or 7
-                            if maxAge == 4 then currentWeight = sizeMulti * 0.9
-                            elseif maxAge == 7 then currentWeight = sizeMulti * 1.5
-                            elseif maxAge == 12 or maxAge == 17 then currentWeight = sizeMulti * 7.2
-                            else currentWeight = sizeMulti * 1.5 end
+                            -- [! FITUR BARU !] BACA BERAT LANGSUNG DARI UI 3D (HTML)
+                            local promptLabel = harvestPart:FindFirstChild("HarvestPromptLabel", true) 
+                                or (fruitModel and fruitModel:FindFirstChild("HarvestPromptLabel", true))
+                                
+                            if promptLabel and promptLabel:FindFirstChild("Frame") and promptLabel.Frame:FindFirstChild("Name") then
+                                local rawText = promptLabel.Frame.Name.Text
+                                -- Ekstrak angka murni dari: <font>⚖️ 4.19kg</font>
+                                local weightStr = string.match(rawText, "⚖️%s*(%d+%.?%d*)kg")
+                                if weightStr then
+                                    currentWeight = tonumber(weightStr) or 0
+                                end
+                            end
+                            
+                            -- FALLBACK: Kalau UI error / belum ke-load, pakai kalkulasi matematika lu (Disempurnakan)
+                            if currentWeight == 0 then
+                                local sizeMulti = fruitModel:GetAttribute("SizeMulti") or 1
+                                local maxAge = fruitModel:GetAttribute("MaxAge") or 7
+                                local currentAge = fruitModel:GetAttribute("Age") or 0
+                                
+                                -- Clamp memastikan hitungan tidak liar kalau umur > maxAge
+                                local growthProgress = math.clamp(currentAge / maxAge, 0, 1)
+                                
+                                local baseWeightMultiplier = 1.5
+                                if maxAge == 4 then baseWeightMultiplier = 0.9
+                                elseif maxAge == 7 then baseWeightMultiplier = 1.5
+                                elseif maxAge == 12 or maxAge == 17 then baseWeightMultiplier = 7.2 end
+                                
+                                currentWeight = baseWeightMultiplier * sizeMulti * growthProgress
+                            end
                             
                             if currentWeight >= limit then 
                                 shouldHarvest = true 
@@ -670,7 +693,6 @@ task.spawn(function()
                     for _, item in pairs(backpack:GetChildren()) do
                         if item:IsA("Tool") then
                             local weight = item:GetAttribute("Weight") or 0
-                            -- Baca harga dari atribut game (biasanya SellPrice, Price, atau Value)
                             local price = item:GetAttribute("SellPrice") or item:GetAttribute("Price") or item:GetAttribute("Value") or 0 
                             local fruitName = item:GetAttribute("FruitName") or item.Name
                             
@@ -678,7 +700,6 @@ task.spawn(function()
                             local isPricy = (targetPrice > 0 and type(price) == "number" and price >= targetPrice)
                             local isTabChecked = config.SelectedFavSeeds[fruitName] or false
                             
-                            -- Cek 3 Syarat: Kiloan, Harga, atau Centang Tab
                             if (isHeavy or isPricy or isTabChecked) then
                                 if not item:GetAttribute("IsFavorite") then
                                     local fruitId = item:GetAttribute("Id")
