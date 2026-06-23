@@ -19,7 +19,7 @@ end)
 -- =====================================================================
 -- =====================================================================
 -- GROW A GARDEN 2 - AUTOMATION PREMIUM HUB
--- Features: Toggle All Button, Native Scroll, Master Lists V3 (ALL SEEDS), Smart Transit, Anti-AFK
+-- Features: 3-State Harvest, RichText Scanner, Mutation Override, Safe Config
 -- =====================================================================
 
 local Players = game:GetService("Players")
@@ -59,7 +59,6 @@ local PetData = {
 }
 local PetOrder = {"Frog", "Bunny", "Owl", "Deer", "Robin", "Bee", "Monkey", "Bear", "Golden Dragonfly", "Unicorn", "Racoon"}
 
--- MASTER LIST TANAMAN V3 (SUDAH DITAMBAH POISON APPLE, VENOM SPITTER, MOON BLOOM)
 local MasterPlantList = {
     "Acorn", "Apple", "Bamboo", "Banana", "Blueberry", "Cactus", "Carrot", "Cherry", 
     "Coconut", "Corn", "Dragon Fruit", "Dragon's Breath", "Ghost Pepper", "Gold Seed", "Grape", 
@@ -77,13 +76,14 @@ local MasterGearList = {
     "Uncommon Sprinkler", "Vine Wrapper", "Wheelbarrow"
 }
 
+-- TETAP PAKAI V14 BIAR DATA NGGAK HILANG
 local FILE_NAME = "GAG2_Automation_Config_v14.json" 
 local config = {
     AutoHarvest = false, AutoSell = false, AutoBuySeed = false, 
     AutoBuyGear = false, AutoClaimRare = false, AutoBuyPet = false, AutoPlant = false,
-    AutoFavorite = false, AutoBoostFPS = false, AntiAFK = false,
+    AutoFavorite = false, AutoBoostFPS = false, AntiAFK = false, ForceMutation = true,
     TweenSpeed = "50", WalkSpeed = "40", MoveMethod = "Tween", FavoriteThreshold = "100", 
-    FavoriteNames = "", FavoritePrice = "1000000",
+    FavoriteNames = "", FavoritePrice = "1000000", HarvestLimit = "50",
     SelectedSeeds = {}, SelectedGears = {}, SelectedPets = {}, SelectedPlantSeeds = {}, SelectedHarvests = {}
 }
 
@@ -93,7 +93,15 @@ local function saveConfig() if writefile then pcall(function() writefile(FILE_NA
 local function loadConfig()
     if readfile and isfile and isfile(FILE_NAME) then
         local success, decoded = pcall(function() return HttpService:JSONDecode(readfile(FILE_NAME)) end)
-        if success and type(decoded) == "table" then for k, v in pairs(decoded) do if config[k] ~= nil then config[k] = v end end end
+        if success and type(decoded) == "table" then 
+            for k, v in pairs(decoded) do if config[k] ~= nil then config[k] = v end end 
+        end
+    end
+    -- MIGRATION: Convert old boolean Harvests to new 3-State Integers (0: OFF, 1: ALL, 2: LIMIT)
+    if type(config.SelectedHarvests) == "table" then
+        for k, v in pairs(config.SelectedHarvests) do
+            if type(v) == "boolean" then config.SelectedHarvests[k] = v and 1 or 0 end
+        end
     end
 end
 loadConfig()
@@ -125,21 +133,18 @@ Topbar.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInp
 Topbar.InputChanged:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then dragInput = input end end)
 UserInputService.InputChanged:Connect(function(input) if input == dragInput and dragging then local delta = input.Position - dragStart; MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y) end end)
 
--- TAB NAVIGATOR
 local TabContainer = Instance.new("Frame"); TabContainer.Size = UDim2.new(1, -20, 0, 30); TabContainer.Position = UDim2.new(0, 10, 0, 40); TabContainer.BackgroundTransparency = 1; TabContainer.Parent = MainFrame
 local TabLayout = Instance.new("UIListLayout"); TabLayout.FillDirection = Enum.FillDirection.Horizontal; TabLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center; TabLayout.Padding = UDim.new(0, 15); TabLayout.Parent = TabContainer
 
 local function createTabButton(text)
     local btn = Instance.new("TextButton"); btn.Size = UDim2.new(0, 150, 1, 0); btn.BackgroundColor3 = Color3.fromRGB(45, 45, 45); btn.TextColor3 = Color3.fromRGB(200, 200, 200); btn.Font = Enum.Font.GothamBold; btn.TextSize = 12; btn.Text = text; btn.BorderSizePixel = 0; btn.Parent = TabContainer
-    local corner = Instance.new("UICorner"); corner.CornerRadius = UDim.new(0, 6); corner.Parent = btn
-    return btn
+    local corner = Instance.new("UICorner"); corner.CornerRadius = UDim.new(0, 6); corner.Parent = btn; return btn
 end
 
 local TabSettings = createTabButton("⚙️ MAIN SETTINGS")
 local TabFarming = createTabButton("🌾 AUTO FARMING")
 local TabShop = createTabButton("🛒 AUTO SHOP")
 
--- CONTENT AREA
 local ContentContainer = Instance.new("Frame"); ContentContainer.Size = UDim2.new(1, -20, 1, -85); ContentContainer.Position = UDim2.new(0, 10, 0, 75); ContentContainer.BackgroundTransparency = 1; ContentContainer.Parent = MainFrame
 local ContentLayout = Instance.new("UIListLayout"); ContentLayout.FillDirection = Enum.FillDirection.Horizontal; ContentLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center; ContentLayout.SortOrder = Enum.SortOrder.LayoutOrder; ContentLayout.Padding = UDim.new(0, 15); ContentLayout.Parent = ContentContainer
 
@@ -176,7 +181,6 @@ TabFarming.MouseButton1Click:Connect(function() switchTab("Farming") end)
 TabShop.MouseButton1Click:Connect(function() switchTab("Shop") end)
 switchTab("Settings")
 
--- SCROLL FIX NATIVE
 local function createScrollList(parent, titleText)
     local lbl = Instance.new("TextLabel"); lbl.Size = UDim2.new(1, 0, 0, 25); lbl.BackgroundTransparency = 1; lbl.Text = titleText; lbl.TextColor3 = Color3.fromRGB(180, 180, 180); lbl.Font = Enum.Font.GothamBold; lbl.TextSize = 12; lbl.Parent = parent
     local sf = Instance.new("ScrollingFrame"); sf.Size = UDim2.new(1, -10, 1, -35); sf.Position = UDim2.new(0, 5, 0, 30); sf.BackgroundTransparency = 1; sf.BorderSizePixel = 0; sf.ScrollBarThickness = 3; sf.ScrollBarImageColor3 = Color3.fromRGB(80, 80, 80); sf.Parent = parent
@@ -227,9 +231,8 @@ local function createStandardButton(parent, text, yPos, callback)
     btn.MouseButton1Click:Connect(callback)
 end
 
--- POPULATE LIST GENERATOR (DENGAN FITUR TOGGLE ALL)
+-- POPULATE LIST CHECKBOX (Buat Shop & Plant Seeds - Tetep pake Toggle 2 State)
 local function populateFromList(scrollFrame, targetConfigTable, dataList)
-    -- TOMBOL MASTER SELECT ALL (Urutan 0)
     local rowAll = Instance.new("Frame"); rowAll.Name = "_ToggleAll"; rowAll.Size = UDim2.new(1, -6, 0, 26); rowAll.BackgroundTransparency = 1; rowAll.LayoutOrder = 0; rowAll.Parent = scrollFrame
     local chkAll = Instance.new("TextButton"); chkAll.Size = UDim2.new(0, 16, 0, 16); chkAll.Position = UDim2.new(0, 4, 0, 5); chkAll.BorderSizePixel = 0; chkAll.TextColor3 = Color3.fromRGB(255, 255, 255); chkAll.Font = Enum.Font.GothamBold; chkAll.TextSize = 10; chkAll.Parent = rowAll
     chkAll.BackgroundColor3 = Color3.fromRGB(45, 45, 45); chkAll.Text = ""
@@ -241,22 +244,17 @@ local function populateFromList(scrollFrame, targetConfigTable, dataList)
         isAllSelected = not isAllSelected
         chkAll.BackgroundColor3 = isAllSelected and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(45, 45, 45)
         chkAll.Text = isAllSelected and "✓" or ""
-        
         for _, itemName in ipairs(dataList) do
             targetConfigTable[itemName] = isAllSelected
             local childRow = scrollFrame:FindFirstChild(itemName)
             if childRow then
                 local childChk = childRow:FindFirstChildOfClass("TextButton")
-                if childChk then
-                    childChk.BackgroundColor3 = isAllSelected and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(45, 45, 45)
-                    childChk.Text = isAllSelected and "✓" or ""
-                end
+                if childChk then childChk.BackgroundColor3 = isAllSelected and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(45, 45, 45); childChk.Text = isAllSelected and "✓" or "" end
             end
         end
         saveConfig()
     end)
 
-    -- GENERATE ISI LISTNYA
     for i, itemName in ipairs(dataList) do
         local row = Instance.new("Frame"); row.Name = itemName; row.Size = UDim2.new(1, -6, 0, 26); row.BackgroundTransparency = 1; row.LayoutOrder = i; row.Parent = scrollFrame
         local chk = Instance.new("TextButton"); chk.Size = UDim2.new(0, 16, 0, 16); chk.Position = UDim2.new(0, 4, 0, 5); chk.BorderSizePixel = 0; chk.TextColor3 = Color3.fromRGB(255, 255, 255); chk.Font = Enum.Font.GothamBold; chk.TextSize = 10; chk.Parent = row
@@ -267,12 +265,63 @@ local function populateFromList(scrollFrame, targetConfigTable, dataList)
     end
 end
 
--- PANGGIL FUNGSI LIST GENERATOR
+-- POPULATE HARVEST TARGETS (Khusus 3-State Multi Button)
+local function populateHarvestTargets(scrollFrame, targetConfigTable, dataList)
+    local masterState = 0
+    
+    local function applyUIState(btn, state)
+        if state == 0 then btn.Text = "OFF"; btn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+        elseif state == 1 then btn.Text = "ALL"; btn.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
+        elseif state == 2 then btn.Text = "LIMIT"; btn.BackgroundColor3 = Color3.fromRGB(220, 150, 20) end
+    end
+
+    local rowAll = Instance.new("Frame"); rowAll.Name = "_ToggleAll"; rowAll.Size = UDim2.new(1, -6, 0, 26); rowAll.BackgroundTransparency = 1; rowAll.LayoutOrder = 0; rowAll.Parent = scrollFrame
+    local btnAll = Instance.new("TextButton"); btnAll.Size = UDim2.new(0, 38, 0, 16); btnAll.Position = UDim2.new(0, 2, 0, 5); btnAll.BorderSizePixel = 0; btnAll.TextColor3 = Color3.fromRGB(255, 255, 255); btnAll.Font = Enum.Font.GothamBold; btnAll.TextSize = 9; btnAll.Parent = rowAll
+    local btnCornerAll = Instance.new("UICorner"); btnCornerAll.CornerRadius = UDim.new(0, 3); btnCornerAll.Parent = btnAll
+    local txtAll = Instance.new("TextLabel"); txtAll.Size = UDim2.new(1, -46, 1, 0); txtAll.Position = UDim2.new(0, 46, 0, 0); txtAll.BackgroundTransparency = 1; txtAll.Text = "-- TOGGLE ALL --"; txtAll.TextColor3 = Color3.fromRGB(255, 210, 50); txtAll.Font = Enum.Font.GothamBold; txtAll.TextSize = 11; txtAll.TextXAlignment = Enum.TextXAlignment.Left; txtAll.Parent = rowAll
+    applyUIState(btnAll, masterState)
+
+    btnAll.MouseButton1Click:Connect(function()
+        masterState = (masterState + 1) % 3
+        applyUIState(btnAll, masterState)
+        for _, itemName in ipairs(dataList) do
+            targetConfigTable[itemName] = masterState
+            local childRow = scrollFrame:FindFirstChild(itemName)
+            if childRow then
+                local cBtn = childRow:FindFirstChildOfClass("TextButton")
+                if cBtn then applyUIState(cBtn, masterState) end
+            end
+        end
+        saveConfig()
+    end)
+
+    for i, itemName in ipairs(dataList) do
+        local val = targetConfigTable[itemName]
+        if type(val) ~= "number" then val = 0 end
+        targetConfigTable[itemName] = val
+
+        local row = Instance.new("Frame"); row.Name = itemName; row.Size = UDim2.new(1, -6, 0, 26); row.BackgroundTransparency = 1; row.LayoutOrder = i; row.Parent = scrollFrame
+        local btn = Instance.new("TextButton"); btn.Size = UDim2.new(0, 38, 0, 16); btn.Position = UDim2.new(0, 2, 0, 5); btn.BorderSizePixel = 0; btn.TextColor3 = Color3.fromRGB(255, 255, 255); btn.Font = Enum.Font.GothamBold; btn.TextSize = 9; btn.Parent = row
+        local btnCorner = Instance.new("UICorner"); btnCorner.CornerRadius = UDim.new(0, 3); btnCorner.Parent = btn
+        local txt = Instance.new("TextLabel"); txt.Size = UDim2.new(1, -46, 1, 0); txt.Position = UDim2.new(0, 46, 0, 0); txt.BackgroundTransparency = 1; txt.Text = itemName; txt.TextColor3 = Color3.fromRGB(190, 190, 190); txt.Font = Enum.Font.Gotham; txt.TextSize = 11; txt.TextXAlignment = Enum.TextXAlignment.Left; txt.Parent = row
+        applyUIState(btn, val)
+
+        btn.MouseButton1Click:Connect(function()
+            local st = targetConfigTable[itemName] or 0
+            st = (st + 1) % 3
+            targetConfigTable[itemName] = st
+            applyUIState(btn, st)
+            saveConfig()
+        end)
+    end
+end
+
+-- POPULATE LIST GENERATOR
 populateFromList(SeedScroll, config.SelectedSeeds, MasterPlantList)
 populateFromList(GearScroll, config.SelectedGears, MasterGearList)
 populateFromList(PetScroll, config.SelectedPets, PetOrder)
 populateFromList(PlantScroll, config.SelectedPlantSeeds, MasterPlantList)
-populateFromList(HarvestScroll, config.SelectedHarvests, MasterPlantList)
+populateHarvestTargets(HarvestScroll, config.SelectedHarvests, MasterPlantList) -- KHUSUS HARVEST 3-STATE
 
 -- POPULATE SETTINGS TAB
 createToggle(SettingsScroll, "Auto Collect/Harvest", "AutoHarvest", 1)
@@ -282,16 +331,18 @@ createToggle(SettingsScroll, "Auto Buy Seed", "AutoBuySeed", 4)
 createToggle(SettingsScroll, "Auto Buy Gear", "AutoBuyGear", 5)
 createToggle(SettingsScroll, "Auto Buy Pet", "AutoBuyPet", 6)
 createToggle(SettingsScroll, "Auto Claim Rare Seed", "AutoClaimRare", 7)
-createMultiModeButton(SettingsScroll, "Move Method:", "MoveMethod", {"Tween", "SpamTP", "Walk"}, 8)
-createTextBox(SettingsScroll, "Bonus Tween Speed:", "TweenSpeed", 9) 
-createTextBox(SettingsScroll, "Walk Speed:", "WalkSpeed", 10)
-createToggle(SettingsScroll, "Auto Favorite (Master Switch)", "AutoFavorite", 11) 
-createTextBox(SettingsScroll, "Fav Threshold (>kg):", "FavoriteThreshold", 12)
-createTextBox(SettingsScroll, "Fav Exact Names (,):", "FavoriteNames", 13) 
-createTextBox(SettingsScroll, "Fav Min Price (¢):", "FavoritePrice", 14)
-createToggle(SettingsScroll, "Auto Boost FPS", "AutoBoostFPS", 15) 
-createToggle(SettingsScroll, "Auto Anti-AFK", "AntiAFK", 16) 
-createStandardButton(SettingsScroll, "TEST ANTI-AFK", 17, function()
+createToggle(SettingsScroll, "Force Harvest Mutation [!]", "ForceMutation", 8) 
+createTextBox(SettingsScroll, "Harvest Limit (<kg):", "HarvestLimit", 9) 
+createMultiModeButton(SettingsScroll, "Move Method:", "MoveMethod", {"Tween", "SpamTP", "Walk"}, 10)
+createTextBox(SettingsScroll, "Bonus Tween Speed:", "TweenSpeed", 11) 
+createTextBox(SettingsScroll, "Walk Speed:", "WalkSpeed", 12)
+createToggle(SettingsScroll, "Auto Favorite (Master Switch)", "AutoFavorite", 13) 
+createTextBox(SettingsScroll, "Fav Threshold (>kg):", "FavoriteThreshold", 14)
+createTextBox(SettingsScroll, "Fav Exact Names (,):", "FavoriteNames", 15) 
+createTextBox(SettingsScroll, "Fav Min Price (¢):", "FavoritePrice", 16)
+createToggle(SettingsScroll, "Auto Boost FPS", "AutoBoostFPS", 17) 
+createToggle(SettingsScroll, "Auto Anti-AFK", "AntiAFK", 18) 
+createStandardButton(SettingsScroll, "TEST ANTI-AFK", 19, function()
     local char = LocalPlayer.Character
     if char and char:FindFirstChild("Humanoid") then char.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping) end
     print("✅ [TEST] Anti-AFK dipicu secara manual!")
@@ -520,7 +571,7 @@ task.spawn(function()
 end)
 
 -- =====================================================================
--- 6. BACKGROUND LOOPS
+-- 6. BACKGROUND LOOPS (NEW SMART HARVEST)
 -- =====================================================================
 local harvestQueue = {}
 local harvestQueueSet = {}
@@ -540,41 +591,58 @@ task.spawn(function()
             for _, obj in pairs(workspace:GetDescendants()) do
                 if obj:IsA("ProximityPrompt") and obj.Enabled and obj.ActionText == "Harvest" then
                     
-                    local hasAnySelection = false
-                    for _, isSelected in pairs(config.SelectedHarvests) do
-                        if isSelected then hasAnySelection = true; break end
+                    local harvestPart = obj:FindFirstAncestor("HarvestPart") or obj.Parent
+                    local fruitModel = harvestPart and harvestPart.Parent
+                    if not fruitModel then continue end
+                    
+                    -- Dapatkan Nama Tanaman
+                    local pName = fruitModel:GetAttribute("CorePartName") or fruitModel:GetAttribute("FruitName") or fruitModel:GetAttribute("SeedName")
+                    if not pName then
+                        local p2 = fruitModel.Parent
+                        if p2 then pName = p2:GetAttribute("CorePartName") or p2:GetAttribute("FruitName") or p2:GetAttribute("SeedName") end
+                    end
+                    if not pName and obj.ObjectText then
+                        for _, mn in ipairs(MasterPlantList) do
+                            if string.find(obj.ObjectText, mn) then pName = mn; break end
+                        end
                     end
                     
-                    local isValid = false
+                    if not pName then continue end
                     
-                    if not hasAnySelection then
-                        isValid = true 
-                    else
-                        local pName = nil
-                        local p1 = obj.Parent
-                        if p1 then
-                            pName = p1:GetAttribute("CorePartName") or p1:GetAttribute("FruitName") or p1:GetAttribute("SeedName")
-                            if not pName then
-                                local p2 = p1.Parent
-                                if p2 then pName = p2:GetAttribute("CorePartName") or p2:GetAttribute("FruitName") or p2:GetAttribute("SeedName") end
-                            end
+                    local state = config.SelectedHarvests[pName]
+                    if type(state) ~= "number" then state = 0 end
+                    
+                    local shouldHarvest = false
+                    
+                    -- ABSOLUTE MUTATION OVERRIDE
+                    if config.ForceMutation then
+                        local mut = fruitModel:GetAttribute("Mutation")
+                        if mut and type(mut) == "string" and mut ~= "" and mut ~= "None" then
+                            shouldHarvest = true
                         end
-                        
-                        if not pName and obj.ObjectText then
-                            for k, v in pairs(config.SelectedHarvests) do
-                                if v and string.find(obj.ObjectText, k) then
-                                    pName = k
-                                    break
+                    end
+                    
+                    if not shouldHarvest then
+                        if state == 1 then
+                            shouldHarvest = true
+                        elseif state == 2 then
+                            local limit = tonumber(config.HarvestLimit) or 50
+                            local promptUI = harvestPart:FindFirstChild("HarvestPromptLabel")
+                            if promptUI and promptUI:FindFirstChild("Frame") and promptUI.Frame:FindFirstChild("Name") then
+                                local txt = promptUI.Frame.Name.Text
+                                -- Ekstrak RichText pakai Regex
+                                local wStr = string.match(txt, "(%d+%.?%d*)kg")
+                                if wStr then
+                                    local weight = tonumber(wStr) or 0
+                                    if weight > 0 and weight < limit then
+                                        shouldHarvest = true
+                                    end
                                 end
                             end
                         end
-                        
-                        if pName and config.SelectedHarvests[pName] then
-                            isValid = true
-                        end
                     end
 
-                    if isValid and not harvestQueueSet[obj] then
+                    if shouldHarvest and not harvestQueueSet[obj] then
                         harvestQueueSet[obj] = true
                         table.insert(harvestQueue, obj)
                     end
