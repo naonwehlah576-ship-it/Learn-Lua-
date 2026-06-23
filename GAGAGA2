@@ -18,8 +18,9 @@ task.spawn(function()
 end)
 -- =====================================================================
 -- =====================================================================
--- GROW A GARDEN 2 - AUTOMATION PREMIUM HUB
--- Features: 3-State Harvest, RichText Scanner, Mutation Override, Safe Config
+-- GROW A GARDEN 2 - AUTOMATION PREMIUM HUB V22 (FIXED)
+-- Features: 3-State Harvest, Turbo Favorite, Safe-Zone Auto Sell, Anti-Night Thief
+-- Config File: GAG2_Automation_Config_v14.json (100% UNTOUCHED & SAFE)
 -- =====================================================================
 
 local Players = game:GetService("Players")
@@ -82,12 +83,14 @@ local config = {
     AutoHarvest = false, AutoSell = false, AutoBuySeed = false, 
     AutoBuyGear = false, AutoClaimRare = false, AutoBuyPet = false, AutoPlant = false,
     AutoFavorite = false, AutoBoostFPS = false, AntiAFK = false, ForceMutation = true,
+    AntiNightThief = true,
     TweenSpeed = "50", WalkSpeed = "40", MoveMethod = "Tween", FavoriteThreshold = "100", 
     FavoriteNames = "", FavoritePrice = "1000000", HarvestLimit = "50",
     SelectedSeeds = {}, SelectedGears = {}, SelectedPets = {}, SelectedPlantSeeds = {}, SelectedHarvests = {}
 }
 
 local Hunt = { State = "IDLE", Target = nil, Type = nil, GraceTimer = 0, InitialMoney = 0, ExpectedPrice = 0 }
+local lastItemAddedTime = 0 
 
 local function saveConfig() if writefile then pcall(function() writefile(FILE_NAME, HttpService:JSONEncode(config)) end) end end
 local function loadConfig()
@@ -97,7 +100,6 @@ local function loadConfig()
             for k, v in pairs(decoded) do if config[k] ~= nil then config[k] = v end end 
         end
     end
-    -- MIGRATION: Convert old boolean Harvests to new 3-State Integers (0: OFF, 1: ALL, 2: LIMIT)
     if type(config.SelectedHarvests) == "table" then
         for k, v in pairs(config.SelectedHarvests) do
             if type(v) == "boolean" then config.SelectedHarvests[k] = v and 1 or 0 end
@@ -123,7 +125,7 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed) if not gamePr
 
 local Topbar = Instance.new("Frame"); Topbar.Size = UDim2.new(1, 0, 0, 35); Topbar.BackgroundColor3 = Color3.fromRGB(28, 28, 28); Topbar.BorderSizePixel = 0; Topbar.Parent = MainFrame
 local TopbarCorner = Instance.new("UICorner"); TopbarCorner.CornerRadius = UDim.new(0, 8); TopbarCorner.Parent = Topbar
-local Title = Instance.new("TextLabel"); Title.Size = UDim2.new(1, -80, 1, 0); Title.Position = UDim2.new(0, 12, 0, 0); Title.BackgroundTransparency = 1; Title.Text = "Grow a Garden 2 Hub Dafa Goreng"; Title.TextColor3 = Color3.fromRGB(240, 240, 240); Title.Font = Enum.Font.GothamBold; Title.TextSize = 14; Title.TextXAlignment = Enum.TextXAlignment.Left; Title.Parent = Topbar
+local Title = Instance.new("TextLabel"); Title.Size = UDim2.new(1, -80, 1, 0); Title.Position = UDim2.new(0, 12, 0, 0); Title.BackgroundTransparency = 1; Title.Text = "Grow a Garden 2 Hub Dafa Goreng v22"; Title.TextColor3 = Color3.fromRGB(240, 240, 240); Title.Font = Enum.Font.GothamBold; Title.TextSize = 14; Title.TextXAlignment = Enum.TextXAlignment.Left; Title.Parent = Topbar
 local CloseBtn = Instance.new("TextButton"); CloseBtn.Size = UDim2.new(0, 30, 0, 30); CloseBtn.Position = UDim2.new(1, -32, 0, 2); CloseBtn.BackgroundTransparency = 1; CloseBtn.Text = "✕"; CloseBtn.TextColor3 = Color3.fromRGB(150, 150, 150); CloseBtn.Font = Enum.Font.GothamBold; CloseBtn.TextSize = 16; CloseBtn.Parent = Topbar; CloseBtn.MouseButton1Click:Connect(function() ScreenGui:Destroy() end)
 local MinBtn = Instance.new("TextButton"); MinBtn.Size = UDim2.new(0, 30, 0, 30); MinBtn.Position = UDim2.new(1, -62, 0, 2); MinBtn.BackgroundTransparency = 1; MinBtn.Text = "—"; MinBtn.TextColor3 = Color3.fromRGB(150, 150, 150); MinBtn.Font = Enum.Font.GothamBold; MinBtn.TextSize = 16; MinBtn.Parent = Topbar
 local isMinimized = false; MinBtn.MouseButton1Click:Connect(function() isMinimized = not isMinimized; TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quint), {Size = isMinimized and UDim2.new(0, 920, 0, 35) or UDim2.new(0, 920, 0, 550)}):Play() end)
@@ -231,7 +233,6 @@ local function createStandardButton(parent, text, yPos, callback)
     btn.MouseButton1Click:Connect(callback)
 end
 
--- POPULATE LIST CHECKBOX (Buat Shop & Plant Seeds - Tetep pake Toggle 2 State)
 local function populateFromList(scrollFrame, targetConfigTable, dataList)
     local rowAll = Instance.new("Frame"); rowAll.Name = "_ToggleAll"; rowAll.Size = UDim2.new(1, -6, 0, 26); rowAll.BackgroundTransparency = 1; rowAll.LayoutOrder = 0; rowAll.Parent = scrollFrame
     local chkAll = Instance.new("TextButton"); chkAll.Size = UDim2.new(0, 16, 0, 16); chkAll.Position = UDim2.new(0, 4, 0, 5); chkAll.BorderSizePixel = 0; chkAll.TextColor3 = Color3.fromRGB(255, 255, 255); chkAll.Font = Enum.Font.GothamBold; chkAll.TextSize = 10; chkAll.Parent = rowAll
@@ -265,7 +266,6 @@ local function populateFromList(scrollFrame, targetConfigTable, dataList)
     end
 end
 
--- POPULATE HARVEST TARGETS (Khusus 3-State Multi Button)
 local function populateHarvestTargets(scrollFrame, targetConfigTable, dataList)
     local masterState = 0
     
@@ -316,12 +316,11 @@ local function populateHarvestTargets(scrollFrame, targetConfigTable, dataList)
     end
 end
 
--- POPULATE LIST GENERATOR
 populateFromList(SeedScroll, config.SelectedSeeds, MasterPlantList)
 populateFromList(GearScroll, config.SelectedGears, MasterGearList)
 populateFromList(PetScroll, config.SelectedPets, PetOrder)
 populateFromList(PlantScroll, config.SelectedPlantSeeds, MasterPlantList)
-populateHarvestTargets(HarvestScroll, config.SelectedHarvests, MasterPlantList) -- KHUSUS HARVEST 3-STATE
+populateHarvestTargets(HarvestScroll, config.SelectedHarvests, MasterPlantList)
 
 -- POPULATE SETTINGS TAB
 createToggle(SettingsScroll, "Auto Collect/Harvest", "AutoHarvest", 1)
@@ -331,18 +330,19 @@ createToggle(SettingsScroll, "Auto Buy Seed", "AutoBuySeed", 4)
 createToggle(SettingsScroll, "Auto Buy Gear", "AutoBuyGear", 5)
 createToggle(SettingsScroll, "Auto Buy Pet", "AutoBuyPet", 6)
 createToggle(SettingsScroll, "Auto Claim Rare Seed", "AutoClaimRare", 7)
-createToggle(SettingsScroll, "Force Harvest Mutation [!]", "ForceMutation", 8) 
-createTextBox(SettingsScroll, "Harvest Limit (<kg):", "HarvestLimit", 9) 
-createMultiModeButton(SettingsScroll, "Move Method:", "MoveMethod", {"Tween", "SpamTP", "Walk"}, 10)
-createTextBox(SettingsScroll, "Bonus Tween Speed:", "TweenSpeed", 11) 
-createTextBox(SettingsScroll, "Walk Speed:", "WalkSpeed", 12)
-createToggle(SettingsScroll, "Auto Favorite (Master Switch)", "AutoFavorite", 13) 
-createTextBox(SettingsScroll, "Fav Threshold (>kg):", "FavoriteThreshold", 14)
-createTextBox(SettingsScroll, "Fav Exact Names (,):", "FavoriteNames", 15) 
-createTextBox(SettingsScroll, "Fav Min Price (¢):", "FavoritePrice", 16)
-createToggle(SettingsScroll, "Auto Boost FPS", "AutoBoostFPS", 17) 
-createToggle(SettingsScroll, "Auto Anti-AFK", "AntiAFK", 18) 
-createStandardButton(SettingsScroll, "TEST ANTI-AFK", 19, function()
+createToggle(SettingsScroll, "Force Harvest Mutation [!]", "ForceMutation", 8)
+createToggle(SettingsScroll, "Anti-Night Thief (Auto Hide)", "AntiNightThief", 9) 
+createTextBox(SettingsScroll, "Harvest Limit (<kg):", "HarvestLimit", 10) 
+createMultiModeButton(SettingsScroll, "Move Method:", "MoveMethod", {"Tween", "SpamTP", "Walk"}, 11)
+createTextBox(SettingsScroll, "Bonus Tween Speed:", "TweenSpeed", 12) 
+createTextBox(SettingsScroll, "Walk Speed:", "WalkSpeed", 13)
+createToggle(SettingsScroll, "Auto Favorite (Master Switch)", "AutoFavorite", 14) 
+createTextBox(SettingsScroll, "Fav Threshold (>kg):", "FavoriteThreshold", 15)
+createTextBox(SettingsScroll, "Fav Exact Names (,):", "FavoriteNames", 16) 
+createTextBox(SettingsScroll, "Fav Min Price (¢):", "FavoritePrice", 17)
+createToggle(SettingsScroll, "Auto Boost FPS", "AutoBoostFPS", 18) 
+createToggle(SettingsScroll, "Auto Anti-AFK", "AntiAFK", 19) 
+createStandardButton(SettingsScroll, "TEST ANTI-AFK", 20, function()
     local char = LocalPlayer.Character
     if char and char:FindFirstChild("Humanoid") then char.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping) end
     print("✅ [TEST] Anti-AFK dipicu secara manual!")
@@ -402,7 +402,6 @@ local function getCurrentMoney()
     return sheckles and sheckles.Value or 0
 end
 
-local currentTweenTarget = nil
 local noclipConnection = nil
 local currentOrbitConnection = nil 
 
@@ -571,7 +570,7 @@ task.spawn(function()
 end)
 
 -- =====================================================================
--- 6. BACKGROUND LOOPS (NEW SMART HARVEST)
+-- 6. BACKGROUND LOOPS & CORE HARVEST ENGINES
 -- =====================================================================
 local harvestQueue = {}
 local harvestQueueSet = {}
@@ -580,7 +579,9 @@ task.spawn(function()
     while task.wait(0.5) do
         if config.AutoHarvest then
             local isHuntingRare = config.AutoClaimRare and rareEventActive
-            if Hunt.State == "IDLE" and not isHuntingRare then
+            local isMalamHari = config.AntiNightThief and workspace:FindFirstChild("ActiveNight")
+            
+            if Hunt.State == "IDLE" and not isHuntingRare and not isMalamHari then
                 local spawnPt = getGardenSpawnPoint()
                 if spawnPt and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
                     local hrp = LocalPlayer.Character.HumanoidRootPart
@@ -590,12 +591,10 @@ task.spawn(function()
             
             for _, obj in pairs(workspace:GetDescendants()) do
                 if obj:IsA("ProximityPrompt") and obj.Enabled and obj.ActionText == "Harvest" then
-                    
                     local harvestPart = obj:FindFirstAncestor("HarvestPart") or obj.Parent
                     local fruitModel = harvestPart and harvestPart.Parent
                     if not fruitModel then continue end
                     
-                    -- Dapatkan Nama Tanaman
                     local pName = fruitModel:GetAttribute("CorePartName") or fruitModel:GetAttribute("FruitName") or fruitModel:GetAttribute("SeedName")
                     if not pName then
                         local p2 = fruitModel.Parent
@@ -608,10 +607,7 @@ task.spawn(function()
                     end
                     
                     if not pName then continue end
-                    
-                    local state = config.SelectedHarvests[pName]
-                    if type(state) ~= "number" then state = 0 end
-                    
+                    local state = config.SelectedHarvests[pName] or 0
                     local shouldHarvest = false
                     
                     -- ABSOLUTE MUTATION OVERRIDE
@@ -630,13 +626,10 @@ task.spawn(function()
                             local promptUI = harvestPart:FindFirstChild("HarvestPromptLabel")
                             if promptUI and promptUI:FindFirstChild("Frame") and promptUI.Frame:FindFirstChild("Name") then
                                 local txt = promptUI.Frame.Name.Text
-                                -- Ekstrak RichText pakai Regex
                                 local wStr = string.match(txt, "(%d+%.?%d*)kg")
                                 if wStr then
                                     local weight = tonumber(wStr) or 0
-                                    if weight > 0 and weight < limit then
-                                        shouldHarvest = true
-                                    end
+                                    if weight > 0 and weight < limit then shouldHarvest = true end
                                 end
                             end
                         end
@@ -665,10 +658,67 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
+-- =====================================================================
+-- PERBAIKAN: ANTI-MALING MALAM HARI (AUTO GUARD INSIDE PLOT)
+-- =====================================================================
+task.spawn(function()
+    while task.wait(0.5) do
+        if config.AntiNightThief then
+            local nightModel = workspace:FindFirstChild("ActiveNight")
+            if nightModel then
+                local plotId = LocalPlayer:GetAttribute("PlotId")
+                if plotId then
+                    local gardens = workspace:FindFirstChild("Gardens")
+                    local myPlot = gardens and gardens:FindFirstChild("Plot" .. tostring(plotId))
+                    
+                    -- Cari kasur tanaman pertama sebagai titik aman di DALAM kebun
+                    local targetInsidePos = nil
+                    if myPlot and myPlot:FindFirstChild("Visual") then
+                        local firstBed = myPlot.Visual:FindFirstChild("BedSection1") or myPlot.Visual:FindFirstChildWhichIsA("BasePart")
+                        if firstBed then
+                            targetInsidePos = firstBed.Position + Vector3.new(0, 3, 0) -- Berdiri di atas bed pertama
+                        end
+                    end
+                    
+                    -- Kalau kasur tanaman tidak ketemu, backup pakai posisi model plot langsung
+                    if not targetInsidePos and myPlot then
+                        targetInsidePos = myPlot:GetPivot().Position + Vector3.new(0, 3, 0)
+                    end
+
+                    local char = LocalPlayer.Character
+                    if targetInsidePos and char and char:FindFirstChild("HumanoidRootPart") then
+                        local hrp = char.HumanoidRootPart
+                        local jarakDariKebun = (hrp.Position - targetInsidePos).Magnitude
+                        
+                        -- JIKA KELUAR DARI AREA DALAM KEBUN (> 25 STUDS), KUNCI BALIK KE DALAM!
+                        if jarakDariKebun > 25 then
+                            stopMovement() 
+                            hrp.CFrame = CFrame.new(targetInsidePos)
+                            hrp.Velocity = Vector3.new(0, 0, 0) 
+                            print("🛡️ [ANTI-THIEF FIX] Malam hari aktif! Karakter dikunci langsung di DALAM plot kebun (bukan di gerbang).")
+                        end
+                    end
+                end
+            end
+        end
+    end
+end)
+
+-- ==========================================
+-- SAFE-ZONE BULK AUTO SELL
+-- ==========================================
 task.spawn(function()
     while task.wait(4) do
         if config.AutoSell and Networking then
-            pcall(function() if Networking.NPCS and Networking.NPCS.SellAll then if typeof(Networking.NPCS.SellAll) == "table" and Networking.NPCS.SellAll.Fire then Networking.NPCS.SellAll:Fire() elseif typeof(Networking.NPCS.SellAll) == "function" then Networking.NPCS.SellAll() end end end)
+            if os.clock() - lastItemAddedTime > 1.0 then
+                pcall(function() 
+                    if typeof(Networking.NPCS.SellAll) == "table" and Networking.NPCS.SellAll.Fire then 
+                        Networking.NPCS.SellAll:Fire() 
+                    elseif typeof(Networking.NPCS.SellAll) == "function" then 
+                        Networking.NPCS.SellAll() 
+                    end 
+                end)
+            end
         end
     end
 end)
@@ -734,78 +784,80 @@ task.spawn(function()
     end
 end)
 
+-- ==========================================
+-- TURBO SENSOR AUTO FAVORITE (EVENT-DRIVEN 0.2 DETIK)
+-- ==========================================
 task.spawn(function()
-    while task.wait(2.5) do
-        if config.AutoFavorite then
-            local targetKg = tonumber(config.FavoriteThreshold) or 100
-            local targetPrice = tonumber(config.FavoritePrice) or 0
-            
-            local favNames = {}
-            if config.FavoriteNames and config.FavoriteNames ~= "" then
-                for part in string.gmatch(config.FavoriteNames, "([^,]+)") do
-                    local cleanName = string.match(part, "^%s*(.-)%s*$") 
-                    if cleanName then favNames[string.lower(cleanName)] = true end
+    local backpack = LocalPlayer:WaitForChild("Backpack")
+    
+    local function scanAndFavoriteItem(item)
+        if not item:IsA("Tool") then return end
+        
+        lastItemAddedTime = os.clock()
+        task.wait(0.2)
+        if not config.AutoFavorite then return end
+        
+        local targetKg = tonumber(config.FavoriteThreshold) or 100
+        local targetPrice = tonumber(config.FavoritePrice) or 0
+        local weight = item:GetAttribute("Weight") or 0
+        local fruitName = item:GetAttribute("FruitName") or item.Name
+        local fruitNameLower = string.lower(fruitName)
+        
+        local favNames = {}
+        if config.FavoriteNames and config.FavoriteNames ~= "" then
+            for part in string.gmatch(config.FavoriteNames, "([^,]+)") do
+                local cleanName = string.match(part, "^%s*(.-)%s*$") 
+                if cleanName then favNames[string.lower(cleanName)] = true end
+            end
+        end
+
+        local isHeavy = (type(weight) == "number" and weight >= targetKg)
+        local isNameMatch = favNames[fruitNameLower] or false
+        local isPriceMatch = false
+        
+        if targetPrice > 0 and Networking and Networking.NPCS and Networking.NPCS.GetFruitBid then
+            local id = item:GetAttribute("Id")
+            if id then
+                local success, bidData = pcall(function()
+                    if type(Networking.NPCS.GetFruitBid) == "table" and Networking.NPCS.GetFruitBid.Fire then
+                        return Networking.NPCS.GetFruitBid:Fire(id)
+                    elseif type(Networking.NPCS.GetFruitBid) == "function" then
+                        return Networking.NPCS.GetFruitBid(id)
+                    end
+                end)
+                if success and bidData then
+                    local currentSellPrice = 0
+                    if type(bidData) == "table" and bidData.CurrentSellValue then currentSellPrice = tonumber(bidData.CurrentSellValue) or 0
+                    elseif type(bidData) == "number" then currentSellPrice = bidData end
+                    if currentSellPrice >= targetPrice then isPriceMatch = true end
                 end
             end
+        end
 
-            if LocalPlayer:FindFirstChild("Backpack") then
-                for _, item in pairs(LocalPlayer.Backpack:GetChildren()) do
-                    if not item:GetAttribute("IsFavorite") then
-                        local weight = item:GetAttribute("Weight") or 0
-                        local fruitName = item:GetAttribute("FruitName") or item.Name
-                        local fruitNameLower = string.lower(fruitName)
-                        
-                        local isHeavy = (type(weight) == "number" and weight >= targetKg)
-                        local isNameMatch = favNames[fruitNameLower]
-                        local isPriceMatch = false
-                        
-                        if targetPrice > 0 and Networking and Networking.NPCS and Networking.NPCS.GetFruitBid then
-                            local id = item:GetAttribute("Id")
-                            if id then
-                                local success, bidData = pcall(function()
-                                    if type(Networking.NPCS.GetFruitBid) == "table" and Networking.NPCS.GetFruitBid.Fire then
-                                        return Networking.NPCS.GetFruitBid:Fire(id)
-                                    elseif type(Networking.NPCS.GetFruitBid) == "function" then
-                                        return Networking.NPCS.GetFruitBid(id)
-                                    end
+        if (isHeavy or isNameMatch or isPriceMatch) and not item:GetAttribute("IsFavorite") then
+            item:SetAttribute("IsFavorite", true)
+            local itemId = item:GetAttribute("Id") 
+            if Networking and itemId then
+                for _, kategori in pairs(Networking) do
+                    if type(kategori) == "table" then
+                        for namaFungsi, objRemote in pairs(kategori) do
+                            local namaLower = string.lower(namaFungsi)
+                            if string.find(namaLower, "favorite") or string.find(namaLower, "lock") then
+                                pcall(function()
+                                    if type(objRemote) == "table" and objRemote.Fire then objRemote:Fire(itemId, true); objRemote:Fire(item, true)
+                                    elseif type(objRemote) == "function" then objRemote(itemId, true); objRemote(item, true) end
                                 end)
-                                
-                                if success and bidData then
-                                    local currentSellPrice = 0
-                                    if type(bidData) == "table" and bidData.CurrentSellValue then
-                                        currentSellPrice = tonumber(bidData.CurrentSellValue) or 0
-                                    elseif type(bidData) == "number" then
-                                        currentSellPrice = bidData
-                                    end
-                                    if currentSellPrice >= targetPrice then isPriceMatch = true end
-                                end
-                            end
-                        end
-
-                        if isHeavy or isNameMatch or isPriceMatch then
-                            item:SetAttribute("IsFavorite", true)
-                            local itemId = item:GetAttribute("Id") 
-                            if Networking and itemId then
-                                for _, kategori in pairs(Networking) do
-                                    if type(kategori) == "table" then
-                                        for namaFungsi, objRemote in pairs(kategori) do
-                                            local namaLower = string.lower(namaFungsi)
-                                            if string.find(namaLower, "favorite") or string.find(namaLower, "lock") then
-                                                pcall(function()
-                                                    if type(objRemote) == "table" and objRemote.Fire then objRemote:Fire(itemId, true); objRemote:Fire(item, true)
-                                                    elseif type(objRemote) == "function" then objRemote(itemId, true); objRemote(item, true) end
-                                                end)
-                                            end
-                                        end
-                                    end
-                                end
                             end
                         end
                     end
                 end
+                print("🔒 [TURBO FAV] Berhasil mengunci buah berharga: " .. fruitName .. " (" .. tostring(weight) .. "kg)")
             end
         end
     end
+
+    for _, item in pairs(backpack:GetChildren()) do task.spawn(scanAndFavoriteItem, item) end
+    backpack.ChildAdded:Connect(function(item) task.spawn(scanAndFavoriteItem, item) end)
 end)
 
 task.spawn(function()
@@ -832,7 +884,7 @@ task.spawn(function()
                 VirtualUser:ClickButton2(Vector2.new())
                 local char = LocalPlayer.Character
                 if char and char:FindFirstChild("Humanoid") then char.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping) end
-                print("🛡️ [AUTO] Sistem Anti-AFK berhasil mereset timer server dan melompat!")
+                print("🛡️ Lentera Keamanan: Sistem Anti-AFK berhasil mereset timer server!")
             end)
         end
     end
