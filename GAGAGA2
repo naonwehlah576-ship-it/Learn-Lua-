@@ -537,121 +537,52 @@ task.spawn(function()
 end)
 
 -- =====================================================================
--- 6. INDEPENDENT HARVEST MATRIX CORE (UPDATE BACA TEKS HTML UI)
 -- =====================================================================
-local harvestQueue = {}
-local harvestQueueSet = {}
+-- 6. INDEPENDENT HARVEST MATRIX CORE (PURE DISTANCE FIREPROX - NO MOVE)
+-- =====================================================================
 
 task.spawn(function()
-    while task.wait(0.3) do
-        if config.AutoHarvest then
-            local isHuntingRare = config.AutoClaimRare and rareEventActive
-            local isMalamHari = config.AntiNightThief and workspace:FindFirstChild("ActiveNight")
+    while task.wait(0.5) do
+        -- Cek switch GUI utama lu (AutoHarvest) dan (ForceMutation)
+        if config.AutoHarvest and config.ForceMutation then
+            local plotId = LocalPlayer:GetAttribute("PlotId")
+            local gardensFolder = workspace:FindFirstChild("Gardens")
+            local myPlotFolder = gardensFolder and gardensFolder:FindFirstChild("Plot" .. tostring(plotId))
             
-            if Hunt.State == "IDLE" and not isHuntingRare and not isMalamHari then
-                local spawnPt = getGardenSpawnPoint()
-                if spawnPt and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-                    local hrp = LocalPlayer.Character.HumanoidRootPart
-                    if (hrp.Position - spawnPt.Position).Magnitude > 60 then 
-                        hrp.CFrame = spawnPt.CFrame + Vector3.new(0, 3, 0)
-                        task.wait(0.1) 
-                    end
-                end
-            end
-            
-            for _, obj in pairs(workspace:GetDescendants()) do
-                if obj:IsA("ProximityPrompt") and obj.Enabled and (obj.ActionText == "Harvest" or string.find(string.lower(obj.Name), "harvest")) then
-                    local harvestPart = obj:FindFirstAncestor("HarvestPart") or obj.Parent
-                    local fruitModel = harvestPart and harvestPart.Parent
-                    if not fruitModel then continue end
-                    
-                    local coreName = fruitModel:GetAttribute("CorePartName") or fruitModel.Name
-                    local objectTextName = ""
-                    if obj.ObjectText and obj.ObjectText ~= "" then
-                        for _, mn in ipairs(MasterPlantList) do
-                            if string.find(string.lower(obj.ObjectText), string.lower(mn)) then objectTextName = mn; break end
-                        end
-                    end
-                    local finalPlantName = (objectTextName ~= "") and objectTextName or coreName
-                    
-                    local state = config.SelectedHarvests[finalPlantName] or 0
-                    local shouldHarvest = false
-                    
-                    if config.ForceMutation then
-                        local mut = fruitModel:GetAttribute("Mutation")
-                        if mut and type(mut) == "string" and mut ~= "" and mut ~= "None" then
-                            shouldHarvest = true
-                        end
-                    end
-                    
-                    if not shouldHarvest then
-                        if state == 1 then
-                            shouldHarvest = true
-                        elseif state == 2 then
-                            local limit = tonumber(config.HarvestLimit) or 50
-                            local currentWeight = 0
+            if myPlotFolder then
+                -- Scan semua objek tombol di plot lu tanpa mindahin karakter
+                for _, obj in pairs(myPlotFolder:GetDescendants()) do
+                    if obj:IsA("ProximityPrompt") and obj.Enabled and (obj.ActionText == "Harvest" or string.find(string.lower(obj.Name), "harvest")) then
+                        
+                        -- Lacak ke atas buat nyari folder model buahnya
+                        local harvestPart = obj:FindFirstAncestor("HarvestPart") or obj.Parent
+                        local fruitModel = harvestPart and harvestPart.Parent
+                        
+                        if fruitModel then
+                            -- Ambil status mutasi dari jauh
+                            local mut = fruitModel:GetAttribute("Mutation")
                             
-                            -- [! FITUR BARU !] BACA BERAT LANGSUNG DARI UI 3D (HTML)
-                            local promptLabel = harvestPart:FindFirstChild("HarvestPromptLabel", true) 
-                                or (fruitModel and fruitModel:FindFirstChild("HarvestPromptLabel", true))
-                                
-                            if promptLabel and promptLabel:FindFirstChild("Frame") and promptLabel.Frame:FindFirstChild("Name") then
-                                local rawText = promptLabel.Frame.Name.Text
-                                -- Ekstrak angka murni dari: <font>⚖️ 4.19kg</font>
-                                local weightStr = string.match(rawText, "⚖️%s*(%d+%.?%d*)kg")
-                                if weightStr then
-                                    currentWeight = tonumber(weightStr) or 0
+                            -- Kalau ada mutasi (Emas/Rainbow), LANGSUNG TEMBAK murni dari tempat lu berdiri
+                            if mut and type(mut) == "string" and mut ~= "" and mut ~= "None" then
+                                if fireproximityprompt then
+                                    fireproximityprompt(obj, 1, true)
+                                else
+                                    -- Alternatif jika global func ga kebaca
+                                    obj:InputHoldBegin()
+                                    task.wait(obj.HoldDuration + 0.1)
+                                    obj:InputHoldEnd()
                                 end
-                            end
-                            
-                            -- FALLBACK: Kalau UI error / belum ke-load, pakai kalkulasi matematika lu (Disempurnakan)
-                            if currentWeight == 0 then
-                                local sizeMulti = fruitModel:GetAttribute("SizeMulti") or 1
-                                local maxAge = fruitModel:GetAttribute("MaxAge") or 7
-                                local currentAge = fruitModel:GetAttribute("Age") or 0
-                                
-                                -- Clamp memastikan hitungan tidak liar kalau umur > maxAge
-                                local growthProgress = math.clamp(currentAge / maxAge, 0, 1)
-                                
-                                local baseWeightMultiplier = 1.5
-                                if maxAge == 4 then baseWeightMultiplier = 0.9
-                                elseif maxAge == 7 then baseWeightMultiplier = 1.5
-                                elseif maxAge == 12 or maxAge == 17 then baseWeightMultiplier = 7.2 end
-                                
-                                currentWeight = baseWeightMultiplier * sizeMulti * growthProgress
-                            end
-                            
-                            if currentWeight >= limit then 
-                                shouldHarvest = true 
+                                task.wait(0.1) -- Jeda tipis biar ga spam berlebihan
                             end
                         end
                     end
-
-                    if shouldHarvest and not harvestQueueSet[obj] then
-                        harvestQueueSet[obj] = true
-                        table.insert(harvestQueue, obj)
-                    end
                 end
             end
-        else
-            table.clear(harvestQueue); table.clear(harvestQueueSet)
         end
     end
 end)
 
-RunService.Heartbeat:Connect(function()
-    if not config.AutoHarvest then return end
-    while #harvestQueue > 0 do
-        local obj = table.remove(harvestQueue, 1)
-        harvestQueueSet[obj] = nil
-        if obj and obj.Parent and obj.Enabled and obj:IsDescendantOf(workspace) then
-            if fireproximityprompt then 
-                fireproximityprompt(obj, 1, true) 
-            end
-            break 
-        end
-    end
-end)
+-- Sisa bagian bawah Section 6 (Antrean lama) kita hapus total karena lu cuma butuh fungsi instant di atas.
 
 -- =====================================================================
 -- 7. BACKPACK MONITORING TRACKER
