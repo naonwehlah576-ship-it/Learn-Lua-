@@ -636,7 +636,26 @@ local function isRareEventName(name) return name == "Goldmoon" or name == "Rainb
 local function recheckRareEvent() rareEventActive = (workspace:FindFirstChild("Goldmoon") ~= nil) or (workspace:FindFirstChild("RainbowMoon") ~= nil) end
 recheckRareEvent() 
 workspace.ChildAdded:Connect(function(child) if isRareEventName(child.Name) then rareEventActive = true end end)
-workspace.ChildRemoved:Connect(function(child) if isRareEventName(child.Name) then recheckRareEvent() end end)
+workspace.ChildRemoved:Connect(function(child) 
+    if isRareEventName(child.Name) then 
+        recheckRareEvent() 
+        
+        -- Logika: Tunggu 5 detik baru balik ke kebun
+        task.spawn(function()
+            task.wait(5)
+            if Networking and Networking.TeleportButton and Networking.TeleportButton.Request then
+                Networking.TeleportButton.Request:Fire("Garden")
+                task.wait(0.3)
+                
+                -- Tarik koordinat biar mendarat pas di bedengan
+                local spawnPt = getGardenSpawnPoint()
+                if spawnPt and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                    LocalPlayer.Character.HumanoidRootPart.CFrame = spawnPt.CFrame + Vector3.new(0, 3, 0)
+                end
+            end
+        end)
+    end 
+end)
 
 local function scanForRare()
     local bestTarget = nil;
