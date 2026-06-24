@@ -537,43 +537,76 @@ task.spawn(function()
 end)
 
 -- =====================================================================
--- =====================================================================
--- 6. INDEPENDENT HARVEST MATRIX CORE (PURE DISTANCE FIREPROX - NO MOVE)
+-- 6. INDEPENDENT HARVEST MATRIX CORE (FIXED: NORMAL + MUTATION HARVEST)
 -- =====================================================================
 
 task.spawn(function()
     while task.wait(0.5) do
-        -- Cek switch GUI utama lu (AutoHarvest) dan (ForceMutation)
-        if config.AutoHarvest and config.ForceMutation then
+        if config.AutoHarvest then
             local plotId = LocalPlayer:GetAttribute("PlotId")
             local gardensFolder = workspace:FindFirstChild("Gardens")
             local myPlotFolder = gardensFolder and gardensFolder:FindFirstChild("Plot" .. tostring(plotId))
             
             if myPlotFolder then
-                -- Scan semua objek tombol di plot lu tanpa mindahin karakter
                 for _, obj in pairs(myPlotFolder:GetDescendants()) do
                     if obj:IsA("ProximityPrompt") and obj.Enabled and (obj.ActionText == "Harvest" or string.find(string.lower(obj.Name), "harvest")) then
                         
-                        -- Lacak ke atas buat nyari folder model buahnya
                         local harvestPart = obj:FindFirstAncestor("HarvestPart") or obj.Parent
                         local fruitModel = harvestPart and harvestPart.Parent
+                        if not fruitModel then continue end
                         
-                        if fruitModel then
-                            -- Ambil status mutasi dari jauh
-                            local mut = fruitModel:GetAttribute("Mutation")
-                            
-                            -- Kalau ada mutasi (Emas/Rainbow), LANGSUNG TEMBAK murni dari tempat lu berdiri
-                            if mut and type(mut) == "string" and mut ~= "" and mut ~= "None" then
-                                if fireproximityprompt then
-                                    fireproximityprompt(obj, 1, true)
-                                else
-                                    -- Alternatif jika global func ga kebaca
-                                    obj:InputHoldBegin()
-                                    task.wait(obj.HoldDuration + 0.1)
-                                    obj:InputHoldEnd()
-                                end
-                                task.wait(0.1) -- Jeda tipis biar ga spam berlebihan
+                        -- Ambil nama asli buahnya buat dicocokin sama config tab Farming
+                        local coreName = fruitModel:GetAttribute("CorePartName") or fruitModel.Name
+                        local objectTextName = ""
+                        if obj.ObjectText and obj.ObjectText ~= "" then
+                            for _, mn in ipairs(MasterPlantList) do
+                                if string.find(string.lower(obj.ObjectText), string.lower(mn)) then objectTextName = mn; break end
                             end
+                        end
+                        local finalPlantName = (objectTextName ~= "") and objectTextName or coreName
+                        
+                        local state = config.SelectedHarvests[finalPlantName] or 0
+                        local shouldHarvest = false
+                        
+                        -- 1. CEK FORCE MUTATION (Babat semua buah mutasi kalau fitur ini dicentang)
+                        if config.ForceMutation then
+                            local mut = fruitModel:GetAttribute("Mutation")
+                            if mut and type(mut) == "string" and mut ~= "" and mut ~= "None" then
+                                shouldHarvest = true
+                            end
+                        end
+                        
+                        -- 2. CEK NORMAL FARMING (Berdasarkan Tab "Harvest: Targets")
+                        if not shouldHarvest then
+                            if state == 1 then -- Mode ALL (Panen semua umur)
+                                shouldHarvest = true
+                            elseif state == 2 then -- Mode LIMIT (Panen sesuai target Kiloan)
+                                local limit = tonumber(config.HarvestLimit) or 50
+                                local currentWeight = 0
+                                
+                                local sizeMulti = fruitModel:GetAttribute("SizeMulti") or 1
+                                local maxAge = fruitModel:GetAttribute("MaxAge") or 7
+                                if maxAge == 4 then currentWeight = sizeMulti * 0.9
+                                elseif maxAge == 7 then currentWeight = sizeMulti * 1.5
+                                elseif maxAge == 12 or maxAge == 17 then currentWeight = sizeMulti * 7.2
+                                else currentWeight = sizeMulti * 1.5 end
+                                
+                                if currentWeight >= limit then 
+                                    shouldHarvest = true 
+                                end
+                            end
+                        end
+
+                        -- 3. EKSEKUSI PANEN DARI JAUH
+                        if shouldHarvest then
+                            if fireproximityprompt then
+                                fireproximityprompt(obj, 1, true)
+                            else
+                                obj:InputHoldBegin()
+                                task.wait(obj.HoldDuration + 0.1)
+                                obj:InputHoldEnd()
+                            end
+                            task.wait(0.05) -- Kasih jeda napas dikit per panen biar server gak kaget
                         end
                     end
                 end
