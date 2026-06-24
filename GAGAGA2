@@ -80,6 +80,7 @@ local config = {
     AntiNightThief = true,
     TweenSpeed = "50", WalkSpeed = "40", MoveMethod = "Tween", HarvestLimit = "50", 
     FavoriteThreshold = "100", FavoritePrice = "0",
+    SellOneByOne = false, SellProtectKg = "50", SellProtectPrice = "1000000",
     SelectedSeeds = {}, SelectedGears = {}, SelectedPets = {}, SelectedPlantSeeds = {}, SelectedHarvests = {},
     SelectedFavSeeds = {} 
 }
@@ -206,7 +207,15 @@ local function createTextBox(parent, labelText, configKey, yPos)
     local box = Instance.new("TextBox"); box.Size = UDim2.new(0.5, -4, 0, 24); box.Position = UDim2.new(0.5, 4, 0, 3); box.BackgroundColor3 = Color3.fromRGB(45, 45, 45); box.BorderSizePixel = 0; box.Text = tostring(config[configKey]); box.TextColor3 = Color3.fromRGB(255, 255, 255); box.Font = Enum.Font.Gotham; box.TextSize = 12; box.Parent = frame
     local boxCorner = Instance.new("UICorner"); boxCorner.CornerRadius = UDim.new(0, 4); boxCorner.Parent = box
     box.FocusLost:Connect(function() 
-        local num = tonumber(box.Text); if num then config[configKey] = tostring(num) else box.Text = config[configKey] end
+        -- FIX: extract angka pertama yang ketemu, biar toleran kalau user ngetik dengan satuan (misal "0.1kg", "5 kg")
+        local extracted = string.match(box.Text, "%-?%d+%.?%d*")
+        local num = extracted and tonumber(extracted)
+        if num then 
+            config[configKey] = tostring(num)
+            box.Text = tostring(num) -- tampilin angka bersih yang BENERAN tersimpan, biar gak bingung
+        else 
+            box.Text = config[configKey] 
+        end
         saveConfig() 
     end)
 end
@@ -320,6 +329,9 @@ createTextBox(SettingsScroll, "Walk Speed:", "WalkSpeed", 13)
 createToggle(SettingsScroll, "Auto Favorite (Master Switch)", "AutoFavorite", 14) 
 createTextBox(SettingsScroll, "Fav Threshold (>kg):", "FavoriteThreshold", 15)
 createTextBox(SettingsScroll, "Fav Price (>¢):", "FavoritePrice", 16) 
+createToggle(SettingsScroll, "Sell 1-by-1 (bukan Sell All)", "SellOneByOne", 17)
+createTextBox(SettingsScroll, "Sell Protect (>=kg):", "SellProtectKg", 18)
+createTextBox(SettingsScroll, "Sell Protect (>=¢):", "SellProtectPrice", 19)
 
 -- =====================================================================
 -- 4. UTILITY FUNCTIONS & SMART PATHFINDING
@@ -633,23 +645,97 @@ task.spawn(function()
     end
 end)
 -- =====================================================================
--- 7. BACKPACK MONITORING TRACKER
+-- 7. TURBO AUTO FAVORITE (EVENT-DRIVEN, INDEPENDEN DARI AUTO SELL)
 -- =====================================================================
+local pendingFavoriteChecks = 0
+local lastFavoriteActionTime = 0
+
 task.spawn(function()
     local backpack = LocalPlayer:WaitForChild("Backpack")
-    backpack.ChildAdded:Connect(function(item)
-        if item:IsA("Tool") then
-            lastItemAddedTime = os.clock()
-        end
-    end)
+
+    local function scanAndFavoriteItem(item)
+        if not item:IsA("Tool") then return end
+
+        pendingFavoriteChecks += 1
+        lastItemAddedTime = os.clock()
+
+        local ok, errMsg = pcall(function()
+            task.wait(0.2) -- kasih waktu attribute (Weight, dll) ke-replicate penuh dari server
+            if not config.AutoFavorite then return end
+
+            local isFruit = item:GetAttribute("HarvestedFruit") == true or item:GetAttribute("Fruit") ~= nil
+            if not isFruit then return end
+
+            local targetKg = tonumber(config.FavoriteThreshold) or 100
+            local targetPrice = tonumber(config.FavoritePrice) or 0
+
+            local rawName = item:GetAttribute("Fruit") or item.Name
+            local fruitName = string.gsub(rawName, "%s*%[%d+%.?%d*k?g?%]", "")
+            fruitName = string.match(fruitName, "^%s*(.-)%s*$") -- trim spasi nyasar
+
+            local weight = item:GetAttribute("Weight") or 0
+
+            -- FIX UTAMA: dicentang di list = ALWAYS favorite, gak peduli weight/price
+            local isNameMatch = config.SelectedFavSeeds[fruitName] == true
+            -- threshold weight tetep jalan TERPISAH, buat nangkep buah LAIN yang gak dicentang tapi berat
+            local isHeavy = (type(weight) == "number" and weight >= targetKg)
+
+            -- PRICE CHECK: LAZY - cuma query GetFruitBid (network call) kalau name & weight dua2nya GAGAL,
+            -- dan cuma kalau targetPrice emang diaktifin. Biar gak spam request pas harvest banyak sekaligus.
+            local isPricy = false
+            local price = item:GetAttribute("FruitValue") or 0 -- fallback display doang, BUKAN sumber kebenaran
+            if not isNameMatch and not isHeavy and targetPrice > 0 then
+                local fruitIdForBid = item:GetAttribute("Id")
+                if fruitIdForBid and Networking and Networking.NPCS and Networking.NPCS.GetFruitBid then
+                    local success, bidData = pcall(function()
+                        return Networking.NPCS.GetFruitBid:Fire(fruitIdForBid)
+                    end)
+                    if success and type(bidData) == "table" and bidData.CurrentSellValue then
+                        price = tonumber(bidData.CurrentSellValue) or price -- INI harga real-time yang BENERAN dipakai
+                        isPricy = price >= targetPrice
+                    end
+                end
+            end
+
+            -- DEBUG: print persis apa yang dievaluasi, biar gampang dicek kalau masih meleset
+            print(string.format(
+                "🔍 [FAV-CHECK] RawName=\"%s\" -> Parsed=\"%s\" | Checked=%s | Weight=%.3fkg (threshold=%.3f) | Price=%s (threshold=%s) | isHeavy=%s isPricy=%s | AlreadyFav=%s",
+                tostring(rawName), tostring(fruitName), tostring(isNameMatch),
+                weight, targetKg, tostring(price), tostring(targetPrice),
+                tostring(isHeavy), tostring(isPricy), tostring(item:GetAttribute("IsFavorite") == true)
+            ))
+
+            if (isNameMatch or isHeavy or isPricy) and item:GetAttribute("IsFavorite") ~= true then
+                local fruitId = item:GetAttribute("Id")
+                if fruitId then
+                    pcall(function()
+                        if Networking and Networking.Backpack and Networking.Backpack.SetFruitFavorite then
+                            Networking.Backpack.SetFruitFavorite:Fire(fruitId, true)
+                        end
+                        item:SetAttribute("IsFavorite", true)
+                    end)
+                    lastFavoriteActionTime = os.clock()
+                    print("🔒 [TURBO FAV] Berhasil mengunci: " .. fruitName .. " (" .. tostring(weight) .. "kg | ¢" .. tostring(price) .. ")")
+                else
+                    warn("⚠️ [FAV-CHECK] Item lolos kriteria tapi gak punya attribute 'Id', gak bisa difavoritin: " .. fruitName)
+                end
+            end
+        end)
+
+        pendingFavoriteChecks -= 1
+        if not ok then warn("[AutoFavorite] error saat proses item:", errMsg) end
+    end
+
+    for _, item in pairs(backpack:GetChildren()) do task.spawn(scanAndFavoriteItem, item) end
+    backpack.ChildAdded:Connect(function(item) task.spawn(scanAndFavoriteItem, item) end)
 end)
 
 -- =====================================================================
--- 8. SMART SATPAM AUTO SELL (DENGAN SENSOR HARGA + KG + TAB)
+-- 8. SMART SATPAM AUTO SELL (MURNI SCAN TAS & HITUNG HARGA)
 -- =====================================================================
 task.spawn(function()
     while task.wait(0.5) do
-        if config.AutoSell and Networking then
+        if (config.AutoSell or config.SellOneByOne) and Networking then
             local backpack = LocalPlayer:FindFirstChild("Backpack")
             local character = LocalPlayer.Character
             
@@ -659,48 +745,84 @@ task.spawn(function()
                 for _, tool in pairs(character:GetChildren()) do if tool:IsA("Tool") then totalItems = totalItems + 1 end end
             end
 
-            local waktuHeningCukup = (os.clock() - lastItemAddedTime > 3.0)
+            local noPendingChecks = (pendingFavoriteChecks == 0)
+            local waktuHeningCukup = (os.clock() - lastItemAddedTime > 1.0)
+            local clearOfFavoriteAction = (os.clock() - lastFavoriteActionTime > 1.0)
             local tasNyarisPenuh = (totalItems >= 85)
             
-            if waktuHeningCukup or tasNyarisPenuh then
-                local butuhNgeremJual = false
-                
-                if config.AutoFavorite and backpack then
-                    local targetKg = tonumber(config.FavoriteThreshold) or 100
-                    local targetPrice = tonumber(config.FavoritePrice) or 0
+            if (waktuHeningCukup and noPendingChecks and clearOfFavoriteAction) or tasNyarisPenuh then
+                if config.SellOneByOne then
+                    -- JUAL SATU-SATU (TANPA CEK FAVORIT & TANPA CEK TIPE TOOL)
+                    if backpack then
+                        local foundAny = false
+                        for _, item in pairs(backpack:GetChildren()) do
+                            
+                            -- Deteksi buah brutal: Gak peduli dia Tool atau Folder
+                            local isFruit = item:GetAttribute("HarvestedFruit") == true or item:GetAttribute("Fruit") ~= nil or string.find(item.Name, "%[.-kg%]") ~= nil
+                            
+                            if isFruit then
+                                foundAny = true
+                                local fruitId = item:GetAttribute("Id")
+                                local itemNameDbg = item:GetAttribute("Fruit") or item.Name
+                                
+                                -- Nunggu ID kalau delay (Max 2 detik)
+                                local timeout = 0
+                                while not fruitId and timeout < 10 do
+                                    task.wait(0.2)
+                                    timeout = timeout + 1
+                                    fruitId = item:GetAttribute("Id")
+                                end
 
-                    for _, item in pairs(backpack:GetChildren()) do
-                        if item:IsA("Tool") then
-                            local weight = item:GetAttribute("Weight") or 0
-                            local price = item:GetAttribute("SellPrice") or item:GetAttribute("Price") or item:GetAttribute("Value") or 0 
-                            local fruitName = item:GetAttribute("FruitName") or item.Name
-                            
-                            local isHeavy = (type(weight) == "number" and weight >= targetKg)
-                            local isPricy = (targetPrice > 0 and type(price) == "number" and price >= targetPrice)
-                            local isTabChecked = config.SelectedFavSeeds[fruitName] or false
-                            
-                            if (isHeavy or isPricy or isTabChecked) then
-                                if not item:GetAttribute("IsFavorite") then
-                                    local fruitId = item:GetAttribute("Id")
-                                    if fruitId then
-                                        butuhNgeremJual = true 
-                                        
-                                        pcall(function()
-                                            if Networking and Networking.Backpack and Networking.Backpack.SetFruitFavorite then
-                                                Networking.Backpack.SetFruitFavorite:Fire(fruitId, true)
+                                if not fruitId then
+                                    warn("⚠️ [SELL1-1] Item buta ID, skip: " .. tostring(itemNameDbg))
+                                else
+                                    task.spawn(function()
+                                        local weight = item:GetAttribute("Weight") or 0
+                                        local protectKg = tonumber(config.SellProtectKg) or 0
+                                        local protectPrice = tonumber(config.SellProtectPrice) or 0
+
+                                        -- 1. PROTEKSI BERAT
+                                        if protectKg > 0 and weight >= protectKg then
+                                            print(string.format("🛡️ [SELL1-1] DISIMPEN (Berat) %s | %.3fkg >= batas %.3f", tostring(itemNameDbg), weight, protectKg))
+                                            return
+                                        end
+
+                                        -- 2. PROTEKSI HARGA (Ngitung Real-Time ke Server)
+                                        local currentPrice = item:GetAttribute("BidPrice") or item:GetAttribute("FruitValue") or 0
+                                        if protectPrice > 0 and Networking.NPCS and Networking.NPCS.GetFruitBid then
+                                            local success, bidData = pcall(function()
+                                                return Networking.NPCS.GetFruitBid:Fire(fruitId)
+                                            end)
+                                            if success and type(bidData) == "table" and bidData.CurrentSellValue then
+                                                currentPrice = tonumber(bidData.CurrentSellValue) or currentPrice
                                             end
-                                            item:SetAttribute("IsFavorite", true) 
+                                            
+                                            if currentPrice >= protectPrice then
+                                                print(string.format("🛡️ [SELL1-1] DISIMPEN (Harga) %s | ¢%s >= batas ¢%.0f", tostring(itemNameDbg), tostring(currentPrice), protectPrice))
+                                                return
+                                            end
+                                        end
+
+                                        -- 3. EKSEKUSI JUAL KALAU TEMBUS SEMUA PROTEKSI
+                                        print(string.format("💰 [SELL1-1] JUAL %s | %.3fkg | Harga: ¢%s", tostring(itemNameDbg), weight, tostring(currentPrice)))
+                                        local sellOk, sellResult = pcall(function()
+                                            return Networking.NPCS.SellFruit and Networking.NPCS.SellFruit:Fire(fruitId)
                                         end)
                                         
-                                        print("👮‍♂️ [SATPAM] Mengunci " .. fruitName .. " (" .. tostring(weight) .. "kg | ¢" .. tostring(price) .. "). Menahan SellAll!")
-                                    end
+                                        if not sellOk then
+                                            warn("❌ [SELL1-1] Error Jual " .. tostring(itemNameDbg) .. " -> " .. tostring(sellResult))
+                                        end
+                                    end)
                                 end
                             end
                         end
+                        
+                        if not foundAny then
+                            print("ℹ️ [SELL1-1] Tas lu emang beneran kosong dari buah.")
+                        end
                     end
-                end
-                
-                if not butuhNgeremJual then
+                else
+                    -- MODE SATPAM: SELL ALL BORONGAN
                     pcall(function() 
                         if Networking and Networking.NPCS and Networking.NPCS.SellAll then
                             if typeof(Networking.NPCS.SellAll) == "table" and Networking.NPCS.SellAll.Fire then 
@@ -710,14 +832,11 @@ task.spawn(function()
                             end 
                         end
                     end)
-                else
-                    task.wait(0.2) 
                 end
             end
         end
     end
 end)
-
 -- ==========================================
 -- ANTI-MALING MALAM HARI (AUTO GUARD PLOT)
 -- ==========================================
