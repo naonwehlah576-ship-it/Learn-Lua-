@@ -537,12 +537,30 @@ task.spawn(function()
 end)
 
 -- =====================================================================
--- 6. INDEPENDENT HARVEST MATRIX CORE (FIXED: NORMAL + MUTATION HARVEST)
+-- 6. INDEPENDENT HARVEST MATRIX CORE (NORMAL + MUTATION + AUTO TP)
 -- =====================================================================
 
 task.spawn(function()
     while task.wait(0.5) do
         if config.AutoHarvest then
+            
+            -- [1] LOGIKA AUTO TELEPORT KE KEBUN KALAU JAUH (YANG SEMPAT ILANG)
+            local isHuntingRare = config.AutoClaimRare and rareEventActive
+            local isMalamHari = config.AntiNightThief and workspace:FindFirstChild("ActiveNight")
+            
+            local spawnPt = getGardenSpawnPoint()
+            if Hunt.State == "IDLE" and not isHuntingRare and not isMalamHari then
+                if spawnPt and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                    local hrp = LocalPlayer.Character.HumanoidRootPart
+                    -- Kalau jarak karakter ke kebun lebih dari 60, tarik balik!
+                    if (hrp.Position - spawnPt.Position).Magnitude > 60 then 
+                        hrp.CFrame = spawnPt.CFrame + Vector3.new(0, 3, 0)
+                        task.wait(0.1) 
+                    end
+                end
+            end
+
+            -- [2] LOGIKA EKSEKUSI PANEN
             local plotId = LocalPlayer:GetAttribute("PlotId")
             local gardensFolder = workspace:FindFirstChild("Gardens")
             local myPlotFolder = gardensFolder and gardensFolder:FindFirstChild("Plot" .. tostring(plotId))
@@ -568,7 +586,7 @@ task.spawn(function()
                         local state = config.SelectedHarvests[finalPlantName] or 0
                         local shouldHarvest = false
                         
-                        -- 1. CEK FORCE MUTATION (Babat semua buah mutasi kalau fitur ini dicentang)
+                        -- CEK 1: FORCE MUTATION (Babat buah mutasi)
                         if config.ForceMutation then
                             local mut = fruitModel:GetAttribute("Mutation")
                             if mut and type(mut) == "string" and mut ~= "" and mut ~= "None" then
@@ -576,11 +594,11 @@ task.spawn(function()
                             end
                         end
                         
-                        -- 2. CEK NORMAL FARMING (Berdasarkan Tab "Harvest: Targets")
+                        -- CEK 2: NORMAL FARMING (Sesuai setingan Tab All / Limit)
                         if not shouldHarvest then
-                            if state == 1 then -- Mode ALL (Panen semua umur)
+                            if state == 1 then 
                                 shouldHarvest = true
-                            elseif state == 2 then -- Mode LIMIT (Panen sesuai target Kiloan)
+                            elseif state == 2 then 
                                 local limit = tonumber(config.HarvestLimit) or 50
                                 local currentWeight = 0
                                 
@@ -597,7 +615,7 @@ task.spawn(function()
                             end
                         end
 
-                        -- 3. EKSEKUSI PANEN DARI JAUH
+                        -- CEK 3: EKSEKUSI TEMBAK DARI JAUH
                         if shouldHarvest then
                             if fireproximityprompt then
                                 fireproximityprompt(obj, 1, true)
@@ -606,7 +624,7 @@ task.spawn(function()
                                 task.wait(obj.HoldDuration + 0.1)
                                 obj:InputHoldEnd()
                             end
-                            task.wait(0.05) -- Kasih jeda napas dikit per panen biar server gak kaget
+                            task.wait(0.05) 
                         end
                     end
                 end
@@ -614,9 +632,6 @@ task.spawn(function()
         end
     end
 end)
-
--- Sisa bagian bawah Section 6 (Antrean lama) kita hapus total karena lu cuma butuh fungsi instant di atas.
-
 -- =====================================================================
 -- 7. BACKPACK MONITORING TRACKER
 -- =====================================================================
