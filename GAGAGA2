@@ -1052,7 +1052,7 @@ local function findActualToolFromCard(cardFrame)
                 tName = string.gsub(tName, "%s*%[%d+%.?%d*k?g?%]", "")
                 tName = string.match(tName, "^%s*(.-)%s*$")
                 local tWeight = tool:GetAttribute("Weight")
-                if tName == fruitName and type(tWeight) == "number" and math.abs(tWeight - weightNum) < 0.01 then
+                if tName == fruitName and type(tWeight) == "number" and math.abs(tWeight - weightNum) < 0.05 then
                     return tool
                 end
             end
@@ -1060,7 +1060,28 @@ local function findActualToolFromCard(cardFrame)
         return nil
     end
 
-    return searchIn(backpack) or searchIn(character)
+    local result = searchIn(backpack) or searchIn(character)
+    if not result then
+        -- Debug: cari kandidat yang nama-nya sama tapi berat beda, biar ketauan selisihnya
+        local candidates = {}
+        local function collectCandidates(container)
+            if not container then return end
+            for _, tool in pairs(container:GetChildren()) do
+                if tool:IsA("Tool") then
+                    local tName = tool:GetAttribute("Fruit") or tool.Name
+                    tName = string.gsub(tName, "%s*%[%d+%.?%d*k?g?%]", "")
+                    tName = string.match(tName, "^%s*(.-)%s*$")
+                    if tName == fruitName then
+                        table.insert(candidates, tostring(tool:GetAttribute("Weight")))
+                    end
+                end
+            end
+        end
+        collectCandidates(backpack)
+        collectCandidates(character)
+        warn(string.format("[FruitPriceDisplay] GAGAL match | nama='%s' (len=%d) | beratUI=%s | beratTool_kandidat=[%s]", fruitName, #fruitName, tostring(weightNum), table.concat(candidates, ", ")))
+    end
+    return result
 end
 
 local function getOrCreatePriceLabel(cardFrame)
