@@ -81,14 +81,14 @@ local config = {
 AutoHarvest = false, AutoSell = false, AutoBuySeed = false,
 AutoBuyGear = false, AutoClaimRare = false, AutoBuyPet = false, AutoPlant = false,
 AutoFavorite = false, AutoBoostFPS = false, AntiAFK = false, ForceMutation = true,
-AntiNightThief = true, ShowFruitPrice = false,
+AntiNightThief = true, ShowFruitPrice = false, AutoReconnect = false,
 TweenSpeed = "50", WalkSpeed = "40", MoveMethod = "Tween",
 FavoriteThreshold = "100", FavoritePrice = "0",
 SellOneByOne = false, SellProtectKg = "50", SellProtectPrice = "1000000",
 SelectedSeeds = {}, SelectedGears = {}, SelectedPets = {}, SelectedPlantSeeds = {},
 SelectedHarvests = {}, SelectedFavSeeds = {},
-SeedLimits = {}, -- Dictionary baru untuk nampung limit kg per buah
-SeedImportantNumbers = {} -- Dictionary baru untuk nampung important number per buah
+SeedLimits = {},
+SeedImportantNumbers = {}
 }
 
 local Hunt = { State = "IDLE", Target = nil, Type = nil, GraceTimer = 0, InitialMoney = 0, ExpectedPrice = 0 }
@@ -304,6 +304,22 @@ btnCorner.Parent = btn
 btn.MouseButton1Click:Connect(function() local currentIndex = table.find(optionsTable, config[configKey]) or 1; local nextIndex = (currentIndex % #optionsTable) + 1; config[configKey] = optionsTable[nextIndex]; btn.Text = config[configKey]; saveConfig() end)
 end
 
+local function createButton(parent, labelText, buttonText, yPos, callback)
+local frame = Instance.new("Frame");
+frame.Size = UDim2.new(1, -16, 0, 30); frame.BackgroundTransparency = 1; frame.LayoutOrder = yPos;
+frame.Parent = parent
+local label = Instance.new("TextLabel"); label.Size = UDim2.new(0.5, 0, 1, 0); label.BackgroundTransparency = 1;
+label.Text = labelText; label.TextColor3 = Color3.fromRGB(220, 220, 220); label.Font = Enum.Font.Gotham; label.TextSize = 12; label.TextXAlignment = Enum.TextXAlignment.Left;
+label.Parent = frame
+local btn = Instance.new("TextButton"); btn.Size = UDim2.new(0.5, -4, 0, 24);
+btn.Position = UDim2.new(0.5, 4, 0, 3); btn.BackgroundColor3 = Color3.fromRGB(200, 50, 50); btn.BorderSizePixel = 0; btn.Text = buttonText;
+btn.TextColor3 = Color3.fromRGB(255, 255, 255); btn.Font = Enum.Font.GothamBold; btn.TextSize = 12;
+btn.Parent = frame
+local btnCorner = Instance.new("UICorner"); btnCorner.CornerRadius = UDim.new(0, 4);
+btnCorner.Parent = btn
+btn.MouseButton1Click:Connect(callback)
+end
+
 -- STREAMING_CHUNK:Populating general lists...
 local function populateFromList(scrollFrame, targetConfigTable, dataList)
 local rowAll = Instance.new("Frame");
@@ -499,7 +515,7 @@ populateFromList(PlantScroll, config.SelectedPlantSeeds, MasterPlantList)
 populateHarvestTargets(HarvestScroll, config.SelectedHarvests, MasterPlantList)
 populateFromList(FavListScroll, config.SelectedFavSeeds, MasterPlantList)
 
--- POPULATE SETTINGS TAB (HARVEST LIMIT DIHAPUS)
+-- POPULATE SETTINGS TAB
 createToggle(SettingsScroll, "Auto Collect/Harvest", "AutoHarvest", 1)
 createToggle(SettingsScroll, "Auto Plant Area", "AutoPlant", 2)
 createToggle(SettingsScroll, "Auto Sell All", "AutoSell", 3)
@@ -519,7 +535,15 @@ createToggle(SettingsScroll, "Sell 1-by-1 (bukan Sell All)", "SellOneByOne", 16)
 createTextBox(SettingsScroll, "Sell Protect (>=kg):", "SellProtectKg", 17)
 createTextBox(SettingsScroll, "Sell Protect (>=¢):", "SellProtectPrice", 18)
 createToggle(SettingsScroll, "Tampilkan Harga Buah (Inventory)", "ShowFruitPrice", 19)
-createToggle(SettingsScroll, "Auto Boost FPS (Hapus Plot Lain)", "AutoBoostFPS", 20) -- TOGGLE BARU
+createToggle(SettingsScroll, "Auto Boost FPS (Hapus Plot Lain)", "AutoBoostFPS", 20)
+createToggle(SettingsScroll, "Auto Reconnect (Jika DC)", "AutoReconnect", 21)
+createButton(SettingsScroll, "Simulasi Putus Koneksi:", "TEST RECONNECT", 22, function()
+print("🔄 [TEST RECONNECT] Mengeksekusi paksa pindah server untuk simulasi...")
+local TeleportService = game:GetService("TeleportService")
+pcall(function()
+TeleportService:Teleport(game.PlaceId, LocalPlayer)
+end)
+end)
 print("[GAG2 HUB] MARKER-2: Semua tab & toggle Settings udah selesai dibuat.")
 
 -- =====================================================================
@@ -1421,6 +1445,31 @@ print("🛡️ Lentera Keamanan: Sistem Anti-AFK berhasil mereset timer server!"
 end)
 end
 end
+end)
+
+-- =====================================================================
+-- 10. AUTO RECONNECT (ERROR DETECTION)
+-- =====================================================================
+-- STREAMING_CHUNK:Deploying ErrorMessageChanged listener...
+task.spawn(function()
+local GuiService = game:GetService("GuiService")
+local TeleportService = game:GetService("TeleportService")
+
+GuiService.ErrorMessageChanged:Connect(function(errorMessage)
+    -- Jika toggle nyala dan ada pesan error (Disconnected)
+    if config.AutoReconnect and errorMessage and errorMessage ~= "" then
+        print("⚠️ [AUTO RECONNECT] Terdeteksi Disconnect! Pesan: " .. tostring(errorMessage))
+        print("🔄 [AUTO RECONNECT] Mencoba masuk kembali ke server dalam 5 detik...")
+        task.wait(5)
+        
+        pcall(function()
+            -- Teleport kembali ke PlaceId game ini agar otomatis masuk server baru
+            TeleportService:Teleport(game.PlaceId, LocalPlayer)
+        end)
+    end
+end)
+
+
 end)
 
 print("[GAG2 HUB] MARKER-FINAL: Seluruh script berhasil dijalankan sampai baris terakhir, tanpa error.")
