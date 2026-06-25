@@ -776,7 +776,7 @@ task.spawn(function()
             if Hunt.State == "IDLE" and not isHuntingRare and not isMalamHari then
                 if spawnPt and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
                     local hrp = LocalPlayer.Character.HumanoidRootPart
-                    if (hrp.Position - spawnPt.Position).Magnitude > 60 then 
+                    if (hrp.Position - spawnPt.Position).Magnitude > 90 then 
                         hrp.CFrame = spawnPt.CFrame + Vector3.new(0, 3, 0)
                         task.wait(0.1) 
                     end
