@@ -77,7 +77,7 @@ local config = {
     AutoHarvest = false, AutoSell = false, AutoBuySeed = false, 
     AutoBuyGear = false, AutoClaimRare = false, AutoBuyPet = false, AutoPlant = false,
     AutoFavorite = false, AutoBoostFPS = false, AntiAFK = false, ForceMutation = true,
-    AntiNightThief = true,
+    AntiNightThief = true, ShowFruitPrice = false,
     TweenSpeed = "50", WalkSpeed = "40", MoveMethod = "Tween", 
     FavoriteThreshold = "100", FavoritePrice = "0",
     SellOneByOne = false, SellProtectKg = "50", SellProtectPrice = "1000000",
@@ -108,6 +108,7 @@ local existingGui = game:GetService("CoreGui"):FindFirstChild("GAG2_Automation_H
 if existingGui then existingGui:Destroy() end
 pcall(function() ScreenGui.Parent = game:GetService("CoreGui") end);
 if not ScreenGui.Parent then ScreenGui.Parent = PlayerGui end
+print("[GAG2 HUB] MARKER-1: ScreenGui udah ke-parent, lanjut bikin MainFrame...")
 
 local MainFrame = Instance.new("Frame"); MainFrame.Size = UDim2.new(0, 920, 0, 550);
 MainFrame.AnchorPoint = Vector2.new(0.5, 0.5); MainFrame.Position = UDim2.new(0.5, 0, 0.5, 0); MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20); MainFrame.BorderSizePixel = 0;
@@ -493,6 +494,8 @@ createTextBox(SettingsScroll, "Fav Price (>¢):", "FavoritePrice", 15)
 createToggle(SettingsScroll, "Sell 1-by-1 (bukan Sell All)", "SellOneByOne", 16)
 createTextBox(SettingsScroll, "Sell Protect (>=kg):", "SellProtectKg", 17)
 createTextBox(SettingsScroll, "Sell Protect (>=¢):", "SellProtectPrice", 18)
+createToggle(SettingsScroll, "Tampilkan Harga Buah (Inventory)", "ShowFruitPrice", 19)
+print("[GAG2 HUB] MARKER-2: Semua tab & toggle Settings udah selesai dibuat.")
 
 -- =====================================================================
 -- 4. UTILITY FUNCTIONS & SMART PATHFINDING
@@ -1010,6 +1013,144 @@ task.spawn(function()
     end
 end)
 
+-- =====================================================================
+-- 8.5 FRUIT PRICE DISPLAY (OVERLAY DI GUI INVENTORY)
+-- =====================================================================
+local lastPriceFetchTime = {} -- [tool] = os.clock(), buat throttle live fetch per item
+local PRICE_FETCH_COOLDOWN = 3 -- detik
+
+-- Cari Tool asli (yang punya attribute FruitValue/Id) dari sebuah card UI di ScrollingFrame
+local function findActualToolFromCard(cardFrame)
+    local backpack = LocalPlayer:FindFirstChild("Backpack")
+    local character = LocalPlayer.Character
+
+    -- 1. Match exact: nama card == nama Tool (paling akurat & paling cepat)
+    if backpack then
+        local found = backpack:FindFirstChild(cardFrame.Name)
+        if found and found:IsA("Tool") then return found end
+    end
+    if character then
+        local found = character:FindFirstChild(cardFrame.Name)
+        if found and found:IsA("Tool") then return found end
+    end
+
+    -- 2. Fallback: cocok-in pakai teks ToolName + ToolCount (nama buah + berat)
+    local toolNameLbl = cardFrame:FindFirstChild("ToolName")
+    local toolCountLbl = cardFrame:FindFirstChild("ToolCount")
+    if not (toolNameLbl and toolCountLbl) then return nil end
+
+    local fruitName = toolNameLbl.Text
+    local weightStr = string.match(toolCountLbl.Text, "%-?%d+%.?%d*")
+    local weightNum = weightStr and tonumber(weightStr)
+    if not weightNum then return nil end
+
+    local function searchIn(container)
+        if not container then return nil end
+        for _, tool in pairs(container:GetChildren()) do
+            if tool:IsA("Tool") then
+                local tName = tool:GetAttribute("Fruit") or tool.Name
+                tName = string.gsub(tName, "%s*%[%d+%.?%d*k?g?%]", "")
+                tName = string.match(tName, "^%s*(.-)%s*$")
+                local tWeight = tool:GetAttribute("Weight")
+                if tName == fruitName and type(tWeight) == "number" and math.abs(tWeight - weightNum) < 0.01 then
+                    return tool
+                end
+            end
+        end
+        return nil
+    end
+
+    return searchIn(backpack) or searchIn(character)
+end
+
+local function getOrCreatePriceLabel(cardFrame)
+    local lbl = cardFrame:FindFirstChild("FruitPriceLabel")
+    if not lbl then
+        lbl = Instance.new("TextLabel")
+        lbl.Name = "FruitPriceLabel"
+        lbl.Size = UDim2.new(1, 0, 0, 14)
+        lbl.Position = UDim2.new(0, 0, 1, -14) -- baris baru, nempel di bawah card
+        lbl.BackgroundTransparency = 0.35
+        lbl.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+        lbl.BorderSizePixel = 0
+        lbl.Text = "¢..."
+        lbl.TextColor3 = Color3.fromRGB(120, 255, 120)
+        lbl.Font = Enum.Font.GothamBold
+        lbl.TextSize = 11
+        lbl.ZIndex = (cardFrame.ZIndex or 1) + 5
+        lbl.Parent = cardFrame
+    end
+    return lbl
+end
+
+local function updateCardPrice(cardFrame)
+    local lbl = getOrCreatePriceLabel(cardFrame)
+    if not config.ShowFruitPrice then
+        lbl.Visible = false
+        return
+    end
+    lbl.Visible = true
+
+    local item = findActualToolFromCard(cardFrame)
+    if not item then
+        lbl.Text = "¢?"
+        return
+    end
+
+    local staticPrice = item:GetAttribute("FruitValue")
+    if staticPrice then lbl.Text = "¢" .. tostring(staticPrice) end
+
+    -- Live fetch harga pasar, di-throttle biar gak spam remote
+    local now = os.clock()
+    if (lastPriceFetchTime[item] or 0) + PRICE_FETCH_COOLDOWN > now then return end
+    lastPriceFetchTime[item] = now
+
+    local fruitId = item:GetAttribute("Id")
+    if fruitId and Networking and Networking.NPCS and Networking.NPCS.GetFruitBid then
+        task.spawn(function()
+            local success, bidData = pcall(function()
+                return Networking.NPCS.GetFruitBid:Fire(fruitId)
+            end)
+            if success and type(bidData) == "table" and bidData.CurrentSellValue then
+                lbl.Text = "¢" .. tostring(bidData.CurrentSellValue)
+            end
+        end)
+    end
+end
+
+local function isFruitCard(frame)
+    return frame:FindFirstChild("ToolName") ~= nil and frame:FindFirstChild("ToolCount") ~= nil
+end
+
+task.spawn(function()
+    local backpackGui = PlayerGui:WaitForChild("BackpackGui", 10)
+    local backpackFrame = backpackGui and backpackGui:WaitForChild("Backpack", 10)
+    local inventory = backpackFrame and backpackFrame:WaitForChild("Inventory", 10)
+    local scrollFrame = inventory and inventory:WaitForChild("ScrollingFrame", 10)
+
+    if not scrollFrame then
+        warn("[FruitPriceDisplay] Gagal nemu path GUI: PlayerGui.BackpackGui.Backpack.Inventory.ScrollingFrame")
+        return
+    end
+
+    for _, frame in pairs(scrollFrame:GetChildren()) do
+        if isFruitCard(frame) then task.spawn(updateCardPrice, frame) end
+    end
+
+    -- Card baru muncul pas item baru masuk inventory (hasil harvest dll)
+    scrollFrame.ChildAdded:Connect(function(frame)
+        task.wait(0.15)
+        if isFruitCard(frame) then task.spawn(updateCardPrice, frame) end
+    end)
+
+    -- Loop refresh berkala: update harga & handle toggle on/off (sembunyikan label kalau off)
+    while task.wait(2) do
+        for _, frame in pairs(scrollFrame:GetChildren()) do
+            if isFruitCard(frame) then task.spawn(updateCardPrice, frame) end
+        end
+    end
+end)
+
 -- ==========================================
 -- ANTI-MALING MALAM HARI (AUTO GUARD PLOT)
 -- ==========================================
@@ -1143,3 +1284,5 @@ task.spawn(function()
         end
     end
 end)
+
+print("[GAG2 HUB] MARKER-FINAL: Seluruh script berhasil dijalankan sampai baris terakhir, tanpa error.")
