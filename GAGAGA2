@@ -1019,6 +1019,20 @@ end)
 local lastPriceFetchTime = {} -- [tool] = os.clock(), buat throttle live fetch per item
 local PRICE_FETCH_COOLDOWN = 3 -- detik
 
+local function formatPrice(num)
+    num = tonumber(num)
+    if not num then return "?" end
+    if num >= 1000000000 then
+        return string.format("%.1fB", num / 1000000000)
+    elseif num >= 1000000 then
+        return string.format("%.1fM", num / 1000000)
+    elseif num >= 1000 then
+        return string.format("%.1fK", num / 1000)
+    else
+        return tostring(math.floor(num))
+    end
+end
+
 -- Cari Tool asli (yang punya attribute FruitValue/Id) dari sebuah card UI di ScrollingFrame
 local function findActualToolFromCard(cardFrame)
     local backpack = LocalPlayer:FindFirstChild("Backpack")
@@ -1052,7 +1066,7 @@ local function findActualToolFromCard(cardFrame)
                 tName = string.gsub(tName, "%s*%[%d+%.?%d*k?g?%]", "")
                 tName = string.match(tName, "^%s*(.-)%s*$")
                 local tWeight = tool:GetAttribute("Weight")
-                if tName == fruitName and type(tWeight) == "number" and math.abs(tWeight - weightNum) < 0.05 then
+                if tName == fruitName and type(tWeight) == "number" and math.abs(tWeight - weightNum) < 0.15 then
                     return tool
                 end
             end
@@ -1119,7 +1133,7 @@ local function updateCardPrice(cardFrame)
     end
 
     local staticPrice = item:GetAttribute("FruitValue")
-    if staticPrice then lbl.Text = "¢" .. tostring(staticPrice) end
+    if staticPrice then lbl.Text = "¢" .. formatPrice(staticPrice) end
 
     -- Live fetch harga pasar, di-throttle biar gak spam remote
     local now = os.clock()
@@ -1133,7 +1147,7 @@ local function updateCardPrice(cardFrame)
                 return Networking.NPCS.GetFruitBid:Fire(fruitId)
             end)
             if success and type(bidData) == "table" and bidData.CurrentSellValue then
-                lbl.Text = "¢" .. tostring(bidData.CurrentSellValue)
+                lbl.Text = "¢" .. formatPrice(bidData.CurrentSellValue)
             end
         end)
     end
