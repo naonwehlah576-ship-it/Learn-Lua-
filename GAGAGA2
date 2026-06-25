@@ -1133,19 +1133,20 @@ task.spawn(function()
         return
     end
 
-    for _, frame in pairs(scrollFrame:GetChildren()) do
+    for _, frame in pairs(scrollFrame:GetDescendants()) do
         if isFruitCard(frame) then task.spawn(updateCardPrice, frame) end
     end
 
     -- Card baru muncul pas item baru masuk inventory (hasil harvest dll)
-    scrollFrame.ChildAdded:Connect(function(frame)
+    -- Pakai DescendantAdded karena card ada di dalam container UIGridFrame, bukan langsung child ScrollingFrame
+    scrollFrame.DescendantAdded:Connect(function(frame)
         task.wait(0.15)
         if isFruitCard(frame) then task.spawn(updateCardPrice, frame) end
     end)
 
     -- Loop refresh berkala: update harga & handle toggle on/off (sembunyikan label kalau off)
     while task.wait(2) do
-        for _, frame in pairs(scrollFrame:GetChildren()) do
+        for _, frame in pairs(scrollFrame:GetDescendants()) do
             if isFruitCard(frame) then task.spawn(updateCardPrice, frame) end
         end
     end
