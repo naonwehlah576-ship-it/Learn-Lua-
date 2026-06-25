@@ -1033,50 +1033,86 @@ local function formatPrice(num)
     end
 end
 
--- Cari Tool asli (yang punya attribute FruitValue/Id) dari sebuah card UI di ScrollingFrame
+-- Cari Tool asli dari sebuah card UI di ScrollingFrame, match by FruitName attribute
 local function findActualToolFromCard(cardFrame)
     local backpack = LocalPlayer:FindFirstChild("Backpack")
     local character = LocalPlayer.Character
 
-    -- 1. Match exact: nama card == nama Tool (paling akurat & paling cepat)
-    if backpack then
-        local found = backpack:FindFirstChild(cardFrame.Name)
-        if found and found:IsA("Tool") then return found end
-    end
-    if character then
-        local found = character:FindFirstChild(cardFrame.Name)
-        if found and found:IsA("Tool") then return found end
-    end
-
-    -- 2. Fallback: cocok-in pakai teks ToolName + ToolCount (nama buah + berat)
     local toolNameLbl = cardFrame:FindFirstChild("ToolName")
     local toolCountLbl = cardFrame:FindFirstChild("ToolCount")
-    if not (toolNameLbl and toolCountLbl) then return nil end
+    if not toolNameLbl then return nil end
 
     local fruitName = toolNameLbl.Text
-    local weightStr = string.match(toolCountLbl.Text, "%-?%d+%.?%d*")
+    local weightStr = toolCountLbl and string.match(toolCountLbl.Text, "%-?%d+%.?%d*")
     local weightNum = weightStr and tonumber(weightStr)
-    if not weightNum then return nil end
 
     local function searchIn(container)
         if not container then return nil end
+        local bestMatch = nil
+        local bestDiff = math.huge
         for _, tool in pairs(container:GetChildren()) do
             if tool:IsA("Tool") then
-                local tName = tool:GetAttribute("Fruit") or tool.Name
-                tName = string.gsub(tName, "%s*%[%d+%.?%d*k?g?%]", "")
-                tName = string.match(tName, "^%s*(.-)%s*$")
-                local tWeight = tool:GetAttribute("Weight")
-                if tName == fruitName and type(tWeight) == "number" and math.abs(tWeight - weightNum) < 0.15 then
-                    return tool
+                -- Match by FruitName attribute (paling akurat)
+                local attrName = tool:GetAttribute("FruitName") or tool:GetAttribute("Fruit")
+                if attrName == fruitName then
+                    if weightNum then
+                        local tWeight = tool:GetAttribute("Weight")
+                        if type(tWeight) == "number" then
+                            local diff = math.abs(tWeight - weightNum)
+                            if diff < bestDiff then
+                                bestDiff = diff
+                                bestMatch = tool
+                            end
+                        else
+                            -- Ga ada Weight attribute, langsung return
+                            return tool
+                        end
+                    else
+                        return tool
+                    end
                 end
             end
         end
-        return nil
+        return bestMatch
     end
 
     local result = searchIn(backpack) or searchIn(character)
     if not result then
-        -- Debug: cari kandidat yang nama-nya sama tapi berat beda, biar ketauan selisihnya
+        -- Fallback: strip kg dari nama Tool, cocokkan manual
+        local function searchFallback(container)
+            if not container then return nil end
+            local bestMatch = nil
+            local bestDiff = math.huge
+            for _, tool in pairs(container:GetChildren()) do
+                if tool:IsA("Tool") then
+                    local tName = tool.Name
+                    tName = string.gsub(tName, "%s*%[.-%]", "")
+                    tName = string.match(tName, "^%s*(.-)%s*$")
+                    if tName == fruitName then
+                        if weightNum then
+                            local tWeight = tool:GetAttribute("Weight")
+                            if type(tWeight) == "number" then
+                                local diff = math.abs(tWeight - weightNum)
+                                if diff < bestDiff then
+                                    bestDiff = diff
+                                    bestMatch = tool
+                                end
+                            else
+                                return tool
+                            end
+                        else
+                            return tool
+                        end
+                    end
+                end
+            end
+            return bestMatch
+        end
+        result = searchFallback(backpack) or searchFallback(character)
+    end
+
+    if not result then
+        -- Debug log
         local candidates = {}
         local function collectCandidates(container)
             if not container then return end
