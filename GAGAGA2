@@ -1,20 +1,21 @@
 -- =====================================================================
 -- AUTO BYPASS "PRESS ANY KEY" INTRO SCREEN
 -- =====================================================================
-if not game:IsLoaded() then 
-    game.Loaded:Wait() 
+-- STREAMING_CHUNK:Bypassing intro screen...
+if not game:IsLoaded() then
+game.Loaded:Wait()
 end
 
 task.spawn(function()
-    local VirtualInputManager = game:GetService("VirtualInputManager")
-    for i = 1, 120 do
-        pcall(function()
-            VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Y, false, game)
-            task.wait(0.1)
-            VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Y, false, game)
-        end)
-        task.wait(1)
-    end
+local VirtualInputManager = game:GetService("VirtualInputManager")
+for i = 1, 120 do
+pcall(function()
+VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Y, false, game)
+task.wait(0.1)
+VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Y, false, game)
+end)
+task.wait(1)
+end
 end)
 
 -- =====================================================================
@@ -23,6 +24,7 @@ end)
 -- Config File: GAG2_Automation_Config_v14.json
 -- =====================================================================
 
+-- STREAMING_CHUNK:Loading services and networking...
 local Players = game:GetService("Players")
 local HttpService = game:GetService("HttpService")
 local TweenService = game:GetService("TweenService")
@@ -36,72 +38,75 @@ local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 -- 1. NETWORKING SETUP
 local Networking = nil
 pcall(function()
-    Networking = require(ReplicatedStorage:WaitForChild("SharedModules"):WaitForChild("Networking"))
+Networking = require(ReplicatedStorage:WaitForChild("SharedModules"):WaitForChild("Networking"))
 end)
 
 -- 2. DATA, CONFIG & MASTER LISTS
+-- STREAMING_CHUNK:Configuring pet and plant data...
 local PetData = {
-    ["Frog"] = { PriceStr = "¢10,000", PriceNum = 10000 },
-    ["Bunny"] = { PriceStr = "¢20,000", PriceNum = 20000 },
-    ["Owl"] = { PriceStr = "¢25,000", PriceNum = 25000 },
-    ["Deer"] = { PriceStr = "¢50,000", PriceNum = 50000 },
-    ["Robin"] = { PriceStr = "¢75,000", PriceNum = 75000 },
-    ["Bee"] = { PriceStr = "¢1,000,000", PriceNum = 1000000 },
-    ["Monkey"] = { PriceStr = "¢3,000,000", PriceNum = 3000000 },
-    ["Bear"] = { PriceStr = "¢5,000,000", PriceNum = 5000000 },
-    ["Golden Dragonfly"] = { PriceStr = "¢9,000,000", PriceNum = 9000000 },
-    ["Unicorn"] = { PriceStr = "¢12,000,000", PriceNum = 12000000 },
-    ["Racoon"] = { PriceStr = "¢15,000,000", PriceNum = 15000000 }
+["Frog"] = { PriceStr = "¢10,000", PriceNum = 10000 },
+["Bunny"] = { PriceStr = "¢20,000", PriceNum = 20000 },
+["Owl"] = { PriceStr = "¢25,000", PriceNum = 25000 },
+["Deer"] = { PriceStr = "¢50,000", PriceNum = 50000 },
+["Robin"] = { PriceStr = "¢75,000", PriceNum = 75000 },
+["Bee"] = { PriceStr = "¢1,000,000", PriceNum = 1000000 },
+["Monkey"] = { PriceStr = "¢3,000,000", PriceNum = 3000000 },
+["Bear"] = { PriceStr = "¢5,000,000", PriceNum = 5000000 },
+["Golden Dragonfly"] = { PriceStr = "¢9,000,000", PriceNum = 9000000 },
+["Unicorn"] = { PriceStr = "¢12,000,000", PriceNum = 12000000 },
+["Racoon"] = { PriceStr = "¢15,000,000", PriceNum = 15000000 }
 }
 local PetOrder = {"Frog", "Bunny", "Owl", "Deer", "Robin", "Bee", "Monkey", "Bear", "Golden Dragonfly", "Unicorn", "Racoon"}
 
 local MasterPlantList = {
-    "Acorn", "Apple", "Bamboo", "Banana", "Blueberry", "Cactus", "Carrot", "Cherry", 
-    "Coconut", "Corn", "Dragon Fruit", "Dragon's Breath", "Ghost Pepper", "Gold Seed", "Grape", 
-    "Green Bean", "Mango", "Moon Bloom", "Mushroom", "Pineapple", "Poison Apple", "Pomegranate", 
-    "Rainbow Seed", "Strawberry", "Sunflower", "Tomato", "Tulip", "Venom Spitter", "Venus Fly Trap"
+"Acorn", "Apple", "Bamboo", "Banana", "Blueberry", "Cactus", "Carrot", "Cherry",
+"Coconut", "Corn", "Dragon Fruit", "Dragon's Breath", "Ghost Pepper", "Gold Seed", "Grape",
+"Green Bean", "Mango", "Moon Bloom", "Mushroom", "Pineapple", "Poison Apple", "Pomegranate",
+"Rainbow Seed", "Strawberry", "Sunflower", "Tomato", "Tulip", "Venom Spitter", "Venus Fly Trap"
 }
 
 local MasterGearList = {
-    "Basic Pot", "Common Sprinkler", "Common Watering Can", "Flashbang", "Freeze Ray", 
-    "Gnome", "Grappling Hook", "Invisibility Mushroom", "Jump Mushroom", "Lantern", 
-    "Legendary Sprinkler", "Megaphone", "Pet Server Teleporter", "Player Magnet", 
-    "Power Hose", "Rainbow Carpet", "Rare Sprinkler", "Shackles", "Shrink Mushroom", 
-    "Sign", "Speed Mushroom", "Spice Spritzer Sprinkler", "Super Sprinkler", 
-    "Super Watering Can", "Supersize Mushroom", "Teleporter", "Trowel", 
-    "Uncommon Sprinkler", "Vine Wrapper", "Wheelbarrow"
+"Basic Pot", "Common Sprinkler", "Common Watering Can", "Flashbang", "Freeze Ray",
+"Gnome", "Grappling Hook", "Invisibility Mushroom", "Jump Mushroom", "Lantern",
+"Legendary Sprinkler", "Megaphone", "Pet Server Teleporter", "Player Magnet",
+"Power Hose", "Rainbow Carpet", "Rare Sprinkler", "Shackles", "Shrink Mushroom",
+"Sign", "Speed Mushroom", "Spice Spritzer Sprinkler", "Super Sprinkler",
+"Super Watering Can", "Supersize Mushroom", "Teleporter", "Trowel",
+"Uncommon Sprinkler", "Vine Wrapper", "Wheelbarrow"
 }
 
-local FILE_NAME = "GAG2_Automation_Config_v14.json" 
+-- STREAMING_CHUNK:Initializing configuration variables...
+local FILE_NAME = "GAG2_Automation_Config_v14.json"
 local config = {
-    AutoHarvest = false, AutoSell = false, AutoBuySeed = false, 
-    AutoBuyGear = false, AutoClaimRare = false, AutoBuyPet = false, AutoPlant = false,
-    AutoFavorite = false, AutoBoostFPS = false, AntiAFK = false, ForceMutation = true,
-    AntiNightThief = true, ShowFruitPrice = false,
-    TweenSpeed = "50", WalkSpeed = "40", MoveMethod = "Tween", 
-    FavoriteThreshold = "100", FavoritePrice = "0",
-    SellOneByOne = false, SellProtectKg = "50", SellProtectPrice = "1000000",
-    SelectedSeeds = {}, SelectedGears = {}, SelectedPets = {}, SelectedPlantSeeds = {}, 
-    SelectedHarvests = {}, SelectedFavSeeds = {},
-    SeedLimits = {}, -- Dictionary baru untuk nampung limit kg per buah
-    SeedImportantNumbers = {} -- Dictionary baru untuk nampung important number per buah
+AutoHarvest = false, AutoSell = false, AutoBuySeed = false,
+AutoBuyGear = false, AutoClaimRare = false, AutoBuyPet = false, AutoPlant = false,
+AutoFavorite = false, AutoBoostFPS = false, AntiAFK = false, ForceMutation = true,
+AntiNightThief = true, ShowFruitPrice = false,
+TweenSpeed = "50", WalkSpeed = "40", MoveMethod = "Tween",
+FavoriteThreshold = "100", FavoritePrice = "0",
+SellOneByOne = false, SellProtectKg = "50", SellProtectPrice = "1000000",
+SelectedSeeds = {}, SelectedGears = {}, SelectedPets = {}, SelectedPlantSeeds = {},
+SelectedHarvests = {}, SelectedFavSeeds = {},
+SeedLimits = {}, -- Dictionary baru untuk nampung limit kg per buah
+SeedImportantNumbers = {} -- Dictionary baru untuk nampung important number per buah
 }
 
 local Hunt = { State = "IDLE", Target = nil, Type = nil, GraceTimer = 0, InitialMoney = 0, ExpectedPrice = 0 }
-local lastItemAddedTime = 0 
+local lastItemAddedTime = 0
 
 local function saveConfig() if writefile then pcall(function() writefile(FILE_NAME, HttpService:JSONEncode(config)) end) end end
 local function loadConfig()
-    if readfile and isfile and isfile(FILE_NAME) then
-        local success, decoded = pcall(function() return HttpService:JSONDecode(readfile(FILE_NAME)) end)
-        if success and type(decoded) == "table" then 
-            for k, v in pairs(decoded) do if config[k] ~= nil then config[k] = v end end 
-        end
-    end
+if readfile and isfile and isfile(FILE_NAME) then
+local success, decoded = pcall(function() return HttpService:JSONDecode(readfile(FILE_NAME)) end)
+if success and type(decoded) == "table" then
+for k, v in pairs(decoded) do if config[k] ~= nil then config[k] = v end end
+end
+end
 end
 loadConfig()
 
 -- 3. GUI CREATION (TAB SYSTEM)
+-- STREAMING_CHUNK:Building Main Screen GUI...
 local ScreenGui = Instance.new("ScreenGui");
 ScreenGui.Name = "GAG2_Automation_Hub"; ScreenGui.ResetOnSpawn = false; ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 local existingGui = game:GetService("CoreGui"):FindFirstChild("GAG2_Automation_Hub") or PlayerGui:FindFirstChild("GAG2_Automation_Hub")
@@ -125,6 +130,7 @@ workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(updateS
 
 UserInputService.InputBegan:Connect(function(input, gameProcessed) if not gameProcessed and input.KeyCode == Enum.KeyCode.RightControl then MainFrame.Visible = not MainFrame.Visible end end)
 
+-- STREAMING_CHUNK:Configuring window dragging...
 local Topbar = Instance.new("Frame");
 Topbar.Size = UDim2.new(1, 0, 0, 35); Topbar.BackgroundColor3 = Color3.fromRGB(28, 28, 28); Topbar.BorderSizePixel = 0; Topbar.Parent = MainFrame
 local TopbarCorner = Instance.new("UICorner");
@@ -146,6 +152,7 @@ Topbar.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInp
 Topbar.InputChanged:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then dragInput = input end end)
 UserInputService.InputChanged:Connect(function(input) if input == dragInput and dragging then local delta = input.Position - dragStart; MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y) end end)
 
+-- STREAMING_CHUNK:Creating tab navigation...
 local TabContainer = Instance.new("Frame");
 TabContainer.Size = UDim2.new(1, -20, 0, 30); TabContainer.Position = UDim2.new(0, 10, 0, 40); TabContainer.BackgroundTransparency = 1;
 TabContainer.Parent = MainFrame
@@ -153,52 +160,60 @@ local TabLayout = Instance.new("UIListLayout"); TabLayout.FillDirection = Enum.F
 TabLayout.Parent = TabContainer
 
 local function createTabButton(text)
-    local btn = Instance.new("TextButton"); btn.Size = UDim2.new(0, 125, 1, 0);
-    btn.BackgroundColor3 = Color3.fromRGB(45, 45, 45); btn.TextColor3 = Color3.fromRGB(200, 200, 200); btn.Font = Enum.Font.GothamBold; btn.TextSize = 11; btn.Text = text;
-    btn.BorderSizePixel = 0; btn.Parent = TabContainer
-    local corner = Instance.new("UICorner"); corner.CornerRadius = UDim.new(0, 6); corner.Parent = btn;
-    return btn
+local btn = Instance.new("TextButton"); btn.Size = UDim2.new(0, 125, 1, 0);
+btn.BackgroundColor3 = Color3.fromRGB(45, 45, 45); btn.TextColor3 = Color3.fromRGB(200, 200, 200); btn.Font = Enum.Font.GothamBold; btn.TextSize = 11; btn.Text = text;
+btn.BorderSizePixel = 0; btn.Parent = TabContainer
+local corner = Instance.new("UICorner"); corner.CornerRadius = UDim.new(0, 6); corner.Parent = btn;
+return btn
 end
 
 local TabSettings = createTabButton("⚙️ SETTINGS")
 local TabFarming = createTabButton("🌾 FARMING")
-local TabFavorite = createTabButton("⭐ AUTO FAV") 
+local TabFavorite = createTabButton("⭐ AUTO FAV")
 local TabShop = createTabButton("🛒 SHOP")
 
+-- STREAMING_CHUNK:Setting up content panels...
 local ContentContainer = Instance.new("Frame");
 ContentContainer.Size = UDim2.new(1, -20, 1, -85); ContentContainer.Position = UDim2.new(0, 10, 0, 75); ContentContainer.BackgroundTransparency = 1;
 ContentContainer.Parent = MainFrame
 local ContentLayout = Instance.new("UIListLayout"); ContentLayout.FillDirection = Enum.FillDirection.Horizontal; ContentLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center; ContentLayout.SortOrder = Enum.SortOrder.LayoutOrder; ContentLayout.Padding = UDim.new(0, 15);
 ContentLayout.Parent = ContentContainer
 
-local function createPanel(width, order) 
-    local pnl = Instance.new("Frame"); pnl.Size = UDim2.new(0, width, 1, 0);
-    pnl.BackgroundColor3 = Color3.fromRGB(25, 25, 25); pnl.BorderSizePixel = 0; pnl.LayoutOrder = order; pnl.Parent = ContentContainer; 
-    local c = Instance.new("UICorner");
-    c.CornerRadius = UDim.new(0, 6); c.Parent = pnl; return pnl 
+local function createPanel(width, order)
+local pnl = Instance.new("Frame"); pnl.Size = UDim2.new(0, width, 1, 0);
+pnl.BackgroundColor3 = Color3.fromRGB(25, 25, 25); pnl.BorderSizePixel = 0; pnl.LayoutOrder = order; pnl.Parent = ContentContainer;
+local c = Instance.new("UICorner");
+c.CornerRadius = UDim.new(0, 6); c.Parent = pnl; return pnl
 end
 
-local LeftPanel = createPanel(350, 1)      
-local PlantPanel = createPanel(280, 1)     
-local HarvestPanel = createPanel(280, 2)   
-local FavListPanel = createPanel(450, 1) 
-local SeedPanel = createPanel(280, 1)      
-local GearPanel = createPanel(280, 2)      
-local PetPanel = createPanel(280, 3)       
+local LeftPanel = createPanel(350, 1)
+
+local PlantPanel = createPanel(280, 1)
+
+local HarvestPanel = createPanel(280, 2)
+
+local FavListPanel = createPanel(450, 1)
+local SeedPanel = createPanel(280, 1)
+
+local GearPanel = createPanel(280, 2)
+
+local PetPanel = createPanel(280, 3)
 
 local function switchTab(tabName)
-    TabSettings.BackgroundColor3 = (tabName == "Settings") and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(45, 45, 45)
-    TabFarming.BackgroundColor3 = (tabName == "Farming") and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(45, 45, 45)
-    TabFavorite.BackgroundColor3 = (tabName == "Favorite") and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(45, 45, 45)
-    TabShop.BackgroundColor3 = (tabName == "Shop") and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(45, 45, 45)
+TabSettings.BackgroundColor3 = (tabName == "Settings") and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(45, 45, 45)
+TabFarming.BackgroundColor3 = (tabName == "Farming") and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(45, 45, 45)
+TabFavorite.BackgroundColor3 = (tabName == "Favorite") and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(45, 45, 45)
+TabShop.BackgroundColor3 = (tabName == "Shop") and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(45, 45, 45)
 
-    LeftPanel.Visible = (tabName == "Settings")
-    PlantPanel.Visible = (tabName == "Farming")
-    HarvestPanel.Visible = (tabName == "Farming")
-    FavListPanel.Visible = (tabName == "Favorite")
-    SeedPanel.Visible = (tabName == "Shop")
-    GearPanel.Visible = (tabName == "Shop")
-    PetPanel.Visible = (tabName == "Shop")
+LeftPanel.Visible = (tabName == "Settings")
+PlantPanel.Visible = (tabName == "Farming")
+HarvestPanel.Visible = (tabName == "Farming")
+FavListPanel.Visible = (tabName == "Favorite")
+SeedPanel.Visible = (tabName == "Shop")
+GearPanel.Visible = (tabName == "Shop")
+PetPanel.Visible = (tabName == "Shop")
+
+
 end
 
 TabSettings.MouseButton1Click:Connect(function() switchTab("Settings") end)
@@ -207,18 +222,19 @@ TabFavorite.MouseButton1Click:Connect(function() switchTab("Favorite") end)
 TabShop.MouseButton1Click:Connect(function() switchTab("Shop") end)
 switchTab("Settings")
 
+-- STREAMING_CHUNK:Creating scrolling lists...
 local function createScrollList(parent, titleText)
-    local lbl = Instance.new("TextLabel"); lbl.Size = UDim2.new(1, 0, 0, 25);
-    lbl.BackgroundTransparency = 1; lbl.Text = titleText; lbl.TextColor3 = Color3.fromRGB(180, 180, 180); lbl.Font = Enum.Font.GothamBold; lbl.TextSize = 12;
-    lbl.Parent = parent
-    local sf = Instance.new("ScrollingFrame"); sf.Size = UDim2.new(1, -10, 1, -35);
-    sf.Position = UDim2.new(0, 5, 0, 30); sf.BackgroundTransparency = 1; sf.BorderSizePixel = 0; sf.ScrollBarThickness = 3; sf.ScrollBarImageColor3 = Color3.fromRGB(80, 80, 80);
-    sf.Parent = parent
-    sf.CanvasSize = UDim2.new(0, 0, 0, 0);
-    sf.AutomaticCanvasSize = Enum.AutomaticSize.Y
-    local layout = Instance.new("UIListLayout"); layout.Padding = UDim.new(0, 4); layout.SortOrder = Enum.SortOrder.LayoutOrder;
-    layout.Parent = sf
-    return sf
+local lbl = Instance.new("TextLabel"); lbl.Size = UDim2.new(1, 0, 0, 25);
+lbl.BackgroundTransparency = 1; lbl.Text = titleText; lbl.TextColor3 = Color3.fromRGB(180, 180, 180); lbl.Font = Enum.Font.GothamBold; lbl.TextSize = 12;
+lbl.Parent = parent
+local sf = Instance.new("ScrollingFrame"); sf.Size = UDim2.new(1, -10, 1, -35);
+sf.Position = UDim2.new(0, 5, 0, 30); sf.BackgroundTransparency = 1; sf.BorderSizePixel = 0; sf.ScrollBarThickness = 3; sf.ScrollBarImageColor3 = Color3.fromRGB(80, 80, 80);
+sf.Parent = parent
+sf.CanvasSize = UDim2.new(0, 0, 0, 0);
+sf.AutomaticCanvasSize = Enum.AutomaticSize.Y
+local layout = Instance.new("UIListLayout"); layout.Padding = UDim.new(0, 4); layout.SortOrder = Enum.SortOrder.LayoutOrder;
+layout.Parent = sf
+return sf
 end
 
 local SettingsScroll = createScrollList(LeftPanel, "GENERAL CONFIGURATION")
@@ -229,251 +245,259 @@ local PlantScroll = createScrollList(PlantPanel, "PLANT: SEEDS")
 local HarvestScroll = createScrollList(HarvestPanel, "HARVEST: TARGETS")
 local FavListScroll = createScrollList(FavListPanel, "⭐ AUTO FAVORITE LIST TARGETS")
 
+-- STREAMING_CHUNK:Generating UI toggles and inputs...
 local function createToggle(parent, text, configKey, yPos)
-    local frame = Instance.new("Frame");
-    frame.Size = UDim2.new(1, -16, 0, 30); frame.BackgroundTransparency = 1; frame.LayoutOrder = yPos;
-    frame.Parent = parent
-    local btn = Instance.new("TextButton"); btn.Size = UDim2.new(0, 20, 0, 20);
-    btn.Position = UDim2.new(0, 2, 0, 5); btn.BorderSizePixel = 0; btn.Text = "";
-    btn.Parent = frame
-    btn.BackgroundColor3 = config[configKey] and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(45, 45, 45)
-    local btnCorner = Instance.new("UICorner");
-    btnCorner.CornerRadius = UDim.new(0, 4); btnCorner.Parent = btn
-    local label = Instance.new("TextLabel"); label.Size = UDim2.new(1, -30, 1, 0);
-    label.Position = UDim2.new(0, 30, 0, 0); label.BackgroundTransparency = 1; label.Text = text; label.TextColor3 = Color3.fromRGB(220, 220, 220); label.Font = Enum.Font.Gotham;
-    label.TextSize = 12; label.TextXAlignment = Enum.TextXAlignment.Left; label.Parent = frame
-    btn.MouseButton1Click:Connect(function() config[configKey] = not config[configKey]; TweenService:Create(btn, TweenInfo.new(0.2), {BackgroundColor3 = config[configKey] and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(45, 45, 45)}):Play(); saveConfig() end)
+local frame = Instance.new("Frame");
+frame.Size = UDim2.new(1, -16, 0, 30); frame.BackgroundTransparency = 1; frame.LayoutOrder = yPos;
+frame.Parent = parent
+local btn = Instance.new("TextButton"); btn.Size = UDim2.new(0, 20, 0, 20);
+btn.Position = UDim2.new(0, 2, 0, 5); btn.BorderSizePixel = 0; btn.Text = "";
+btn.Parent = frame
+btn.BackgroundColor3 = config[configKey] and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(45, 45, 45)
+local btnCorner = Instance.new("UICorner");
+btnCorner.CornerRadius = UDim.new(0, 4); btnCorner.Parent = btn
+local label = Instance.new("TextLabel"); label.Size = UDim2.new(1, -30, 1, 0);
+label.Position = UDim2.new(0, 30, 0, 0); label.BackgroundTransparency = 1; label.Text = text; label.TextColor3 = Color3.fromRGB(220, 220, 220); label.Font = Enum.Font.Gotham;
+label.TextSize = 12; label.TextXAlignment = Enum.TextXAlignment.Left; label.Parent = frame
+btn.MouseButton1Click:Connect(function() config[configKey] = not config[configKey]; TweenService:Create(btn, TweenInfo.new(0.2), {BackgroundColor3 = config[configKey] and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(45, 45, 45)}):Play(); saveConfig() end)
 end
 
 local function createTextBox(parent, labelText, configKey, yPos)
-    local frame = Instance.new("Frame");
-    frame.Size = UDim2.new(1, -16, 0, 30); frame.BackgroundTransparency = 1; frame.LayoutOrder = yPos;
-    frame.Parent = parent
-    local label = Instance.new("TextLabel"); label.Size = UDim2.new(0.5, 0, 1, 0); label.BackgroundTransparency = 1;
-    label.Text = labelText; label.TextColor3 = Color3.fromRGB(220, 220, 220); label.Font = Enum.Font.Gotham; label.TextSize = 12; label.TextXAlignment = Enum.TextXAlignment.Left;
-    label.Parent = frame
-    local box = Instance.new("TextBox"); box.Size = UDim2.new(0.5, -4, 0, 24);
-    box.Position = UDim2.new(0.5, 4, 0, 3); box.BackgroundColor3 = Color3.fromRGB(45, 45, 45); box.BorderSizePixel = 0; box.Text = tostring(config[configKey]);
-    box.TextColor3 = Color3.fromRGB(255, 255, 255); box.Font = Enum.Font.Gotham; box.TextSize = 12;
-    box.Parent = frame
-    local boxCorner = Instance.new("UICorner"); boxCorner.CornerRadius = UDim.new(0, 4);
-    boxCorner.Parent = box
-    box.FocusLost:Connect(function() 
-        local extracted = string.match(box.Text, "%-?%d+%.?%d*")
-        local num = extracted and tonumber(extracted)
-        if num then 
-            config[configKey] = tostring(num)
-            box.Text = tostring(num) 
-        else 
-            box.Text = config[configKey] 
-        end
-        saveConfig() 
-    end)
+local frame = Instance.new("Frame");
+frame.Size = UDim2.new(1, -16, 0, 30); frame.BackgroundTransparency = 1; frame.LayoutOrder = yPos;
+frame.Parent = parent
+local label = Instance.new("TextLabel"); label.Size = UDim2.new(0.5, 0, 1, 0); label.BackgroundTransparency = 1;
+label.Text = labelText; label.TextColor3 = Color3.fromRGB(220, 220, 220); label.Font = Enum.Font.Gotham; label.TextSize = 12; label.TextXAlignment = Enum.TextXAlignment.Left;
+label.Parent = frame
+local box = Instance.new("TextBox"); box.Size = UDim2.new(0.5, -4, 0, 24);
+box.Position = UDim2.new(0.5, 4, 0, 3); box.BackgroundColor3 = Color3.fromRGB(45, 45, 45); box.BorderSizePixel = 0; box.Text = tostring(config[configKey]);
+box.TextColor3 = Color3.fromRGB(255, 255, 255); box.Font = Enum.Font.Gotham; box.TextSize = 12;
+box.Parent = frame
+local boxCorner = Instance.new("UICorner"); boxCorner.CornerRadius = UDim.new(0, 4);
+boxCorner.Parent = box
+box.FocusLost:Connect(function()
+local extracted = string.match(box.Text, "%-?%d+%.?%d*")
+local num = extracted and tonumber(extracted)
+if num then
+config[configKey] = tostring(num)
+box.Text = tostring(num)
+else
+box.Text = config[configKey]
+end
+saveConfig()
+end)
 end
 
 local function createMultiModeButton(parent, labelText, configKey, optionsTable, yPos)
-    local frame = Instance.new("Frame");
-    frame.Size = UDim2.new(1, -16, 0, 30); frame.BackgroundTransparency = 1; frame.LayoutOrder = yPos;
-    frame.Parent = parent
-    local label = Instance.new("TextLabel"); label.Size = UDim2.new(0.5, 0, 1, 0); label.BackgroundTransparency = 1;
-    label.Text = labelText; label.TextColor3 = Color3.fromRGB(220, 220, 220); label.Font = Enum.Font.Gotham; label.TextSize = 12; label.TextXAlignment = Enum.TextXAlignment.Left;
-    label.Parent = frame
-    local btn = Instance.new("TextButton"); btn.Size = UDim2.new(0.5, -4, 0, 24);
-    btn.Position = UDim2.new(0.5, 4, 0, 3); btn.BackgroundColor3 = Color3.fromRGB(0, 170, 255); btn.BorderSizePixel = 0; btn.Text = config[configKey];
-    btn.TextColor3 = Color3.fromRGB(255, 255, 255); btn.Font = Enum.Font.GothamBold; btn.TextSize = 12;
-    btn.Parent = frame
-    local btnCorner = Instance.new("UICorner"); btnCorner.CornerRadius = UDim.new(0, 4);
-    btnCorner.Parent = btn
-    btn.MouseButton1Click:Connect(function() local currentIndex = table.find(optionsTable, config[configKey]) or 1; local nextIndex = (currentIndex % #optionsTable) + 1; config[configKey] = optionsTable[nextIndex]; btn.Text = config[configKey]; saveConfig() end)
+local frame = Instance.new("Frame");
+frame.Size = UDim2.new(1, -16, 0, 30); frame.BackgroundTransparency = 1; frame.LayoutOrder = yPos;
+frame.Parent = parent
+local label = Instance.new("TextLabel"); label.Size = UDim2.new(0.5, 0, 1, 0); label.BackgroundTransparency = 1;
+label.Text = labelText; label.TextColor3 = Color3.fromRGB(220, 220, 220); label.Font = Enum.Font.Gotham; label.TextSize = 12; label.TextXAlignment = Enum.TextXAlignment.Left;
+label.Parent = frame
+local btn = Instance.new("TextButton"); btn.Size = UDim2.new(0.5, -4, 0, 24);
+btn.Position = UDim2.new(0.5, 4, 0, 3); btn.BackgroundColor3 = Color3.fromRGB(0, 170, 255); btn.BorderSizePixel = 0; btn.Text = config[configKey];
+btn.TextColor3 = Color3.fromRGB(255, 255, 255); btn.Font = Enum.Font.GothamBold; btn.TextSize = 12;
+btn.Parent = frame
+local btnCorner = Instance.new("UICorner"); btnCorner.CornerRadius = UDim.new(0, 4);
+btnCorner.Parent = btn
+btn.MouseButton1Click:Connect(function() local currentIndex = table.find(optionsTable, config[configKey]) or 1; local nextIndex = (currentIndex % #optionsTable) + 1; config[configKey] = optionsTable[nextIndex]; btn.Text = config[configKey]; saveConfig() end)
 end
 
+-- STREAMING_CHUNK:Populating general lists...
 local function populateFromList(scrollFrame, targetConfigTable, dataList)
-    local rowAll = Instance.new("Frame");
-    rowAll.Name = "_ToggleAll"; rowAll.Size = UDim2.new(1, -6, 0, 26); rowAll.BackgroundTransparency = 1; rowAll.LayoutOrder = 0;
-    rowAll.Parent = scrollFrame
-    local chkAll = Instance.new("TextButton"); chkAll.Size = UDim2.new(0, 16, 0, 16);
-    chkAll.Position = UDim2.new(0, 4, 0, 5); chkAll.BorderSizePixel = 0; chkAll.TextColor3 = Color3.fromRGB(255, 255, 255); chkAll.Font = Enum.Font.GothamBold; chkAll.TextSize = 10;
-    chkAll.Parent = rowAll
-    chkAll.BackgroundColor3 = Color3.fromRGB(45, 45, 45);
-    chkAll.Text = ""
-    local chkCorner = Instance.new("UICorner"); chkCorner.CornerRadius = UDim.new(0, 3);
-    chkCorner.Parent = chkAll
-    local txtAll = Instance.new("TextLabel"); txtAll.Size = UDim2.new(1, -28, 1, 0);
-    txtAll.Position = UDim2.new(0, 26, 0, 0); txtAll.BackgroundTransparency = 1; txtAll.Text = "-- TOGGLE ALL --"; txtAll.TextColor3 = Color3.fromRGB(255, 210, 50);
-    txtAll.Font = Enum.Font.GothamBold; txtAll.TextSize = 11; txtAll.TextXAlignment = Enum.TextXAlignment.Left; txtAll.Parent = rowAll
-    
-    local isAllSelected = false
-    chkAll.MouseButton1Click:Connect(function()
-        isAllSelected = not isAllSelected
-        chkAll.BackgroundColor3 = isAllSelected and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(45, 45, 45)
-        chkAll.Text = isAllSelected and "✓" or ""
-        for _, itemName in ipairs(dataList) do
-            targetConfigTable[itemName] = isAllSelected
-            local childRow = scrollFrame:FindFirstChild(itemName)
-            if childRow then
-                local childChk = childRow:FindFirstChildOfClass("TextButton")
-                if childChk then childChk.BackgroundColor3 = isAllSelected and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(45, 45, 45); childChk.Text = isAllSelected and "✓" or "" end
-            end
-        end
-        saveConfig()
-    end)
+local rowAll = Instance.new("Frame");
+rowAll.Name = "_ToggleAll"; rowAll.Size = UDim2.new(1, -6, 0, 26); rowAll.BackgroundTransparency = 1; rowAll.LayoutOrder = 0;
+rowAll.Parent = scrollFrame
+local chkAll = Instance.new("TextButton"); chkAll.Size = UDim2.new(0, 16, 0, 16);
+chkAll.Position = UDim2.new(0, 4, 0, 5); chkAll.BorderSizePixel = 0; chkAll.TextColor3 = Color3.fromRGB(255, 255, 255); chkAll.Font = Enum.Font.GothamBold; chkAll.TextSize = 10;
+chkAll.Parent = rowAll
+chkAll.BackgroundColor3 = Color3.fromRGB(45, 45, 45);
+chkAll.Text = ""
+local chkCorner = Instance.new("UICorner"); chkCorner.CornerRadius = UDim.new(0, 3);
+chkCorner.Parent = chkAll
+local txtAll = Instance.new("TextLabel"); txtAll.Size = UDim2.new(1, -28, 1, 0);
+txtAll.Position = UDim2.new(0, 26, 0, 0); txtAll.BackgroundTransparency = 1; txtAll.Text = "-- TOGGLE ALL --"; txtAll.TextColor3 = Color3.fromRGB(255, 210, 50);
+txtAll.Font = Enum.Font.GothamBold; txtAll.TextSize = 11; txtAll.TextXAlignment = Enum.TextXAlignment.Left; txtAll.Parent = rowAll
 
-    for i, itemName in ipairs(dataList) do
-        local row = Instance.new("Frame");
-        row.Name = itemName; row.Size = UDim2.new(1, -6, 0, 26); row.BackgroundTransparency = 1; row.LayoutOrder = i;
-        row.Parent = scrollFrame
-        local chk = Instance.new("TextButton"); chk.Size = UDim2.new(0, 16, 0, 16);
-        chk.Position = UDim2.new(0, 4, 0, 5); chk.BorderSizePixel = 0; chk.TextColor3 = Color3.fromRGB(255, 255, 255); chk.Font = Enum.Font.GothamBold; chk.TextSize = 10;
-        chk.Parent = row
-        chk.BackgroundColor3 = targetConfigTable[itemName] and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(45, 45, 45);
-        chk.Text = targetConfigTable[itemName] and "✓" or ""
-        local itemCorner = Instance.new("UICorner");
-        itemCorner.CornerRadius = UDim.new(0, 3); itemCorner.Parent = chk
-        local txt = Instance.new("TextLabel");
-        txt.Size = UDim2.new(1, -28, 1, 0); txt.Position = UDim2.new(0, 26, 0, 0); txt.BackgroundTransparency = 1; txt.Text = itemName;
-        txt.TextColor3 = Color3.fromRGB(190, 190, 190); txt.Font = Enum.Font.Gotham; txt.TextSize = 11; txt.TextXAlignment = Enum.TextXAlignment.Left;
-        txt.Parent = row
-        chk.MouseButton1Click:Connect(function() targetConfigTable[itemName] = not targetConfigTable[itemName]; chk.BackgroundColor3 = targetConfigTable[itemName] and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(45, 45, 45); chk.Text = targetConfigTable[itemName] and "✓" or ""; saveConfig() end)
+local isAllSelected = false
+chkAll.MouseButton1Click:Connect(function()
+    isAllSelected = not isAllSelected
+    chkAll.BackgroundColor3 = isAllSelected and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(45, 45, 45)
+    chkAll.Text = isAllSelected and "✓" or ""
+    for _, itemName in ipairs(dataList) do
+        targetConfigTable[itemName] = isAllSelected
+        local childRow = scrollFrame:FindFirstChild(itemName)
+        if childRow then
+            local childChk = childRow:FindFirstChildOfClass("TextButton")
+            if childChk then childChk.BackgroundColor3 = isAllSelected and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(45, 45, 45); childChk.Text = isAllSelected and "✓" or "" end
+        end
     end
+    saveConfig()
+end)
+
+for i, itemName in ipairs(dataList) do
+    local row = Instance.new("Frame");
+    row.Name = itemName; row.Size = UDim2.new(1, -6, 0, 26); row.BackgroundTransparency = 1; row.LayoutOrder = i;
+    row.Parent = scrollFrame
+    local chk = Instance.new("TextButton"); chk.Size = UDim2.new(0, 16, 0, 16);
+    chk.Position = UDim2.new(0, 4, 0, 5); chk.BorderSizePixel = 0; chk.TextColor3 = Color3.fromRGB(255, 255, 255); chk.Font = Enum.Font.GothamBold; chk.TextSize = 10;
+    chk.Parent = row
+    chk.BackgroundColor3 = targetConfigTable[itemName] and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(45, 45, 45);
+    chk.Text = targetConfigTable[itemName] and "✓" or ""
+    local itemCorner = Instance.new("UICorner");
+    itemCorner.CornerRadius = UDim.new(0, 3); itemCorner.Parent = chk
+    local txt = Instance.new("TextLabel");
+    txt.Size = UDim2.new(1, -28, 1, 0); txt.Position = UDim2.new(0, 26, 0, 0); txt.BackgroundTransparency = 1; txt.Text = itemName;
+    txt.TextColor3 = Color3.fromRGB(190, 190, 190); txt.Font = Enum.Font.Gotham; txt.TextSize = 11; txt.TextXAlignment = Enum.TextXAlignment.Left;
+    txt.Parent = row
+    chk.MouseButton1Click:Connect(function() targetConfigTable[itemName] = not targetConfigTable[itemName]; chk.BackgroundColor3 = targetConfigTable[itemName] and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(45, 45, 45); chk.Text = targetConfigTable[itemName] and "✓" or ""; saveConfig() end)
 end
 
+
+end
+
+-- STREAMING_CHUNK:Populating harvest target limits...
 local function populateHarvestTargets(scrollFrame, targetConfigTable, dataList)
-    local masterState = 0
-    local function applyUIState(btn, state)
-        if state == 0 then btn.Text = "OFF";
-            btn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
-        elseif state == 1 then btn.Text = "ALL";
-            btn.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
-        elseif state == 2 then btn.Text = "LIMIT";
-            btn.BackgroundColor3 = Color3.fromRGB(220, 150, 20) end
-    end
+local masterState = 0
+local function applyUIState(btn, state)
+if state == 0 then btn.Text = "OFF";
+btn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+elseif state == 1 then btn.Text = "ALL";
+btn.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
+elseif state == 2 then btn.Text = "LIMIT";
+btn.BackgroundColor3 = Color3.fromRGB(220, 150, 20) end
+end
 
-    local rowAll = Instance.new("Frame"); rowAll.Name = "_ToggleAll";
-    rowAll.Size = UDim2.new(1, -6, 0, 26); rowAll.BackgroundTransparency = 1; rowAll.LayoutOrder = 0;
-    rowAll.Parent = scrollFrame
-    local btnAll = Instance.new("TextButton"); btnAll.Size = UDim2.new(0, 38, 0, 16);
-    btnAll.Position = UDim2.new(0, 2, 0, 5); btnAll.BorderSizePixel = 0; btnAll.TextColor3 = Color3.fromRGB(255, 255, 255); btnAll.Font = Enum.Font.GothamBold; btnAll.TextSize = 9;
-    btnAll.Parent = rowAll
-    local btnCornerAll = Instance.new("UICorner"); btnCornerAll.CornerRadius = UDim.new(0, 3);
-    btnCornerAll.Parent = btnAll
-    local txtAll = Instance.new("TextLabel"); txtAll.Size = UDim2.new(1, -46, 1, 0);
-    txtAll.Position = UDim2.new(0, 46, 0, 0); txtAll.BackgroundTransparency = 1; txtAll.Text = "-- TOGGLE ALL --"; txtAll.TextColor3 = Color3.fromRGB(255, 210, 50);
-    txtAll.Font = Enum.Font.GothamBold; txtAll.TextSize = 11; txtAll.TextXAlignment = Enum.TextXAlignment.Left; txtAll.Parent = rowAll
+local rowAll = Instance.new("Frame"); rowAll.Name = "_ToggleAll";
+rowAll.Size = UDim2.new(1, -6, 0, 26); rowAll.BackgroundTransparency = 1; rowAll.LayoutOrder = 0;
+rowAll.Parent = scrollFrame
+local btnAll = Instance.new("TextButton"); btnAll.Size = UDim2.new(0, 38, 0, 16);
+btnAll.Position = UDim2.new(0, 2, 0, 5); btnAll.BorderSizePixel = 0; btnAll.TextColor3 = Color3.fromRGB(255, 255, 255); btnAll.Font = Enum.Font.GothamBold; btnAll.TextSize = 9;
+btnAll.Parent = rowAll
+local btnCornerAll = Instance.new("UICorner"); btnCornerAll.CornerRadius = UDim.new(0, 3);
+btnCornerAll.Parent = btnAll
+local txtAll = Instance.new("TextLabel"); txtAll.Size = UDim2.new(1, -46, 1, 0);
+txtAll.Position = UDim2.new(0, 46, 0, 0); txtAll.BackgroundTransparency = 1; txtAll.Text = "-- TOGGLE ALL --"; txtAll.TextColor3 = Color3.fromRGB(255, 210, 50);
+txtAll.Font = Enum.Font.GothamBold; txtAll.TextSize = 11; txtAll.TextXAlignment = Enum.TextXAlignment.Left; txtAll.Parent = rowAll
+applyUIState(btnAll, masterState)
+
+btnAll.MouseButton1Click:Connect(function()
+    masterState = (masterState + 1) % 3
     applyUIState(btnAll, masterState)
-
-    btnAll.MouseButton1Click:Connect(function()
-        masterState = (masterState + 1) % 3
-        applyUIState(btnAll, masterState)
-        for _, itemName in ipairs(dataList) do
-            targetConfigTable[itemName] = masterState
-            local childRow = scrollFrame:FindFirstChild(itemName)
-            if childRow then
-                local cBtn = childRow:FindFirstChildOfClass("TextButton")
-                if cBtn then applyUIState(cBtn, masterState) end
-                
-                -- Toggle textbox visibility global
-                local boxLim = childRow:FindFirstChild("BoxLimit")
-                local boxBase = childRow:FindFirstChild("BoxBase")
-                if boxLim and boxBase then
-                    boxLim.Visible = (masterState == 2)
-                    boxBase.Visible = (masterState == 2)
-                end
+    for _, itemName in ipairs(dataList) do
+        targetConfigTable[itemName] = masterState
+        local childRow = scrollFrame:FindFirstChild(itemName)
+        if childRow then
+            local cBtn = childRow:FindFirstChildOfClass("TextButton")
+            if cBtn then applyUIState(cBtn, masterState) end
+            
+            -- Toggle textbox visibility global
+            local boxLim = childRow:FindFirstChild("BoxLimit")
+            local boxBase = childRow:FindFirstChild("BoxBase")
+            if boxLim and boxBase then
+                boxLim.Visible = (masterState == 2)
+                boxBase.Visible = (masterState == 2)
             end
         end
-        saveConfig()
-    end)
+    end
+    saveConfig()
+end)
 
-    for i, itemName in ipairs(dataList) do
-        if targetConfigTable[itemName] == nil then targetConfigTable[itemName] = 0 end
-        if config.SeedLimits[itemName] == nil then config.SeedLimits[itemName] = "" end
-        if config.SeedImportantNumbers[itemName] == nil then config.SeedImportantNumbers[itemName] = "" end
+for i, itemName in ipairs(dataList) do
+    if targetConfigTable[itemName] == nil then targetConfigTable[itemName] = 0 end
+    if config.SeedLimits[itemName] == nil then config.SeedLimits[itemName] = "" end
+    if config.SeedImportantNumbers[itemName] == nil then config.SeedImportantNumbers[itemName] = "" end
 
-        local row = Instance.new("Frame"); row.Name = itemName; row.Size = UDim2.new(1, -6, 0, 26); row.BackgroundTransparency = 1;
-        row.LayoutOrder = i; row.Parent = scrollFrame
-        
-        -- Tombol State (OFF/ALL/LIMIT)
-        local btn = Instance.new("TextButton");
-        btn.Size = UDim2.new(0, 38, 0, 16); btn.Position = UDim2.new(0, 2, 0, 5); btn.BorderSizePixel = 0; btn.TextColor3 = Color3.fromRGB(255, 255, 255);
-        btn.Font = Enum.Font.GothamBold; btn.TextSize = 9; btn.Parent = row
-        local btnCorner = Instance.new("UICorner");
-        btnCorner.CornerRadius = UDim.new(0, 3); btnCorner.Parent = btn
-        
-        -- Teks Nama Buah (Diperpendek biar gak nabrak textbox)
-        local txt = Instance.new("TextLabel");
-        txt.Size = UDim2.new(1, -125, 1, 0); txt.Position = UDim2.new(0, 46, 0, 0); txt.BackgroundTransparency = 1; txt.Text = itemName;
-        txt.TextColor3 = Color3.fromRGB(190, 190, 190); txt.Font = Enum.Font.Gotham; txt.TextSize = 11; txt.TextXAlignment = Enum.TextXAlignment.Left;
-        txt.Parent = row
-        
-        -- Textbox 1: Limit KG (Muncul pas Limit mode)
-        local boxLimit = Instance.new("TextBox")
-        boxLimit.Name = "BoxLimit"
-        boxLimit.Size = UDim2.new(0, 35, 0, 16)
-        boxLimit.Position = UDim2.new(1, -75, 0, 5) -- Geser agak kiri
-        boxLimit.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-        boxLimit.TextColor3 = Color3.fromRGB(200, 200, 200)
-        boxLimit.Font = Enum.Font.Gotham
-        boxLimit.TextSize = 9
-        boxLimit.PlaceholderText = "Lim"
-        boxLimit.Text = tostring(config.SeedLimits[itemName])
-        boxLimit.Parent = row
-        Instance.new("UICorner", boxLimit).CornerRadius = UDim.new(0, 3)
+    local row = Instance.new("Frame"); row.Name = itemName; row.Size = UDim2.new(1, -6, 0, 26); row.BackgroundTransparency = 1;
+    row.LayoutOrder = i; row.Parent = scrollFrame
+    
+    -- Tombol State (OFF/ALL/LIMIT)
+    local btn = Instance.new("TextButton");
+    btn.Size = UDim2.new(0, 38, 0, 16); btn.Position = UDim2.new(0, 2, 0, 5); btn.BorderSizePixel = 0; btn.TextColor3 = Color3.fromRGB(255, 255, 255);
+    btn.Font = Enum.Font.GothamBold; btn.TextSize = 9; btn.Parent = row
+    local btnCorner = Instance.new("UICorner");
+    btnCorner.CornerRadius = UDim.new(0, 3); btnCorner.Parent = btn
+    
+    -- Teks Nama Buah (Diperpendek biar gak nabrak textbox)
+    local txt = Instance.new("TextLabel");
+    txt.Size = UDim2.new(1, -125, 1, 0); txt.Position = UDim2.new(0, 46, 0, 0); txt.BackgroundTransparency = 1; txt.Text = itemName;
+    txt.TextColor3 = Color3.fromRGB(190, 190, 190); txt.Font = Enum.Font.Gotham; txt.TextSize = 11; txt.TextXAlignment = Enum.TextXAlignment.Left;
+    txt.Parent = row
+    
+    -- Textbox 1: Limit KG (Muncul pas Limit mode)
+    local boxLimit = Instance.new("TextBox")
+    boxLimit.Name = "BoxLimit"
+    boxLimit.Size = UDim2.new(0, 35, 0, 16)
+    boxLimit.Position = UDim2.new(1, -75, 0, 5) -- Geser agak kiri
+    boxLimit.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+    boxLimit.TextColor3 = Color3.fromRGB(200, 200, 200)
+    boxLimit.Font = Enum.Font.Gotham
+    boxLimit.TextSize = 9
+    boxLimit.PlaceholderText = "Lim"
+    boxLimit.Text = tostring(config.SeedLimits[itemName])
+    boxLimit.Parent = row
+    Instance.new("UICorner", boxLimit).CornerRadius = UDim.new(0, 3)
 
-        -- Textbox 2: Important Number / Base Weight (Paling Kanan)
-        local boxBase = Instance.new("TextBox")
-        boxBase.Name = "BoxBase"
-        boxBase.Size = UDim2.new(0, 35, 0, 16)
-        boxBase.Position = UDim2.new(1, -35, 0, 5) -- Pojok kanan
-        boxBase.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-        boxBase.TextColor3 = Color3.fromRGB(255, 170, 0) -- Warna beda biar gampang nandain
-        boxBase.Font = Enum.Font.Gotham
-        boxBase.TextSize = 9
-        boxBase.PlaceholderText = "Base"
-        boxBase.Text = tostring(config.SeedImportantNumbers[itemName])
-        boxBase.Parent = row
-        Instance.new("UICorner", boxBase).CornerRadius = UDim.new(0, 3)
+    -- Textbox 2: Important Number / Base Weight (Paling Kanan)
+    local boxBase = Instance.new("TextBox")
+    boxBase.Name = "BoxBase"
+    boxBase.Size = UDim2.new(0, 35, 0, 16)
+    boxBase.Position = UDim2.new(1, -35, 0, 5) -- Pojok kanan
+    boxBase.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+    boxBase.TextColor3 = Color3.fromRGB(255, 170, 0) -- Warna beda biar gampang nandain
+    boxBase.Font = Enum.Font.Gotham
+    boxBase.TextSize = 9
+    boxBase.PlaceholderText = "Base"
+    boxBase.Text = tostring(config.SeedImportantNumbers[itemName])
+    boxBase.Parent = row
+    Instance.new("UICorner", boxBase).CornerRadius = UDim.new(0, 3)
 
-        -- Fungsi update UI pas ngeklik tombol
-        local function updateVisibility()
-            local isLimit = (targetConfigTable[itemName] == 2)
-            boxLimit.Visible = isLimit
-            boxBase.Visible = isLimit
-        end
+    -- Fungsi update UI pas ngeklik tombol
+    local function updateVisibility()
+        local isLimit = (targetConfigTable[itemName] == 2)
+        boxLimit.Visible = isLimit
+        boxBase.Visible = isLimit
+    end
 
+    applyUIState(btn, targetConfigTable[itemName])
+    updateVisibility()
+
+    btn.MouseButton1Click:Connect(function()
+        targetConfigTable[itemName] = ((targetConfigTable[itemName] or 0) + 1) % 3
         applyUIState(btn, targetConfigTable[itemName])
         updateVisibility()
+        saveConfig()
+    end)
 
-        btn.MouseButton1Click:Connect(function()
-            targetConfigTable[itemName] = ((targetConfigTable[itemName] or 0) + 1) % 3
-            applyUIState(btn, targetConfigTable[itemName])
-            updateVisibility()
-            saveConfig()
-        end)
-
-        -- Auto Clean Number pas lu kelar ngetik
-        local function cleanNumber(box, dictKey)
-            local extracted = string.match(box.Text, "%-?%d+%.?%d*")
-            local num = extracted and tonumber(extracted)
-            if num then
-                dictKey[itemName] = tostring(num)
-                box.Text = tostring(num)
-            else
-                dictKey[itemName] = ""
-                box.Text = ""
-            end
-            saveConfig()
+    -- Auto Clean Number pas lu kelar ngetik
+    local function cleanNumber(box, dictKey)
+        local extracted = string.match(box.Text, "%-?%d+%.?%d*")
+        local num = extracted and tonumber(extracted)
+        if num then
+            dictKey[itemName] = tostring(num)
+            box.Text = tostring(num)
+        else
+            dictKey[itemName] = ""
+            box.Text = ""
         end
-
-        boxLimit.FocusLost:Connect(function() cleanNumber(boxLimit, config.SeedLimits) end)
-        boxBase.FocusLost:Connect(function() cleanNumber(boxBase, config.SeedImportantNumbers) end)
+        saveConfig()
     end
+
+    boxLimit.FocusLost:Connect(function() cleanNumber(boxLimit, config.SeedLimits) end)
+    boxBase.FocusLost:Connect(function() cleanNumber(boxBase, config.SeedImportantNumbers) end)
 end
 
+
+end
+
+-- STREAMING_CHUNK:Populating Settings tab...
 populateFromList(SeedScroll, config.SelectedSeeds, MasterPlantList)
 populateFromList(GearScroll, config.SelectedGears, MasterGearList)
 populateFromList(PetScroll, config.SelectedPets, PetOrder)
 populateFromList(PlantScroll, config.SelectedPlantSeeds, MasterPlantList)
 populateHarvestTargets(HarvestScroll, config.SelectedHarvests, MasterPlantList)
-populateFromList(FavListScroll, config.SelectedFavSeeds, MasterPlantList) 
+populateFromList(FavListScroll, config.SelectedFavSeeds, MasterPlantList)
 
 -- POPULATE SETTINGS TAB (HARVEST LIMIT DIHAPUS)
 createToggle(SettingsScroll, "Auto Collect/Harvest", "AutoHarvest", 1)
@@ -484,577 +508,636 @@ createToggle(SettingsScroll, "Auto Buy Gear", "AutoBuyGear", 5)
 createToggle(SettingsScroll, "Auto Buy Pet", "AutoBuyPet", 6)
 createToggle(SettingsScroll, "Auto Claim Rare Seed", "AutoClaimRare", 7)
 createToggle(SettingsScroll, "Force Harvest Mutation [!]", "ForceMutation", 8)
-createToggle(SettingsScroll, "Anti-Night Thief (Auto Hide)", "AntiNightThief", 9) 
+createToggle(SettingsScroll, "Anti-Night Thief (Auto Hide)", "AntiNightThief", 9)
 createMultiModeButton(SettingsScroll, "Move Method:", "MoveMethod", {"Tween", "SpamTP", "Walk"}, 10)
-createTextBox(SettingsScroll, "Bonus Tween Speed:", "TweenSpeed", 11) 
+createTextBox(SettingsScroll, "Bonus Tween Speed:", "TweenSpeed", 11)
 createTextBox(SettingsScroll, "Walk Speed:", "WalkSpeed", 12)
-createToggle(SettingsScroll, "Auto Favorite (Master Switch)", "AutoFavorite", 13) 
+createToggle(SettingsScroll, "Auto Favorite (Master Switch)", "AutoFavorite", 13)
 createTextBox(SettingsScroll, "Fav Threshold (>kg):", "FavoriteThreshold", 14)
-createTextBox(SettingsScroll, "Fav Price (>¢):", "FavoritePrice", 15) 
+createTextBox(SettingsScroll, "Fav Price (>¢):", "FavoritePrice", 15)
 createToggle(SettingsScroll, "Sell 1-by-1 (bukan Sell All)", "SellOneByOne", 16)
 createTextBox(SettingsScroll, "Sell Protect (>=kg):", "SellProtectKg", 17)
 createTextBox(SettingsScroll, "Sell Protect (>=¢):", "SellProtectPrice", 18)
 createToggle(SettingsScroll, "Tampilkan Harga Buah (Inventory)", "ShowFruitPrice", 19)
+createToggle(SettingsScroll, "Auto Boost FPS (Hapus Plot Lain)", "AutoBoostFPS", 20) -- TOGGLE BARU
 print("[GAG2 HUB] MARKER-2: Semua tab & toggle Settings udah selesai dibuat.")
 
 -- =====================================================================
 -- 4. UTILITY FUNCTIONS & SMART PATHFINDING
 -- =====================================================================
+-- STREAMING_CHUNK:Defining smart pathfinding utilities...
 local function getGardenSpawnPoint()
-    local plotId = LocalPlayer:GetAttribute("PlotId")
-    if plotId then
-        local gardensFolder = workspace:FindFirstChild("Gardens")
-        if gardensFolder then
-            local myPlot = gardensFolder:FindFirstChild("Plot" .. tostring(plotId))
-            if myPlot then return myPlot:FindFirstChild("SpawnPoint") end
-        end
-    end
-    return nil
+local plotId = LocalPlayer:GetAttribute("PlotId")
+if plotId then
+local gardensFolder = workspace:FindFirstChild("Gardens")
+if gardensFolder then
+local myPlot = gardensFolder:FindFirstChild("Plot" .. tostring(plotId))
+if myPlot then return myPlot:FindFirstChild("SpawnPoint") end
+end
+end
+return nil
 end
 
 local function getPromptLocation(prompt)
-    if not prompt or not prompt.Parent then return nil, nil end
-    if prompt.Parent:IsA("BasePart") then return prompt.Parent.Position, prompt.Parent.CFrame
-    elseif prompt.Parent:IsA("Attachment") then return prompt.Parent.WorldPosition, prompt.Parent.WorldCFrame
-    elseif prompt.Parent:IsA("Model") then return prompt.Parent:GetPivot().Position, prompt.Parent:GetPivot()
-    else
-        local part = prompt:FindFirstAncestorWhichIsA("BasePart")
-        if part then return part.Position, part.CFrame end
-    end
-    return nil, nil
+if not prompt or not prompt.Parent then return nil, nil end
+if prompt.Parent:IsA("BasePart") then return prompt.Parent.Position, prompt.Parent.CFrame
+elseif prompt.Parent:IsA("Attachment") then return prompt.Parent.WorldPosition, prompt.Parent.WorldCFrame
+elseif prompt.Parent:IsA("Model") then return prompt.Parent:GetPivot().Position, prompt.Parent:GetPivot()
+else
+local part = prompt:FindFirstAncestorWhichIsA("BasePart")
+if part then return part.Position, part.CFrame end
+end
+return nil, nil
 end
 
 local function getBestRoute(targetPos)
-    local char = LocalPlayer.Character
-    if not char or not char:FindFirstChild("HumanoidRootPart") then return math.huge, nil end
-    local currentPos = char.HumanoidRootPart.Position
-    local bestDist = (currentPos - targetPos).Magnitude
-    local bestRoute = nil
-    
-    local teleports = workspace:FindFirstChild("Teleports")
-    if teleports then
-        local sellTP = teleports:FindFirstChild("Sell")
-        if sellTP and sellTP:IsA("BasePart") then local dist = (sellTP.Position - targetPos).Magnitude;
-            if dist < bestDist then bestDist = dist; bestRoute = "Sell" end end
-        local seedsTP = teleports:FindFirstChild("Seeds")
-        if seedsTP and seedsTP:IsA("BasePart") then local dist = (seedsTP.Position - targetPos).Magnitude;
-            if dist < bestDist then bestDist = dist; bestRoute = "Seeds" end end
-    end
-    
-    local spawnPt = getGardenSpawnPoint()
-    if spawnPt and spawnPt:IsA("BasePart") then
-        local dist = (spawnPt.Position - targetPos).Magnitude;
-        if dist < bestDist then bestDist = dist; bestRoute = "Garden" end
-    end
-    return bestDist, bestRoute 
+local char = LocalPlayer.Character
+if not char or not char:FindFirstChild("HumanoidRootPart") then return math.huge, nil end
+local currentPos = char.HumanoidRootPart.Position
+local bestDist = (currentPos - targetPos).Magnitude
+local bestRoute = nil
+
+local teleports = workspace:FindFirstChild("Teleports")
+if teleports then
+    local sellTP = teleports:FindFirstChild("Sell")
+    if sellTP and sellTP:IsA("BasePart") then local dist = (sellTP.Position - targetPos).Magnitude;
+        if dist < bestDist then bestDist = dist; bestRoute = "Sell" end end
+    local seedsTP = teleports:FindFirstChild("Seeds")
+    if seedsTP and seedsTP:IsA("BasePart") then local dist = (seedsTP.Position - targetPos).Magnitude;
+        if dist < bestDist then bestDist = dist; bestRoute = "Seeds" end end
+end
+
+local spawnPt = getGardenSpawnPoint()
+if spawnPt and spawnPt:IsA("BasePart") then
+    local dist = (spawnPt.Position - targetPos).Magnitude;
+    if dist < bestDist then bestDist = dist; bestRoute = "Garden" end
+end
+return bestDist, bestRoute 
+
+
 end
 
 local function getCurrentMoney()
-    local sheckles = LocalPlayer:FindFirstChild("leaderstats") and LocalPlayer.leaderstats:FindFirstChild("Sheckles")
-    return sheckles and sheckles.Value or 0
+local sheckles = LocalPlayer:FindFirstChild("leaderstats") and LocalPlayer.leaderstats:FindFirstChild("Sheckles")
+return sheckles and sheckles.Value or 0
 end
 
+-- STREAMING_CHUNK:Configuring movement logic...
 local noclipConnection = nil
-local currentOrbitConnection = nil 
+local currentOrbitConnection = nil
 
 local function toggleNoclip(state)
-    local char = LocalPlayer.Character
-    if not char then return end
-    if state then
-        if not noclipConnection then noclipConnection = RunService.Stepped:Connect(function() for _, part in pairs(char:GetDescendants()) do if part:IsA("BasePart") and part.CanCollide then part.CanCollide = false end end end) end
-    else
-        if noclipConnection then noclipConnection:Disconnect();
-            noclipConnection = nil end
-    end
+local char = LocalPlayer.Character
+if not char then return end
+if state then
+if not noclipConnection then noclipConnection = RunService.Stepped:Connect(function() for _, part in pairs(char:GetDescendants()) do if part:IsA("BasePart") and part.CanCollide then part.CanCollide = false end end end) end
+else
+if noclipConnection then noclipConnection:Disconnect();
+noclipConnection = nil end
+end
 end
 
 local function stopMovement()
-    if currentOrbitConnection then currentOrbitConnection:Disconnect();
-        currentOrbitConnection = nil end
-    local char = LocalPlayer.Character
-    if char then
-        if char:FindFirstChild("HumanoidRootPart") then char.HumanoidRootPart.Anchored = false end
-        if char:FindFirstChild("Humanoid") then char.Humanoid.WalkSpeed = 16;
-            if char.PrimaryPart then char.Humanoid:MoveTo(char.PrimaryPart.Position) end end
-    end
-    toggleNoclip(false)
+if currentOrbitConnection then currentOrbitConnection:Disconnect();
+currentOrbitConnection = nil end
+local char = LocalPlayer.Character
+if char then
+if char:FindFirstChild("HumanoidRootPart") then char.HumanoidRootPart.Anchored = false end
+if char:FindFirstChild("Humanoid") then char.Humanoid.WalkSpeed = 16;
+if char.PrimaryPart then char.Humanoid:MoveTo(char.PrimaryPart.Position) end end
+end
+toggleNoclip(false)
 end
 
 local function startSpamTP(targetObj)
-    if currentOrbitConnection then return end 
-    stopMovement() 
-    local char = LocalPlayer.Character
-    if not char or not char:FindFirstChild("HumanoidRootPart") then return end
-    toggleNoclip(true) 
+if currentOrbitConnection then return end
+stopMovement()
+local char = LocalPlayer.Character
+if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+toggleNoclip(true)
+
+currentOrbitConnection = RunService.Heartbeat:Connect(function()
+    if not targetObj or not targetObj.Parent or not targetObj:IsDescendantOf(workspace) or not targetObj.Enabled then stopMovement(); Hunt.State = "IDLE"; Hunt.Target = nil; return end
     
-    currentOrbitConnection = RunService.Heartbeat:Connect(function()
-        if not targetObj or not targetObj.Parent or not targetObj:IsDescendantOf(workspace) or not targetObj.Enabled then stopMovement(); Hunt.State = "IDLE"; Hunt.Target = nil; return end
-        
-        local targetPos, targetCFrame = getPromptLocation(targetObj)
-        if not targetCFrame then stopMovement(); return end
-        char:PivotTo(targetCFrame)
-        if fireproximityprompt then fireproximityprompt(targetObj, 1, true) end
-        if Hunt.State == "FLYING" then if Hunt.Type == "PET" then Hunt.InitialMoney = getCurrentMoney() end; Hunt.State = "BUYING";
-            Hunt.GraceTimer = os.clock() + 10 end
-    end)
+    local targetPos, targetCFrame = getPromptLocation(targetObj)
+    if not targetCFrame then stopMovement(); return end
+    char:PivotTo(targetCFrame)
+    if fireproximityprompt then fireproximityprompt(targetObj, 1, true) end
+    if Hunt.State == "FLYING" then if Hunt.Type == "PET" then Hunt.InitialMoney = getCurrentMoney() end; Hunt.State = "BUYING";
+        Hunt.GraceTimer = os.clock() + 10 end
+end)
+
+
 end
 
+-- STREAMING_CHUNK:Setting up linear flight bypass...
 local function startLinearFlight(targetObj)
-    if currentOrbitConnection then return end 
-    stopMovement() 
-    local char = LocalPlayer.Character
-    if not char or not char:FindFirstChild("HumanoidRootPart") then return end
-    local hrp = char.HumanoidRootPart
-    local humanoid = char:FindFirstChild("Humanoid") 
-    toggleNoclip(true)
-    hrp.Anchored = true 
-    
-    currentOrbitConnection = RunService.Heartbeat:Connect(function(deltaTime)
-        if not targetObj or not targetObj.Parent or not targetObj:IsDescendantOf(workspace) or not targetObj.Enabled 
-            then stopMovement(); Hunt.State = "IDLE"; Hunt.Target = nil; return end
-        local targetPos, _ = getPromptLocation(targetObj)
-        if not targetPos then stopMovement(); return end
-        local baseWalkSpeed = 16 
-        if humanoid then baseWalkSpeed = humanoid.WalkSpeed end
-        local bonusSpeed = tonumber(config.TweenSpeed) or 0 
-        local finalApproachSpeed = baseWalkSpeed + bonusSpeed
-        local currentPos = hrp.Position
- 
-        local distToTarget = (currentPos - targetPos).Magnitude
-        if distToTarget > 5 then
-            local moveDist = finalApproachSpeed * deltaTime
-            local moveAlpha = math.clamp(moveDist / distToTarget, 0, 1)
-            local nextPos = currentPos:Lerp(targetPos, moveAlpha)
-            hrp.CFrame = CFrame.new(nextPos)
-        else
-            if Hunt.State == "FLYING" then if Hunt.Type == "PET" then Hunt.InitialMoney = getCurrentMoney() end;
-                Hunt.State = "BUYING"; Hunt.GraceTimer = os.clock() + 5 end
-        end
-        if distToTarget <= 15 then if fireproximityprompt then fireproximityprompt(targetObj, 1, true) end end
-    end)
+if currentOrbitConnection then return end
+stopMovement()
+local char = LocalPlayer.Character
+if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+local hrp = char.HumanoidRootPart
+local humanoid = char:FindFirstChild("Humanoid")
+toggleNoclip(true)
+hrp.Anchored = true
+
+currentOrbitConnection = RunService.Heartbeat:Connect(function(deltaTime)
+    if not targetObj or not targetObj.Parent or not targetObj:IsDescendantOf(workspace) or not targetObj.Enabled 
+        then stopMovement(); Hunt.State = "IDLE"; Hunt.Target = nil; return end
+    local targetPos, _ = getPromptLocation(targetObj)
+    if not targetPos then stopMovement(); return end
+    local baseWalkSpeed = 16 
+    if humanoid then baseWalkSpeed = humanoid.WalkSpeed end
+    local bonusSpeed = tonumber(config.TweenSpeed) or 0 
+    local finalApproachSpeed = baseWalkSpeed + bonusSpeed
+    local currentPos = hrp.Position
+
+    local distToTarget = (currentPos - targetPos).Magnitude
+    if distToTarget > 5 then
+        local moveDist = finalApproachSpeed * deltaTime
+        local moveAlpha = math.clamp(moveDist / distToTarget, 0, 1)
+        local nextPos = currentPos:Lerp(targetPos, moveAlpha)
+        hrp.CFrame = CFrame.new(nextPos)
+    else
+        if Hunt.State == "FLYING" then if Hunt.Type == "PET" then Hunt.InitialMoney = getCurrentMoney() end;
+            Hunt.State = "BUYING"; Hunt.GraceTimer = os.clock() + 5 end
+    end
+    if distToTarget <= 15 then if fireproximityprompt then fireproximityprompt(targetObj, 1, true) end end
+end)
+
+
 end
 
+-- STREAMING_CHUNK:Scanning for rare events...
 local rareEventActive = false
 local function isRareEventName(name) return name == "Goldmoon" or name == "RainbowMoon" end
 local function recheckRareEvent() rareEventActive = (workspace:FindFirstChild("Goldmoon") ~= nil) or (workspace:FindFirstChild("RainbowMoon") ~= nil) end
-recheckRareEvent() 
+recheckRareEvent()
 workspace.ChildAdded:Connect(function(child) if isRareEventName(child.Name) then rareEventActive = true end end)
-workspace.ChildRemoved:Connect(function(child) 
-    if isRareEventName(child.Name) then 
-        recheckRareEvent() 
-        
-        -- Logika: Tunggu 5 detik baru balik ke kebun
-        task.spawn(function()
-            task.wait(5)
-            if Networking and Networking.TeleportButton and Networking.TeleportButton.Request then
-                Networking.TeleportButton.Request:Fire("Garden")
-                task.wait(0.3)
-                
-                -- Tarik koordinat biar mendarat pas di bedengan
-                local spawnPt = getGardenSpawnPoint()
-                if spawnPt and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-                    LocalPlayer.Character.HumanoidRootPart.CFrame = spawnPt.CFrame + Vector3.new(0, 3, 0)
-                end
+workspace.ChildRemoved:Connect(function(child)
+if isRareEventName(child.Name) then
+recheckRareEvent()
+
+    -- Logika: Tunggu 5 detik baru balik ke kebun
+    task.spawn(function()
+        task.wait(5)
+        if Networking and Networking.TeleportButton and Networking.TeleportButton.Request then
+            Networking.TeleportButton.Request:Fire("Garden")
+            task.wait(0.3)
+            
+            -- Tarik koordinat biar mendarat pas di bedengan
+            local spawnPt = getGardenSpawnPoint()
+            if spawnPt and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                LocalPlayer.Character.HumanoidRootPart.CFrame = spawnPt.CFrame + Vector3.new(0, 3, 0)
             end
-        end)
-    end 
+        end
+    end)
+end 
+
+
 end)
 
 local function scanForRare()
-    local bestTarget = nil;
-    local minDistance = math.huge
-    for _, obj in pairs(workspace:GetDescendants()) do
-        if obj:IsA("ProximityPrompt") and obj.Enabled and obj.ActionText == "CLAIM" and (obj.ObjectText == "Gold Seed" or obj.ObjectText == "Rainbow Seed") then
-            local tPos, _ = getPromptLocation(obj)
-            if tPos then local effDist, _ = getBestRoute(tPos);
-                if effDist < minDistance then minDistance = effDist; bestTarget = obj end end
-        end
-    end
-    return bestTarget
+local bestTarget = nil;
+local minDistance = math.huge
+for _, obj in pairs(workspace:GetDescendants()) do
+if obj:IsA("ProximityPrompt") and obj.Enabled and obj.ActionText == "CLAIM" and (obj.ObjectText == "Gold Seed" or obj.ObjectText == "Rainbow Seed") then
+local tPos, _ = getPromptLocation(obj)
+if tPos then local effDist, _ = getBestRoute(tPos);
+if effDist < minDistance then minDistance = effDist; bestTarget = obj end end
+end
+end
+return bestTarget
 end
 
 local function scanForPet()
-    local bestTarget = nil;
-    local bestPrice = 0; local minDistance = math.huge
-    for _, petName in ipairs(PetOrder) do
-        if config.SelectedPets[petName] and PetData[petName] then
-            local targetPriceStr = PetData[petName].PriceStr
-            for _, obj in pairs(workspace:GetDescendants()) do
-                if obj:IsA("ProximityPrompt") and obj.Enabled and obj.ActionText == "Buy" and obj.ObjectText == targetPriceStr then
-                    local tPos, _ = getPromptLocation(obj)
-                    if tPos then local effDist, _ = getBestRoute(tPos);
-                        if effDist < minDistance then minDistance = effDist; bestTarget = obj;
-                            bestPrice = PetData[petName].PriceNum end end
-                end
-            end
-        end
-    end
-    return bestTarget, bestPrice
+local bestTarget = nil;
+local bestPrice = 0; local minDistance = math.huge
+for _, petName in ipairs(PetOrder) do
+if config.SelectedPets[petName] and PetData[petName] then
+local targetPriceStr = PetData[petName].PriceStr
+for _, obj in pairs(workspace:GetDescendants()) do
+if obj:IsA("ProximityPrompt") and obj.Enabled and obj.ActionText == "Buy" and obj.ObjectText == targetPriceStr then
+local tPos, _ = getPromptLocation(obj)
+if tPos then local effDist, _ = getBestRoute(tPos);
+if effDist < minDistance then minDistance = effDist; bestTarget = obj;
+bestPrice = PetData[petName].PriceNum end end
+end
+end
+end
+end
+return bestTarget, bestPrice
 end
 
 -- =====================================================================
 -- 5. THE UNIFIED HUNT ENGINE
 -- =====================================================================
+-- STREAMING_CHUNK:Starting Unified Hunt Engine...
 task.spawn(function()
-    while task.wait(0.2) do
-        if not config.AutoBuyPet and not config.AutoClaimRare then if Hunt.State ~= "IDLE" then Hunt.State = "IDLE"; Hunt.Target = nil; stopMovement() end continue end
+while task.wait(0.2) do
+if not config.AutoBuyPet and not config.AutoClaimRare then if Hunt.State ~= "IDLE" then Hunt.State = "IDLE"; Hunt.Target = nil; stopMovement() end continue end
 
-        if Hunt.State == "IDLE" then
-            if config.AutoClaimRare and rareEventActive then
-                local rareTarget = scanForRare()
-                if rareTarget then
-                    local tPos, _ = getPromptLocation(rareTarget)
-                    if tPos then local _, route = getBestRoute(tPos); if route and Networking and Networking.TeleportButton and Networking.TeleportButton.Request then Networking.TeleportButton.Request:Fire(route);
-                        task.wait(0.3) end end
-                    Hunt.State = "FLYING";
-                    Hunt.Target = rareTarget; Hunt.Type = "RARE"; continue
-                end
-            end
-            
-            if config.AutoBuyPet then
-                local petTarget, priceNum = scanForPet()
-                if petTarget then
-                    local tPos, _ = getPromptLocation(petTarget)
-                    if tPos then local _, route = getBestRoute(tPos);
-                        if route and Networking and Networking.TeleportButton and Networking.TeleportButton.Request then Networking.TeleportButton.Request:Fire(route);
-                            task.wait(0.3) end end
-                    Hunt.State = "FLYING";
-                    Hunt.Target = petTarget; Hunt.Type = "PET"; Hunt.ExpectedPrice = priceNum; continue
-                end
-            end
-
-        elseif Hunt.State == "FLYING" then
-            if not Hunt.Target or not Hunt.Target.Parent or not Hunt.Target:IsDescendantOf(workspace) or not Hunt.Target.Enabled then Hunt.State = "IDLE";
-                Hunt.Target = nil; stopMovement(); continue end
-            if config.MoveMethod == "SpamTP" then startSpamTP(Hunt.Target)
-            elseif config.MoveMethod == "Walk" then
-                local targetPos, _ = getPromptLocation(Hunt.Target)
-                if not targetPos then Hunt.State = "IDLE";
-                    Hunt.Target = nil; stopMovement(); continue end
-                local char = LocalPlayer.Character
-                if char and char:FindFirstChild("HumanoidRootPart") and char:FindFirstChild("Humanoid") then
-                    local dist = (char.HumanoidRootPart.Position - targetPos).Magnitude
-                    if dist > 5 then char.Humanoid.WalkSpeed = tonumber(config.WalkSpeed) or 40; char.Humanoid:MoveTo(targetPos)
-                    else stopMovement();
-                        if Hunt.Type == "PET" then Hunt.InitialMoney = getCurrentMoney() end; Hunt.State = "BUYING";
-                        Hunt.GraceTimer = os.clock() + 5 end
-                end
-            else startLinearFlight(Hunt.Target) end
-
-        elseif Hunt.State == "BUYING" then
-            if config.MoveMethod == "Walk" and Hunt.Target and Hunt.Target:IsDescendantOf(workspace) and Hunt.Target.Enabled then if fireproximityprompt then fireproximityprompt(Hunt.Target, 1, true) end end
-            if Hunt.Target and not Hunt.Target.Enabled then Hunt.State = "IDLE";
-                Hunt.Target = nil; stopMovement(); continue end
-            if Hunt.Type == "PET" then
-                local currentMoney = getCurrentMoney()
-                if currentMoney <= (Hunt.InitialMoney - Hunt.ExpectedPrice) then Hunt.State = "IDLE";
-                    Hunt.Target = nil; stopMovement()
-                elseif os.clock() > Hunt.GraceTimer then Hunt.State = "IDLE";
-                    Hunt.Target = nil; stopMovement() end
-            elseif Hunt.Type == "RARE" then
-                if not Hunt.Target or not Hunt.Target.Parent or not Hunt.Target:IsDescendantOf(workspace) then Hunt.State = "IDLE";
-                    Hunt.Target = nil; stopMovement()
-                elseif os.clock() > Hunt.GraceTimer then Hunt.State = "IDLE";
-                    Hunt.Target = nil; stopMovement() end
+    if Hunt.State == "IDLE" then
+        if config.AutoClaimRare and rareEventActive then
+            local rareTarget = scanForRare()
+            if rareTarget then
+                local tPos, _ = getPromptLocation(rareTarget)
+                if tPos then local _, route = getBestRoute(tPos); if route and Networking and Networking.TeleportButton and Networking.TeleportButton.Request then Networking.TeleportButton.Request:Fire(route);
+                    task.wait(0.3) end end
+                Hunt.State = "FLYING";
+                Hunt.Target = rareTarget; Hunt.Type = "RARE"; continue
             end
         end
+        
+        if config.AutoBuyPet then
+            local petTarget, priceNum = scanForPet()
+            if petTarget then
+                local tPos, _ = getPromptLocation(petTarget)
+                if tPos then local _, route = getBestRoute(tPos);
+                    if route and Networking and Networking.TeleportButton and Networking.TeleportButton.Request then Networking.TeleportButton.Request:Fire(route);
+                        task.wait(0.3) end end
+                Hunt.State = "FLYING";
+                Hunt.Target = petTarget; Hunt.Type = "PET"; Hunt.ExpectedPrice = priceNum; continue
+            end
+        end
+
+    elseif Hunt.State == "FLYING" then
+        if not Hunt.Target or not Hunt.Target.Parent or not Hunt.Target:IsDescendantOf(workspace) or not Hunt.Target.Enabled then Hunt.State = "IDLE";
+            Hunt.Target = nil; stopMovement(); continue end
+        if config.MoveMethod == "SpamTP" then startSpamTP(Hunt.Target)
+        elseif config.MoveMethod == "Walk" then
+            local targetPos, _ = getPromptLocation(Hunt.Target)
+            if not targetPos then Hunt.State = "IDLE";
+                Hunt.Target = nil; stopMovement(); continue end
+            local char = LocalPlayer.Character
+            if char and char:FindFirstChild("HumanoidRootPart") and char:FindFirstChild("Humanoid") then
+                local dist = (char.HumanoidRootPart.Position - targetPos).Magnitude
+                if dist > 5 then char.Humanoid.WalkSpeed = tonumber(config.WalkSpeed) or 40; char.Humanoid:MoveTo(targetPos)
+                else stopMovement();
+                    if Hunt.Type == "PET" then Hunt.InitialMoney = getCurrentMoney() end; Hunt.State = "BUYING";
+                    Hunt.GraceTimer = os.clock() + 5 end
+            end
+        else startLinearFlight(Hunt.Target) end
+
+    elseif Hunt.State == "BUYING" then
+        if config.MoveMethod == "Walk" and Hunt.Target and Hunt.Target:IsDescendantOf(workspace) and Hunt.Target.Enabled then if fireproximityprompt then fireproximityprompt(Hunt.Target, 1, true) end end
+        if Hunt.Target and not Hunt.Target.Enabled then Hunt.State = "IDLE";
+            Hunt.Target = nil; stopMovement(); continue end
+        if Hunt.Type == "PET" then
+            local currentMoney = getCurrentMoney()
+            if currentMoney <= (Hunt.InitialMoney - Hunt.ExpectedPrice) then Hunt.State = "IDLE";
+                Hunt.Target = nil; stopMovement()
+            elseif os.clock() > Hunt.GraceTimer then Hunt.State = "IDLE";
+                Hunt.Target = nil; stopMovement() end
+        elseif Hunt.Type == "RARE" then
+            if not Hunt.Target or not Hunt.Target.Parent or not Hunt.Target:IsDescendantOf(workspace) then Hunt.State = "IDLE";
+                Hunt.Target = nil; stopMovement()
+            elseif os.clock() > Hunt.GraceTimer then Hunt.State = "IDLE";
+                Hunt.Target = nil; stopMovement() end
+        end
     end
+end
+
+
 end)
 
 -- =====================================================================
 -- 6. INDEPENDENT HARVEST MATRIX CORE (DYNAMIC BASE WEIGHT)
 -- =====================================================================
-
+-- STREAMING_CHUNK:Initializing Harvest Matrix Core...
 task.spawn(function()
-    while task.wait(0.5) do
-        if config.AutoHarvest then
-            
-            local isHuntingRare = config.AutoClaimRare and rareEventActive
-            local isMalamHari = config.AntiNightThief and workspace:FindFirstChild("ActiveNight")
-            
-            local spawnPt = getGardenSpawnPoint()
-            if Hunt.State == "IDLE" and not isHuntingRare and not isMalamHari then
-                if spawnPt and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-                    local hrp = LocalPlayer.Character.HumanoidRootPart
-                    if (hrp.Position - spawnPt.Position).Magnitude > 60 then 
-                        hrp.CFrame = spawnPt.CFrame + Vector3.new(0, 3, 0)
-                        task.wait(0.1) 
-                    end
+while task.wait(0.5) do
+if config.AutoHarvest then
+
+        local isHuntingRare = config.AutoClaimRare and rareEventActive
+        local isMalamHari = config.AntiNightThief and workspace:FindFirstChild("ActiveNight")
+        
+        local spawnPt = getGardenSpawnPoint()
+        if Hunt.State == "IDLE" and not isHuntingRare and not isMalamHari then
+            if spawnPt and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                local hrp = LocalPlayer.Character.HumanoidRootPart
+                if (hrp.Position - spawnPt.Position).Magnitude > 60 then 
+                    hrp.CFrame = spawnPt.CFrame + Vector3.new(0, 3, 0)
+                    task.wait(0.1) 
                 end
             end
+        end
 
-            local plotId = LocalPlayer:GetAttribute("PlotId")
-            local gardensFolder = workspace:FindFirstChild("Gardens")
-            local myPlotFolder = gardensFolder and gardensFolder:FindFirstChild("Plot" .. tostring(plotId))
-            
-            if myPlotFolder then
-                for _, obj in pairs(myPlotFolder:GetDescendants()) do
-                    if obj:IsA("ProximityPrompt") and obj.Enabled and (obj.ActionText == "Harvest" or string.find(string.lower(obj.Name), "harvest")) then
-                        
-                        local harvestPart = obj:FindFirstAncestor("HarvestPart") or obj.Parent
-                        local fruitModel = harvestPart and harvestPart.Parent
-                        if not fruitModel then continue end
-                        
-                        local coreName = fruitModel:GetAttribute("CorePartName") or fruitModel.Name
-                        local objectTextName = ""
-                        if obj.ObjectText and obj.ObjectText ~= "" then
-                            for _, mn in ipairs(MasterPlantList) do
-                                if string.find(string.lower(obj.ObjectText), string.lower(mn)) then objectTextName = mn; break end
+        local plotId = LocalPlayer:GetAttribute("PlotId")
+        local gardensFolder = workspace:FindFirstChild("Gardens")
+        local myPlotFolder = gardensFolder and gardensFolder:FindFirstChild("Plot" .. tostring(plotId))
+        
+        if myPlotFolder then
+            for _, obj in pairs(myPlotFolder:GetDescendants()) do
+                if obj:IsA("ProximityPrompt") and obj.Enabled and (obj.ActionText == "Harvest" or string.find(string.lower(obj.Name), "harvest")) then
+                    
+                    local harvestPart = obj:FindFirstAncestor("HarvestPart") or obj.Parent
+                    local fruitModel = harvestPart and harvestPart.Parent
+                    if not fruitModel then continue end
+                    
+                    local coreName = fruitModel:GetAttribute("CorePartName") or fruitModel.Name
+                    local objectTextName = ""
+                    if obj.ObjectText and obj.ObjectText ~= "" then
+                        for _, mn in ipairs(MasterPlantList) do
+                            if string.find(string.lower(obj.ObjectText), string.lower(mn)) then objectTextName = mn; break end
+                        end
+                    end
+                    local finalPlantName = (objectTextName ~= "") and objectTextName or coreName
+                    
+                    local state = config.SelectedHarvests[finalPlantName] or 0
+                    local shouldHarvest = false
+                    
+                    -- CEK 1: FORCE MUTATION
+                    if config.ForceMutation then
+                        local mut = fruitModel:GetAttribute("Mutation")
+                        if mut and type(mut) == "string" and mut ~= "" and mut ~= "None" then
+                            shouldHarvest = true
+                        end
+                    end
+                    
+                    -- CEK 2: DINAMIS HARVEST LIMIT DARI UI
+                    if not shouldHarvest then
+                        if state == 1 then 
+                            shouldHarvest = true
+                        elseif state == 2 then 
+                            -- Ngebaca Textbox Limit KG dan Important Number spesifik buat buah ini
+                            local limitTarget = tonumber(config.SeedLimits[finalPlantName]) or 0
+                            local baseWeight = tonumber(config.SeedImportantNumbers[finalPlantName]) or 0
+                            
+                            local currentWeight = 0
+                            
+                            if baseWeight > 0 then
+                                local sizeMulti = fruitModel:GetAttribute("SizeMulti") or 1
+                                currentWeight = sizeMulti * baseWeight
+                            end
+                            
+                            -- Kalau currentWeight sukses dihitung & di bawah limit target
+                            if currentWeight > 0 and currentWeight < limitTarget then 
+                                shouldHarvest = true 
                             end
                         end
-                        local finalPlantName = (objectTextName ~= "") and objectTextName or coreName
-                        
-                        local state = config.SelectedHarvests[finalPlantName] or 0
-                        local shouldHarvest = false
-                        
-                        -- CEK 1: FORCE MUTATION
-                        if config.ForceMutation then
-                            local mut = fruitModel:GetAttribute("Mutation")
-                            if mut and type(mut) == "string" and mut ~= "" and mut ~= "None" then
-                                shouldHarvest = true
-                            end
-                        end
-                        
-                        -- CEK 2: DINAMIS HARVEST LIMIT DARI UI
-                        if not shouldHarvest then
-                            if state == 1 then 
-                                shouldHarvest = true
-                            elseif state == 2 then 
-                                -- Ngebaca Textbox Limit KG dan Important Number spesifik buat buah ini
-                                local limitTarget = tonumber(config.SeedLimits[finalPlantName]) or 0
-                                local baseWeight = tonumber(config.SeedImportantNumbers[finalPlantName]) or 0
-                                
-                                local currentWeight = 0
-                                
-                                if baseWeight > 0 then
-                                    local sizeMulti = fruitModel:GetAttribute("SizeMulti") or 1
-                                    currentWeight = sizeMulti * baseWeight
-                                end
-                                
-                                -- Kalau currentWeight sukses dihitung & di bawah limit target
-                                if currentWeight > 0 and currentWeight < limitTarget then 
-                                    shouldHarvest = true 
-                                end
-                            end
-                        end
+                    end
 
-                        if shouldHarvest then
-                            if fireproximityprompt then
-                                fireproximityprompt(obj, 1, true)
-                            else
-                                obj:InputHoldBegin()
-                                task.wait(obj.HoldDuration + 0.1)
-                                obj:InputHoldEnd()
-                            end
-                            task.wait(0.05) 
+                    if shouldHarvest then
+                        if fireproximityprompt then
+                            fireproximityprompt(obj, 1, true)
+                        else
+                            obj:InputHoldBegin()
+                            task.wait(obj.HoldDuration + 0.1)
+                            obj:InputHoldEnd()
                         end
+                        task.wait(0.05) 
                     end
                 end
             end
         end
     end
+end
+
+
 end)
 
 -- =====================================================================
 -- 7. TURBO AUTO FAVORITE (EVENT-DRIVEN, INDEPENDEN DARI AUTO SELL)
 -- =====================================================================
+-- STREAMING_CHUNK:Running Turbo Auto Favorite...
 local pendingFavoriteChecks = 0
 local lastFavoriteActionTime = 0
 
 task.spawn(function()
-    local backpack = LocalPlayer:WaitForChild("Backpack")
+local backpack = LocalPlayer:WaitForChild("Backpack")
 
-    local function scanAndFavoriteItem(item)
-        if not item:IsA("Tool") then return end
+local function scanAndFavoriteItem(item)
+    if not item:IsA("Tool") then return end
 
-        pendingFavoriteChecks += 1
-        lastItemAddedTime = os.clock()
+    pendingFavoriteChecks += 1
+    lastItemAddedTime = os.clock()
 
-        local ok, errMsg = pcall(function()
-            task.wait(0.2) 
-            if not config.AutoFavorite then return end
+    local ok, errMsg = pcall(function()
+        task.wait(0.2) 
+        if not config.AutoFavorite then return end
 
-            local isFruit = item:GetAttribute("HarvestedFruit") == true or item:GetAttribute("Fruit") ~= nil
-            if not isFruit then return end
+        local isFruit = item:GetAttribute("HarvestedFruit") == true or item:GetAttribute("Fruit") ~= nil
+        if not isFruit then return end
 
-            local targetKg = tonumber(config.FavoriteThreshold) or 100
-            local targetPrice = tonumber(config.FavoritePrice) or 0
+        local targetKg = tonumber(config.FavoriteThreshold) or 100
+        local targetPrice = tonumber(config.FavoritePrice) or 0
 
-            local rawName = item:GetAttribute("Fruit") or item.Name
-            local fruitName = string.gsub(rawName, "%s*%[%d+%.?%d*k?g?%]", "")
-            fruitName = string.match(fruitName, "^%s*(.-)%s*$") 
+        local rawName = item:GetAttribute("Fruit") or item.Name
+        local fruitName = string.gsub(rawName, "%s*%[%d+%.?%d*k?g?%]", "")
+        fruitName = string.match(fruitName, "^%s*(.-)%s*$") 
 
-            local weight = item:GetAttribute("Weight") or 0
+        local weight = item:GetAttribute("Weight") or 0
 
-            local isNameMatch = config.SelectedFavSeeds[fruitName] == true
-            local isHeavy = (type(weight) == "number" and weight >= targetKg)
+        local isNameMatch = config.SelectedFavSeeds[fruitName] == true
+        local isHeavy = (type(weight) == "number" and weight >= targetKg)
 
-            local isPricy = false
-            local price = item:GetAttribute("FruitValue") or 0 
-            if not isNameMatch and not isHeavy and targetPrice > 0 then
-                local fruitIdForBid = item:GetAttribute("Id")
-                if fruitIdForBid and Networking and Networking.NPCS and Networking.NPCS.GetFruitBid then
-                    local success, bidData = pcall(function()
-                        return Networking.NPCS.GetFruitBid:Fire(fruitIdForBid)
-                    end)
-                    if success and type(bidData) == "table" and bidData.CurrentSellValue then
-                        price = tonumber(bidData.CurrentSellValue) or price 
-                        isPricy = price >= targetPrice
+        local isPricy = false
+        local price = item:GetAttribute("FruitValue") or 0 
+        if not isNameMatch and not isHeavy and targetPrice > 0 then
+            local fruitIdForBid = item:GetAttribute("Id")
+            if fruitIdForBid and Networking and Networking.NPCS and Networking.NPCS.GetFruitBid then
+                local success, bidData = pcall(function()
+                    return Networking.NPCS.GetFruitBid:Fire(fruitIdForBid)
+                end)
+                if success and type(bidData) == "table" and bidData.CurrentSellValue then
+                    price = tonumber(bidData.CurrentSellValue) or price 
+                    isPricy = price >= targetPrice
+                end
+            end
+        end
+
+        if (isNameMatch or isHeavy or isPricy) and item:GetAttribute("IsFavorite") ~= true then
+            local fruitId = item:GetAttribute("Id")
+            if fruitId then
+                pcall(function()
+                    if Networking and Networking.Backpack and Networking.Backpack.SetFruitFavorite then
+                        Networking.Backpack.SetFruitFavorite:Fire(fruitId, true)
                     end
-                end
+                    item:SetAttribute("IsFavorite", true)
+                end)
+                lastFavoriteActionTime = os.clock()
+                print("🔒 [TURBO FAV] Berhasil mengunci: " .. fruitName .. " (" .. tostring(weight) .. "kg | ¢" .. tostring(price) .. ")")
             end
+        end
+    end)
 
-            if (isNameMatch or isHeavy or isPricy) and item:GetAttribute("IsFavorite") ~= true then
-                local fruitId = item:GetAttribute("Id")
-                if fruitId then
-                    pcall(function()
-                        if Networking and Networking.Backpack and Networking.Backpack.SetFruitFavorite then
-                            Networking.Backpack.SetFruitFavorite:Fire(fruitId, true)
-                        end
-                        item:SetAttribute("IsFavorite", true)
-                    end)
-                    lastFavoriteActionTime = os.clock()
-                    print("🔒 [TURBO FAV] Berhasil mengunci: " .. fruitName .. " (" .. tostring(weight) .. "kg | ¢" .. tostring(price) .. ")")
-                end
-            end
-        end)
+    pendingFavoriteChecks -= 1
+    if not ok then warn("[AutoFavorite] error saat proses item:", errMsg) end
+end
 
-        pendingFavoriteChecks -= 1
-        if not ok then warn("[AutoFavorite] error saat proses item:", errMsg) end
-    end
+for _, item in pairs(backpack:GetChildren()) do task.spawn(scanAndFavoriteItem, item) end
+backpack.ChildAdded:Connect(function(item) task.spawn(scanAndFavoriteItem, item) end)
 
-    for _, item in pairs(backpack:GetChildren()) do task.spawn(scanAndFavoriteItem, item) end
-    backpack.ChildAdded:Connect(function(item) task.spawn(scanAndFavoriteItem, item) end)
+
 end)
 
 -- =====================================================================
 -- 8. SMART SATPAM AUTO SELL (MURNI SCAN TAS & HITUNG HARGA)
 -- =====================================================================
+-- STREAMING_CHUNK:Deploying Smart Auto Sell...
 task.spawn(function()
-    while task.wait(0.5) do
-        if (config.AutoSell or config.SellOneByOne) and Networking then
-            local backpack = LocalPlayer:FindFirstChild("Backpack")
-            local character = LocalPlayer.Character
-            
-            local totalItems = 0
-            if backpack then totalItems = totalItems + #backpack:GetChildren() end
-            if character then
-                for _, tool in pairs(character:GetChildren()) do if tool:IsA("Tool") then totalItems = totalItems + 1 end end
-            end
+while task.wait(0.5) do
+if (config.AutoSell or config.SellOneByOne) and Networking then
+local backpack = LocalPlayer:FindFirstChild("Backpack")
+local character = LocalPlayer.Character
 
-            local noPendingChecks = (pendingFavoriteChecks == 0)
-            local waktuHeningCukup = (os.clock() - lastItemAddedTime > 1.0)
-            local clearOfFavoriteAction = (os.clock() - lastFavoriteActionTime > 1.0)
-            local tasNyarisPenuh = (totalItems >= 85)
-            
-            if (waktuHeningCukup and noPendingChecks and clearOfFavoriteAction) or tasNyarisPenuh then
-                if config.SellOneByOne then
-                    if backpack then
-                        local foundAny = false
-                        for _, item in pairs(backpack:GetChildren()) do
-                            local isFruit = item:GetAttribute("HarvestedFruit") == true or item:GetAttribute("Fruit") ~= nil or string.find(item.Name, "%[.-kg%]") ~= nil
+        local totalItems = 0
+        if backpack then totalItems = totalItems + #backpack:GetChildren() end
+        if character then
+            for _, tool in pairs(character:GetChildren()) do if tool:IsA("Tool") then totalItems = totalItems + 1 end end
+        end
+
+        local noPendingChecks = (pendingFavoriteChecks == 0)
+        local waktuHeningCukup = (os.clock() - lastItemAddedTime > 1.0)
+        local clearOfFavoriteAction = (os.clock() - lastFavoriteActionTime > 1.0)
+        local tasNyarisPenuh = (totalItems >= 85)
+        
+        if (waktuHeningCukup and noPendingChecks and clearOfFavoriteAction) or tasNyarisPenuh then
+            if config.SellOneByOne then
+                if backpack then
+                    local foundAny = false
+                    for _, item in pairs(backpack:GetChildren()) do
+                        local isFruit = item:GetAttribute("HarvestedFruit") == true or item:GetAttribute("Fruit") ~= nil or string.find(item.Name, "%[.-kg%]") ~= nil
+                        
+                        if isFruit then
+                            foundAny = true
+                            local fruitId = item:GetAttribute("Id")
+                            local itemNameDbg = item:GetAttribute("Fruit") or item.Name
                             
-                            if isFruit then
-                                foundAny = true
-                                local fruitId = item:GetAttribute("Id")
-                                local itemNameDbg = item:GetAttribute("Fruit") or item.Name
-                                
-                                local timeout = 0
-                                while not fruitId and timeout < 10 do
-                                    task.wait(0.2)
-                                    timeout = timeout + 1
-                                    fruitId = item:GetAttribute("Id")
-                                end
+                            local timeout = 0
+                            while not fruitId and timeout < 10 do
+                                task.wait(0.2)
+                                timeout = timeout + 1
+                                fruitId = item:GetAttribute("Id")
+                            end
 
-                                if not fruitId then
-                                    warn("⚠️ [SELL1-1] Item buta ID, skip: " .. tostring(itemNameDbg))
-                                else
-                                    task.spawn(function()
-                                        local weight = item:GetAttribute("Weight") or 0
-                                        local protectKg = tonumber(config.SellProtectKg) or 0
-                                        local protectPrice = tonumber(config.SellProtectPrice) or 0
+                            if not fruitId then
+                                warn("⚠️ [SELL1-1] Item buta ID, skip: " .. tostring(itemNameDbg))
+                            else
+                                task.spawn(function()
+                                    local weight = item:GetAttribute("Weight") or 0
+                                    local protectKg = tonumber(config.SellProtectKg) or 0
+                                    local protectPrice = tonumber(config.SellProtectPrice) or 0
 
-                                        if protectKg > 0 and weight >= protectKg then return end
+                                    if protectKg > 0 and weight >= protectKg then return end
 
-                                        local currentPrice = item:GetAttribute("BidPrice") or item:GetAttribute("FruitValue") or 0
-                                        if protectPrice > 0 and Networking.NPCS and Networking.NPCS.GetFruitBid then
-                                            local success, bidData = pcall(function()
-                                                return Networking.NPCS.GetFruitBid:Fire(fruitId)
-                                            end)
-                                            if success and type(bidData) == "table" and bidData.CurrentSellValue then
-                                                currentPrice = tonumber(bidData.CurrentSellValue) or currentPrice
-                                            end
-                                            
-                                            if currentPrice >= protectPrice then return end
-                                        end
-
-                                        print(string.format("💰 [SELL1-1] JUAL %s | %.3fkg | Harga: ¢%s", tostring(itemNameDbg), weight, tostring(currentPrice)))
-                                        pcall(function()
-                                            return Networking.NPCS.SellFruit and Networking.NPCS.SellFruit:Fire(fruitId)
+                                    local currentPrice = item:GetAttribute("BidPrice") or item:GetAttribute("FruitValue") or 0
+                                    if protectPrice > 0 and Networking.NPCS and Networking.NPCS.GetFruitBid then
+                                        local success, bidData = pcall(function()
+                                            return Networking.NPCS.GetFruitBid:Fire(fruitId)
                                         end)
+                                        if success and type(bidData) == "table" and bidData.CurrentSellValue then
+                                            currentPrice = tonumber(bidData.CurrentSellValue) or currentPrice
+                                        end
+                                        
+                                        if currentPrice >= protectPrice then return end
+                                    end
+
+                                    print(string.format("💰 [SELL1-1] JUAL %s | %.3fkg | Harga: ¢%s", tostring(itemNameDbg), weight, tostring(currentPrice)))
+                                    pcall(function()
+                                        return Networking.NPCS.SellFruit and Networking.NPCS.SellFruit:Fire(fruitId)
                                     end)
-                                end
+                                end)
                             end
                         end
                     end
-                else
-                    pcall(function() 
-                        if Networking and Networking.NPCS and Networking.NPCS.SellAll then
-                            if typeof(Networking.NPCS.SellAll) == "table" and Networking.NPCS.SellAll.Fire then 
-                                Networking.NPCS.SellAll:Fire() 
-                            elseif typeof(Networking.NPCS.SellAll) == "function" then 
-                                Networking.NPCS.SellAll() 
-                            end 
-                        end
-                    end)
                 end
+            else
+                pcall(function() 
+                    if Networking and Networking.NPCS and Networking.NPCS.SellAll then
+                        if typeof(Networking.NPCS.SellAll) == "table" and Networking.NPCS.SellAll.Fire then 
+                            Networking.NPCS.SellAll:Fire() 
+                        elseif typeof(Networking.NPCS.SellAll) == "function" then 
+                            Networking.NPCS.SellAll() 
+                        end 
+                    end
+                end)
             end
         end
     end
+end
+
+
 end)
 
 -- =====================================================================
 -- 8.5 FRUIT PRICE DISPLAY (OVERLAY DI GUI INVENTORY)
 -- =====================================================================
+-- STREAMING_CHUNK:Configuring Overlay Display for Prices...
 local lastPriceFetchTime = {} -- [tool] = os.clock(), buat throttle live fetch per item
 local PRICE_FETCH_COOLDOWN = 3 -- detik
 
 local function formatPrice(num)
-    num = tonumber(num)
-    if not num then return "?" end
-    if num >= 1000000000 then
-        return string.format("%.1fB", num / 1000000000)
-    elseif num >= 1000000 then
-        return string.format("%.1fM", num / 1000000)
-    elseif num >= 1000 then
-        return string.format("%.1fK", num / 1000)
-    else
-        return tostring(math.floor(num))
-    end
+num = tonumber(num)
+if not num then return "?" end
+if num >= 1000000000 then
+return string.format("%.1fB", num / 1000000000)
+elseif num >= 1000000 then
+return string.format("%.1fM", num / 1000000)
+elseif num >= 1000 then
+return string.format("%.1fK", num / 1000)
+else
+return tostring(math.floor(num))
+end
 end
 
 -- Cari Tool asli dari sebuah card UI di ScrollingFrame, match by FruitName attribute
 local function findActualToolFromCard(cardFrame)
-    local backpack = LocalPlayer:FindFirstChild("Backpack")
-    local character = LocalPlayer.Character
+local backpack = LocalPlayer:FindFirstChild("Backpack")
+local character = LocalPlayer.Character
 
-    local toolNameLbl = cardFrame:FindFirstChild("ToolName")
-    local toolCountLbl = cardFrame:FindFirstChild("ToolCount")
-    if not toolNameLbl then return nil end
+local toolNameLbl = cardFrame:FindFirstChild("ToolName")
+local toolCountLbl = cardFrame:FindFirstChild("ToolCount")
+if not toolNameLbl then return nil end
 
-    local fruitName = toolNameLbl.Text
-    local weightStr = toolCountLbl and string.match(toolCountLbl.Text, "%-?%d+%.?%d*")
-    local weightNum = weightStr and tonumber(weightStr)
+local fruitName = toolNameLbl.Text
+local weightStr = toolCountLbl and string.match(toolCountLbl.Text, "%-?%d+%.?%d*")
+local weightNum = weightStr and tonumber(weightStr)
 
-    local function searchIn(container)
+local function searchIn(container)
+    if not container then return nil end
+    local bestMatch = nil
+    local bestDiff = math.huge
+    for _, tool in pairs(container:GetChildren()) do
+        if tool:IsA("Tool") then
+            -- Match by FruitName attribute (paling akurat)
+            local attrName = tool:GetAttribute("FruitName") or tool:GetAttribute("Fruit")
+            if attrName == fruitName then
+                if weightNum then
+                    local tWeight = tool:GetAttribute("Weight")
+                    if type(tWeight) == "number" then
+                        local diff = math.abs(tWeight - weightNum)
+                        if diff < bestDiff then
+                            bestDiff = diff
+                            bestMatch = tool
+                        end
+                    else
+                        -- Ga ada Weight attribute, langsung return
+                        return tool
+                    end
+                else
+                    return tool
+                end
+            end
+        end
+    end
+    return bestMatch
+end
+
+local result = searchIn(backpack) or searchIn(character)
+if not result then
+    -- Fallback: strip kg dari nama Tool, cocokkan manual
+    local function searchFallback(container)
         if not container then return nil end
         local bestMatch = nil
         local bestDiff = math.huge
         for _, tool in pairs(container:GetChildren()) do
             if tool:IsA("Tool") then
-                -- Match by FruitName attribute (paling akurat)
-                local attrName = tool:GetAttribute("FruitName") or tool:GetAttribute("Fruit")
-                if attrName == fruitName then
+                local tName = tool.Name
+                tName = string.gsub(tName, "%s*%[.-%]", "")
+                tName = string.match(tName, "^%s*(.-)%s*$")
+                if tName == fruitName then
                     if weightNum then
                         local tWeight = tool:GetAttribute("Weight")
                         if type(tWeight) == "number" then
@@ -1064,7 +1147,6 @@ local function findActualToolFromCard(cardFrame)
                                 bestMatch = tool
                             end
                         else
-                            -- Ga ada Weight attribute, langsung return
                             return tool
                         end
                     else
@@ -1075,286 +1157,270 @@ local function findActualToolFromCard(cardFrame)
         end
         return bestMatch
     end
+    result = searchFallback(backpack) or searchFallback(character)
+end
 
-    local result = searchIn(backpack) or searchIn(character)
-    if not result then
-        -- Fallback: strip kg dari nama Tool, cocokkan manual
-        local function searchFallback(container)
-            if not container then return nil end
-            local bestMatch = nil
-            local bestDiff = math.huge
-            for _, tool in pairs(container:GetChildren()) do
-                if tool:IsA("Tool") then
-                    local tName = tool.Name
-                    tName = string.gsub(tName, "%s*%[.-%]", "")
-                    tName = string.match(tName, "^%s*(.-)%s*$")
-                    if tName == fruitName then
-                        if weightNum then
-                            local tWeight = tool:GetAttribute("Weight")
-                            if type(tWeight) == "number" then
-                                local diff = math.abs(tWeight - weightNum)
-                                if diff < bestDiff then
-                                    bestDiff = diff
-                                    bestMatch = tool
-                                end
-                            else
-                                return tool
-                            end
-                        else
-                            return tool
-                        end
-                    end
-                end
-            end
-            return bestMatch
-        end
-        result = searchFallback(backpack) or searchFallback(character)
-    end
-
-    if not result then
-        -- Debug log
-        local candidates = {}
-        local function collectCandidates(container)
-            if not container then return end
-            for _, tool in pairs(container:GetChildren()) do
-                if tool:IsA("Tool") then
-                    local tName = tool:GetAttribute("Fruit") or tool.Name
-                    tName = string.gsub(tName, "%s*%[%d+%.?%d*k?g?%]", "")
-                    tName = string.match(tName, "^%s*(.-)%s*$")
-                    if tName == fruitName then
-                        table.insert(candidates, tostring(tool:GetAttribute("Weight")))
-                    end
+if not result then
+    -- Debug log
+    local candidates = {}
+    local function collectCandidates(container)
+        if not container then return end
+        for _, tool in pairs(container:GetChildren()) do
+            if tool:IsA("Tool") then
+                local tName = tool:GetAttribute("Fruit") or tool.Name
+                tName = string.gsub(tName, "%s*%[%d+%.?%d*k?g?%]", "")
+                tName = string.match(tName, "^%s*(.-)%s*$")
+                if tName == fruitName then
+                    table.insert(candidates, tostring(tool:GetAttribute("Weight")))
                 end
             end
         end
-        collectCandidates(backpack)
-        collectCandidates(character)
-        warn(string.format("[FruitPriceDisplay] GAGAL match | nama='%s' (len=%d) | beratUI=%s | beratTool_kandidat=[%s]", fruitName, #fruitName, tostring(weightNum), table.concat(candidates, ", ")))
     end
-    return result
+    collectCandidates(backpack)
+    collectCandidates(character)
+    warn(string.format("[FruitPriceDisplay] GAGAL match | nama='%s' (len=%d) | beratUI=%s | beratTool_kandidat=[%s]", fruitName, #fruitName, tostring(weightNum), table.concat(candidates, ", ")))
+end
+return result
+
+
 end
 
 local function getOrCreatePriceLabel(cardFrame)
-    local lbl = cardFrame:FindFirstChild("FruitPriceLabel")
-    if not lbl then
-        lbl = Instance.new("TextLabel")
-        lbl.Name = "FruitPriceLabel"
-        lbl.Size = UDim2.new(1, 0, 0, 14)
-        lbl.Position = UDim2.new(0, 0, 1, -14) -- baris baru, nempel di bawah card
-        lbl.BackgroundTransparency = 0.35
-        lbl.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-        lbl.BorderSizePixel = 0
-        lbl.Text = "¢..."
-        lbl.TextColor3 = Color3.fromRGB(120, 255, 120)
-        lbl.Font = Enum.Font.GothamBold
-        lbl.TextSize = 11
-        lbl.ZIndex = (cardFrame.ZIndex or 1) + 5
-        lbl.Parent = cardFrame
-    end
-    return lbl
+local lbl = cardFrame:FindFirstChild("FruitPriceLabel")
+if not lbl then
+lbl = Instance.new("TextLabel")
+lbl.Name = "FruitPriceLabel"
+lbl.Size = UDim2.new(1, 0, 0, 14)
+lbl.Position = UDim2.new(0, 0, 1, -14) -- baris baru, nempel di bawah card
+lbl.BackgroundTransparency = 0.35
+lbl.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+lbl.BorderSizePixel = 0
+lbl.Text = "¢..."
+lbl.TextColor3 = Color3.fromRGB(120, 255, 120)
+lbl.Font = Enum.Font.GothamBold
+lbl.TextSize = 11
+lbl.ZIndex = (cardFrame.ZIndex or 1) + 5
+lbl.Parent = cardFrame
+end
+return lbl
 end
 
+-- STREAMING_CHUNK:Fetching live market prices...
 local function updateCardPrice(cardFrame)
-    local lbl = getOrCreatePriceLabel(cardFrame)
-    if not config.ShowFruitPrice then
-        lbl.Visible = false
-        return
-    end
-    lbl.Visible = true
+local lbl = getOrCreatePriceLabel(cardFrame)
+if not config.ShowFruitPrice then
+lbl.Visible = false
+return
+end
+lbl.Visible = true
 
-    local item = findActualToolFromCard(cardFrame)
-    if not item then
-        lbl.Text = "¢?"
-        return
-    end
+local item = findActualToolFromCard(cardFrame)
+if not item then
+    lbl.Text = "¢?"
+    return
+end
 
-    local staticPrice = item:GetAttribute("FruitValue")
-    if staticPrice then lbl.Text = "¢" .. formatPrice(staticPrice) end
+local staticPrice = item:GetAttribute("FruitValue")
+if staticPrice then lbl.Text = "¢" .. formatPrice(staticPrice) end
 
-    -- Live fetch harga pasar, di-throttle biar gak spam remote
-    local now = os.clock()
-    if (lastPriceFetchTime[item] or 0) + PRICE_FETCH_COOLDOWN > now then return end
-    lastPriceFetchTime[item] = now
+-- Live fetch harga pasar, di-throttle biar gak spam remote
+local now = os.clock()
+if (lastPriceFetchTime[item] or 0) + PRICE_FETCH_COOLDOWN > now then return end
+lastPriceFetchTime[item] = now
 
-    local fruitId = item:GetAttribute("Id")
-    if fruitId and Networking and Networking.NPCS and Networking.NPCS.GetFruitBid then
-        task.spawn(function()
-            local success, bidData = pcall(function()
-                return Networking.NPCS.GetFruitBid:Fire(fruitId)
-            end)
-            if success and type(bidData) == "table" and bidData.CurrentSellValue then
-                lbl.Text = "¢" .. formatPrice(bidData.CurrentSellValue)
-            end
+local fruitId = item:GetAttribute("Id")
+if fruitId and Networking and Networking.NPCS and Networking.NPCS.GetFruitBid then
+    task.spawn(function()
+        local success, bidData = pcall(function()
+            return Networking.NPCS.GetFruitBid:Fire(fruitId)
         end)
-    end
+        if success and type(bidData) == "table" and bidData.CurrentSellValue then
+            lbl.Text = "¢" .. formatPrice(bidData.CurrentSellValue)
+        end
+    end)
+end
+
+
 end
 
 local function isFruitCard(frame)
-    return frame:FindFirstChild("ToolName") ~= nil and frame:FindFirstChild("ToolCount") ~= nil
+return frame:FindFirstChild("ToolName") ~= nil and frame:FindFirstChild("ToolCount") ~= nil
 end
 
+-- STREAMING_CHUNK:Spawning overlay refresh loops...
 task.spawn(function()
-    local backpackGui = PlayerGui:WaitForChild("BackpackGui", 10)
-    local backpackFrame = backpackGui and backpackGui:WaitForChild("Backpack", 10)
-    local inventory = backpackFrame and backpackFrame:WaitForChild("Inventory", 10)
-    local scrollFrame = inventory and inventory:WaitForChild("ScrollingFrame", 10)
+local backpackGui = PlayerGui:WaitForChild("BackpackGui", 10)
+local backpackFrame = backpackGui and backpackGui:WaitForChild("Backpack", 10)
+local inventory = backpackFrame and backpackFrame:WaitForChild("Inventory", 10)
+local scrollFrame = inventory and inventory:WaitForChild("ScrollingFrame", 10)
 
-    if not scrollFrame then
-        warn("[FruitPriceDisplay] Gagal nemu path GUI: PlayerGui.BackpackGui.Backpack.Inventory.ScrollingFrame")
-        return
-    end
+if not scrollFrame then
+    warn("[FruitPriceDisplay] Gagal nemu path GUI: PlayerGui.BackpackGui.Backpack.Inventory.ScrollingFrame")
+    return
+end
 
+for _, frame in pairs(scrollFrame:GetDescendants()) do
+    if isFruitCard(frame) then task.spawn(updateCardPrice, frame) end
+end
+
+-- Card baru muncul pas item baru masuk inventory (hasil harvest dll)
+-- Pakai DescendantAdded karena card ada di dalam container UIGridFrame, bukan langsung child ScrollingFrame
+scrollFrame.DescendantAdded:Connect(function(frame)
+    task.wait(0.15)
+    if isFruitCard(frame) then task.spawn(updateCardPrice, frame) end
+end)
+
+-- Loop refresh berkala: update harga & handle toggle on/off (sembunyikan label kalau off)
+while task.wait(2) do
     for _, frame in pairs(scrollFrame:GetDescendants()) do
         if isFruitCard(frame) then task.spawn(updateCardPrice, frame) end
     end
+end
 
-    -- Card baru muncul pas item baru masuk inventory (hasil harvest dll)
-    -- Pakai DescendantAdded karena card ada di dalam container UIGridFrame, bukan langsung child ScrollingFrame
-    scrollFrame.DescendantAdded:Connect(function(frame)
-        task.wait(0.15)
-        if isFruitCard(frame) then task.spawn(updateCardPrice, frame) end
-    end)
 
-    -- Loop refresh berkala: update harga & handle toggle on/off (sembunyikan label kalau off)
-    while task.wait(2) do
-        for _, frame in pairs(scrollFrame:GetDescendants()) do
-            if isFruitCard(frame) then task.spawn(updateCardPrice, frame) end
-        end
-    end
 end)
 
 -- ==========================================
 -- ANTI-MALING MALAM HARI (AUTO GUARD PLOT)
 -- ==========================================
+-- STREAMING_CHUNK:Securing Anti-Night Thief...
 task.spawn(function()
-    while task.wait(0.5) do
-        if config.AntiNightThief then
-            local nightModel = workspace:FindFirstChild("ActiveNight")
-            if nightModel then
-                local plotId = LocalPlayer:GetAttribute("PlotId")
-                if plotId then
-                    local gardens = workspace:FindFirstChild("Gardens")
-                    local myPlot = gardens and gardens:FindFirstChild("Plot" .. tostring(plotId))
-                    local targetInsidePos = nil
-                    
-                    if myPlot and myPlot:FindFirstChild("Visual") then
-                        local firstBed = myPlot.Visual:FindFirstChild("BedSection1") or myPlot.Visual:FindFirstChildWhichIsA("BasePart")
-                        if firstBed then targetInsidePos = firstBed.Position + Vector3.new(0, 3, 0) end
-                    end
-                    if not targetInsidePos and myPlot then targetInsidePos = myPlot:GetPivot().Position + Vector3.new(0, 3, 0) end
+while task.wait(0.5) do
+if config.AntiNightThief then
+local nightModel = workspace:FindFirstChild("ActiveNight")
+if nightModel then
+local plotId = LocalPlayer:GetAttribute("PlotId")
+if plotId then
+local gardens = workspace:FindFirstChild("Gardens")
+local myPlot = gardens and gardens:FindFirstChild("Plot" .. tostring(plotId))
+local targetInsidePos = nil
 
-                    local char = LocalPlayer.Character
-                    if targetInsidePos and char and char:FindFirstChild("HumanoidRootPart") then
-                        local hrp = char.HumanoidRootPart
-                        local jarakDariKebun = (hrp.Position - targetInsidePos).Magnitude
-                        if jarakDariKebun > 25 then
-                            stopMovement() 
-                            hrp.CFrame = CFrame.new(targetInsidePos)
-                            hrp.Velocity = Vector3.new(0, 0, 0) 
-                            print("🛡️ [ANTI-THIEF] Mengunci Posisi Aman Di Dalam Kebun.")
-                        end
-                    end
+                if myPlot and myPlot:FindFirstChild("Visual") then
+                    local firstBed = myPlot.Visual:FindFirstChild("BedSection1") or myPlot.Visual:FindFirstChildWhichIsA("BasePart")
+                    if firstBed then targetInsidePos = firstBed.Position + Vector3.new(0, 3, 0) end
                 end
-            end
-        end
-    end
-end)
+                if not targetInsidePos and myPlot then targetInsidePos = myPlot:GetPivot().Position + Vector3.new(0, 3, 0) end
 
-task.spawn(function()
-    while task.wait(1) do
-        if config.AutoBuySeed and Networking then
-            local SeedShopUI = PlayerGui:WaitForChild("SeedShop", 5) and PlayerGui.SeedShop:WaitForChild("Frame", 5) and PlayerGui.SeedShop.Frame:WaitForChild("NormalShop", 5)
-            for seedName, isSelected in pairs(config.SelectedSeeds) do if isSelected and SeedShopUI and SeedShopUI:FindFirstChild(seedName) then pcall(function() Networking.SeedShop.PurchaseSeed:Fire(seedName, 1) end) end end
-        end
-        if config.AutoBuyGear and Networking then
-            local GearShopUI = PlayerGui:WaitForChild("GearShop", 5) and PlayerGui.GearShop:WaitForChild("Frame", 5) and PlayerGui.GearShop.Frame:WaitForChild("ScrollingFrame", 5)
-            for gearName, isSelected in pairs(config.SelectedGears) do if isSelected and GearShopUI and GearShopUI:FindFirstChild(gearName) then pcall(function() Networking.GearShop.PurchaseGear:Fire(gearName) end) end end
-        end
-    end
-end)
-
-task.spawn(function()
-    while task.wait(1) do
-        if config.AutoPlant then
-            local char = LocalPlayer.Character;
-            if not char then continue end
-            local seedTool = nil
-            for seedName, isSelected in pairs(config.SelectedPlantSeeds) do
-                if isSelected then
-                    local seedNameLower = string.lower(seedName)
-                    for _, tool in pairs(char:GetChildren()) do if tool:IsA("Tool") and string.find(string.lower(tool.Name), seedNameLower) then seedTool = tool;
-                        break end end
-                    if not seedTool and LocalPlayer:FindFirstChild("Backpack") then
-                        for _, tool in pairs(LocalPlayer.Backpack:GetChildren()) do if tool:IsA("Tool") and string.find(string.lower(tool.Name), seedNameLower) then seedTool = tool;
-                            break end end
-                    end
-                    if seedTool then break end 
-                end
-            end
-
-            if seedTool and seedTool:GetAttribute("SeedTool") then
-                local seedValue = seedTool:GetAttribute("SeedTool")
-                if seedTool.Parent ~= char then seedTool.Parent = char;
-                    task.wait(0.2) end
-                local plotId = LocalPlayer:GetAttribute("PlotId")
-                if plotId then
-                    local gardens = workspace:FindFirstChild("Gardens")
-                    local myPlot = gardens and gardens:FindFirstChild("Plot" .. tostring(plotId))
-                    if myPlot and myPlot:FindFirstChild("Visual") then
-                        local spacing = 2.5 
-                        for _, bed in pairs(myPlot.Visual:GetChildren()) do
-                            if string.find(bed.Name, "BedSection") then
-                                local bedCFrame, bedSize = bed:GetBoundingBox()
-                                for x = -bedSize.X/2 + spacing, bedSize.X/2 - spacing, spacing do
-                                    for z = -bedSize.Z/2 + spacing, bedSize.Z/2 - spacing, spacing do
-                                        if not config.AutoPlant then break end 
-                                        local targetPos = (bedCFrame * CFrame.new(x, bedSize.Y/2, z)).Position
-                                        if Networking and Networking.Plant and Networking.Plant.PlantSeed then Networking.Plant.PlantSeed:Fire(targetPos, seedValue, seedTool);
-                                            task.wait(0.05) end
-                                    end
-                                    if not config.AutoPlant then break end
-                                end
-                            end
-                            if not config.AutoPlant then break end
-                        end
-                    end
-                end
-            else
-                task.wait(2) 
-            end
-        end
-    end
-end)
-
-task.spawn(function()
-    local function eksekusiGusur()
-        if config.AutoBoostFPS then
-            local myPlotId = LocalPlayer:GetAttribute("PlotId")
-            local gardensFolder = workspace:FindFirstChild("Gardens")
-            if gardensFolder and myPlotId then
-                local myPlotName = "Plot" .. tostring(myPlotId)
-                for _, plot in pairs(gardensFolder:GetChildren()) do if string.find(plot.Name, "Plot") and plot.Name ~= myPlotName then plot:Destroy() end end
-            end
-        end
-    end
-    task.wait(2);
-    eksekusiGusur()
-    while task.wait(30) do eksekusiGusur() end
-end)
-
-task.spawn(function()
-    local VirtualUser = game:GetService("VirtualUser")
-    while task.wait(180) do
-        if config.AntiAFK then
-            pcall(function()
-                VirtualUser:CaptureController()
-                VirtualUser:ClickButton2(Vector2.new())
                 local char = LocalPlayer.Character
-                if char and char:FindFirstChild("Humanoid") then char.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping) end
-                print("🛡️ Lentera Keamanan: Sistem Anti-AFK berhasil mereset timer server!")
-            end)
+                if targetInsidePos and char and char:FindFirstChild("HumanoidRootPart") then
+                    local hrp = char.HumanoidRootPart
+                    local jarakDariKebun = (hrp.Position - targetInsidePos).Magnitude
+                    if jarakDariKebun > 25 then
+                        stopMovement() 
+                        hrp.CFrame = CFrame.new(targetInsidePos)
+                        hrp.Velocity = Vector3.new(0, 0, 0) 
+                        print("🛡️ [ANTI-THIEF] Mengunci Posisi Aman Di Dalam Kebun.")
+                    end
+                end
+            end
         end
     end
+end
+
+
+end)
+
+-- STREAMING_CHUNK:Automating Seed and Gear purchases...
+task.spawn(function()
+while task.wait(1) do
+if config.AutoBuySeed and Networking then
+local SeedShopUI = PlayerGui:WaitForChild("SeedShop", 5) and PlayerGui.SeedShop:WaitForChild("Frame", 5) and PlayerGui.SeedShop.Frame:WaitForChild("NormalShop", 5)
+for seedName, isSelected in pairs(config.SelectedSeeds) do if isSelected and SeedShopUI and SeedShopUI:FindFirstChild(seedName) then pcall(function() Networking.SeedShop.PurchaseSeed:Fire(seedName, 1) end) end end
+end
+if config.AutoBuyGear and Networking then
+local GearShopUI = PlayerGui:WaitForChild("GearShop", 5) and PlayerGui.GearShop:WaitForChild("Frame", 5) and PlayerGui.GearShop.Frame:WaitForChild("ScrollingFrame", 5)
+for gearName, isSelected in pairs(config.SelectedGears) do if isSelected and GearShopUI and GearShopUI:FindFirstChild(gearName) then pcall(function() Networking.GearShop.PurchaseGear:Fire(gearName) end) end end
+end
+end
+end)
+
+-- STREAMING_CHUNK:Processing Auto Plant matrix...
+task.spawn(function()
+while task.wait(1) do
+if config.AutoPlant then
+local char = LocalPlayer.Character;
+if not char then continue end
+local seedTool = nil
+for seedName, isSelected in pairs(config.SelectedPlantSeeds) do
+if isSelected then
+local seedNameLower = string.lower(seedName)
+for _, tool in pairs(char:GetChildren()) do if tool:IsA("Tool") and string.find(string.lower(tool.Name), seedNameLower) then seedTool = tool;
+break end end
+if not seedTool and LocalPlayer:FindFirstChild("Backpack") then
+for _, tool in pairs(LocalPlayer.Backpack:GetChildren()) do if tool:IsA("Tool") and string.find(string.lower(tool.Name), seedNameLower) then seedTool = tool;
+break end end
+end
+if seedTool then break end
+end
+end
+
+        if seedTool and seedTool:GetAttribute("SeedTool") then
+            local seedValue = seedTool:GetAttribute("SeedTool")
+            if seedTool.Parent ~= char then seedTool.Parent = char;
+                task.wait(0.2) end
+            local plotId = LocalPlayer:GetAttribute("PlotId")
+            if plotId then
+                local gardens = workspace:FindFirstChild("Gardens")
+                local myPlot = gardens and gardens:FindFirstChild("Plot" .. tostring(plotId))
+                if myPlot and myPlot:FindFirstChild("Visual") then
+                    local spacing = 2.5 
+                    for _, bed in pairs(myPlot.Visual:GetChildren()) do
+                        if string.find(bed.Name, "BedSection") then
+                            local bedCFrame, bedSize = bed:GetBoundingBox()
+                            for x = -bedSize.X/2 + spacing, bedSize.X/2 - spacing, spacing do
+                                for z = -bedSize.Z/2 + spacing, bedSize.Z/2 - spacing, spacing do
+                                    if not config.AutoPlant then break end 
+                                    local targetPos = (bedCFrame * CFrame.new(x, bedSize.Y/2, z)).Position
+                                    if Networking and Networking.Plant and Networking.Plant.PlantSeed then Networking.Plant.PlantSeed:Fire(targetPos, seedValue, seedTool);
+                                        task.wait(0.05) end
+                                end
+                                if not config.AutoPlant then break end
+                            end
+                        end
+                        if not config.AutoPlant then break end
+                    end
+                end
+            end
+        else
+            task.wait(2) 
+        end
+    end
+end
+
+
+end)
+
+-- STREAMING_CHUNK:Executing Auto Boost FPS cleaner...
+task.spawn(function()
+local function eksekusiGusur()
+if config.AutoBoostFPS then
+local myPlotId = LocalPlayer:GetAttribute("PlotId")
+local gardensFolder = workspace:FindFirstChild("Gardens")
+if gardensFolder and myPlotId then
+local myPlotName = "Plot" .. tostring(myPlotId)
+for _, plot in pairs(gardensFolder:GetChildren()) do if string.find(plot.Name, "Plot") and plot.Name ~= myPlotName then plot:Destroy() end end
+end
+end
+end
+task.wait(2);
+eksekusiGusur()
+while task.wait(30) do eksekusiGusur() end
+end)
+
+-- STREAMING_CHUNK:Finalizing Anti-AFK mechanics...
+task.spawn(function()
+local VirtualUser = game:GetService("VirtualUser")
+while task.wait(180) do
+if config.AntiAFK then
+pcall(function()
+VirtualUser:CaptureController()
+VirtualUser:ClickButton2(Vector2.new())
+local char = LocalPlayer.Character
+if char and char:FindFirstChild("Humanoid") then char.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping) end
+print("🛡️ Lentera Keamanan: Sistem Anti-AFK berhasil mereset timer server!")
+end)
+end
+end
 end)
 
 print("[GAG2 HUB] MARKER-FINAL: Seluruh script berhasil dijalankan sampai baris terakhir, tanpa error.")
