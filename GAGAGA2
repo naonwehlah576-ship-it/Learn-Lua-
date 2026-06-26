@@ -1089,236 +1089,92 @@ end)
 -- 8.5 FRUIT PRICE DISPLAY (OVERLAY DI GUI INVENTORY)
 -- =====================================================================
 -- STREAMING_CHUNK:Configuring Overlay Display for Prices...
-local lastPriceFetchTime = {} -- [tool] = os.clock(), buat throttle live fetch per item
-local PRICE_FETCH_COOLDOWN = 3 -- detik
 
 local function formatPrice(num)
 num = tonumber(num)
 if not num then return "?" end
-if num >= 1000000000 then
-return string.format("%.1fB", num / 1000000000)
-elseif num >= 1000000 then
-return string.format("%.1fM", num / 1000000)
-elseif num >= 1000 then
-return string.format("%.1fK", num / 1000)
-else
-return tostring(math.floor(num))
-end
-end
-
--- Cari item asli (Tool ATAU Configuration, dua-duanya bisa nyimpen fruit data) dari sebuah card UI di ScrollingFrame
-local function findActualToolFromCard(cardFrame)
-local backpack = LocalPlayer:FindFirstChild("Backpack")
-local character = LocalPlayer.Character
-
-local toolNameLbl = cardFrame:FindFirstChild("ToolName")
-local toolCountLbl = cardFrame:FindFirstChild("ToolCount")
-if not toolNameLbl then return nil end
-
-local fruitName = toolNameLbl.Text
-local weightStr = toolCountLbl and string.match(toolCountLbl.Text, "%-?%d+%.?%d*")
-local weightNum = weightStr and tonumber(weightStr)
-
-local function searchIn(container)
-    if not container then return nil end
-    local bestMatch = nil
-    local bestDiff = math.huge
-    for _, tool in pairs(container:GetChildren()) do
-        -- TIDAK filter ClassName -- item buah bisa berupa Tool (kalau lagi dipegang) ATAU Configuration (kalau cuma nangkring di tas)
-        -- Match by FruitName attribute (paling akurat)
-        local attrName = tool:GetAttribute("FruitName") or tool:GetAttribute("Fruit")
-        if attrName == fruitName then
-            if weightNum then
-                local tWeight = tool:GetAttribute("Weight")
-                if type(tWeight) == "number" then
-                    local diff = math.abs(tWeight - weightNum)
-                    if diff < bestDiff then
-                        bestDiff = diff
-                        bestMatch = tool
-                    end
-                else
-                    -- Ga ada Weight attribute, langsung return
-                    return tool
-                end
-            else
-                return tool
-            end
-        end
-    end
-    return bestMatch
-end
-
-local result = searchIn(backpack) or searchIn(character)
-if not result then
-    -- Fallback: strip kg dari nama Tool, cocokkan manual
-    local function searchFallback(container)
-        if not container then return nil end
-        local bestMatch = nil
-        local bestDiff = math.huge
-        for _, tool in pairs(container:GetChildren()) do
-            local tName = tool.Name
-            tName = string.gsub(tName, "%s*%[.-%]", "")
-            tName = string.match(tName, "^%s*(.-)%s*$")
-            if tName == fruitName then
-                if weightNum then
-                    local tWeight = tool:GetAttribute("Weight")
-                    if type(tWeight) == "number" then
-                        local diff = math.abs(tWeight - weightNum)
-                        if diff < bestDiff then
-                            bestDiff = diff
-                            bestMatch = tool
-                        end
-                    else
-                        return tool
-                    end
-                else
-                    return tool
-                end
-            end
-        end
-        return bestMatch
-    end
-    result = searchFallback(backpack) or searchFallback(character)
-end
-
-if not result then
-    -- Debug log
-    local candidates = {}
-    local function collectCandidates(container)
-        if not container then return end
-        for _, tool in pairs(container:GetChildren()) do
-            local tName = tool:GetAttribute("Fruit") or tool.Name
-            tName = string.gsub(tName, "%s*%[%d+%.?%d*k?g?%]", "")
-            tName = string.match(tName, "^%s*(.-)%s*$")
-            if tName == fruitName then
-                table.insert(candidates, tostring(tool:GetAttribute("Weight")))
-            end
-        end
-    end
-    collectCandidates(backpack)
-    collectCandidates(character)
-    warn(string.format("[FruitPriceDisplay] GAGAL match | nama='%s' (len=%d) | beratUI=%s | beratTool_kandidat=[%s]", fruitName, #fruitName, tostring(weightNum), table.concat(candidates, ", ")))
-end
-return result
-
-
-end
-
--- Overlay GUI terpisah khusus buat label harga, BUKAN child dari card -- biar gak numpuk/ke-clip sama isi card yang sempit
-local FruitPriceOverlayGui = PlayerGui:FindFirstChild("FruitPriceOverlayGui")
-if not FruitPriceOverlayGui then
-    FruitPriceOverlayGui = Instance.new("ScreenGui")
-    FruitPriceOverlayGui.Name = "FruitPriceOverlayGui"
-    FruitPriceOverlayGui.ResetOnSpawn = false
-    FruitPriceOverlayGui.DisplayOrder = 999
-    FruitPriceOverlayGui.Parent = PlayerGui
-end
-
-local priceLabelsByCard = {} -- [cardFrame] = TextLabel
-
-local function getOrCreateFloatingLabel(cardFrame)
-local lbl = priceLabelsByCard[cardFrame]
-if not lbl or not lbl.Parent then
-lbl = Instance.new("TextLabel")
-lbl.Name = "FruitPriceFloatingLabel"
-lbl.AnchorPoint = Vector2.new(0, 0)
-lbl.BackgroundTransparency = 0.25
-lbl.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-lbl.BorderSizePixel = 0
-lbl.Text = "¢..."
-lbl.TextColor3 = Color3.fromRGB(120, 255, 120)
-lbl.Font = Enum.Font.GothamBold
-lbl.TextSize = 11
-lbl.Parent = FruitPriceOverlayGui
-priceLabelsByCard[cardFrame] = lbl
-end
-return lbl
-end
-
--- Update posisi label biar nempel persis di atas card yang dia wakilin (card-nya sendiri gak diubah/ditambah child apapun)
--- Cek apakah cardFrame beneran kelihatan di layar (semua ancestor-nya Visible/Enabled),
--- soalnya AbsolutePosition/AbsoluteSize tetep ngasih nilai lama walaupun panel inventory-nya udah ditutup
-local function isFullyVisible(obj)
-local current = obj
-while current and current ~= PlayerGui do
-    if current:IsA("GuiObject") and not current.Visible then
-        return false
-    end
-    if current:IsA("ScreenGui") and not current.Enabled then
-        return false
-    end
-    current = current.Parent
-end
-return true
-end
-
-local function syncFloatingLabelPosition(cardFrame, lbl)
-if not isFullyVisible(cardFrame) then
-    lbl.Visible = false
-    return
-end
-local pos = cardFrame.AbsolutePosition
-local size = cardFrame.AbsoluteSize
-if size.X <= 0 or size.Y <= 0 then
-    lbl.Visible = false
-    return
-end
-lbl.Visible = true
-lbl.Position = UDim2.fromOffset(pos.X, pos.Y)
-lbl.Size = UDim2.fromOffset(size.X, 14)
-end
-
--- STREAMING_CHUNK:Fetching live market prices...
-local function updateCardPrice(cardFrame)
-local lbl = getOrCreateFloatingLabel(cardFrame)
-if not config.ShowFruitPrice then
-lbl.Visible = false
-return
-end
-
-syncFloatingLabelPosition(cardFrame, lbl)
-if not lbl.Visible then return end
-
-local item = findActualToolFromCard(cardFrame)
-if not item then
-    lbl.Text = "¢?"
-    return
-end
-
-local bidPrice = item:GetAttribute("BidPrice")
-local staticPrice = item:GetAttribute("FruitValue")
-if type(bidPrice) == "number" and bidPrice > 0 then
-    lbl.Text = "¢" .. formatPrice(bidPrice)
-elseif staticPrice then
-    lbl.Text = "¢" .. formatPrice(staticPrice)
-end
-
--- Live fetch harga pasar (cuma kalau BidPrice masih 0/kosong), di-throttle biar gak spam remote
-if type(bidPrice) == "number" and bidPrice > 0 then return end
-local now = os.clock()
-if (lastPriceFetchTime[item] or 0) + PRICE_FETCH_COOLDOWN > now then return end
-lastPriceFetchTime[item] = now
-
-local fruitId = item:GetAttribute("Id")
-if fruitId and Networking and Networking.NPCS and Networking.NPCS.GetFruitBid then
-    task.spawn(function()
-        local success, bidData = pcall(function()
-            return Networking.NPCS.GetFruitBid:Fire(fruitId)
-        end)
-        if success and type(bidData) == "table" and bidData.CurrentSellValue then
-            lbl.Text = "¢" .. formatPrice(bidData.CurrentSellValue)
-        end
-    end)
-end
-
-
+if num >= 1000000000 then return string.format("%.1fB", num / 1000000000)
+elseif num >= 1000000 then return string.format("%.1fM", num / 1000000)
+elseif num >= 1000 then return string.format("%.1fK", num / 1000)
+else return tostring(math.floor(num)) end
 end
 
 local function isFruitCard(frame)
 return frame:FindFirstChild("ToolName") ~= nil and frame:FindFirstChild("ToolCount") ~= nil
 end
 
--- STREAMING_CHUNK:Spawning overlay refresh loops...
+local function buildBackpackLookup()
+local lookup = {}
+for _, item in ipairs(LocalPlayer.Backpack:GetChildren()) do
+if item.ClassName == "Configuration" then
+local fn = item:GetAttribute("FruitName")
+if fn then
+if not lookup[fn] then lookup[fn] = {} end
+table.insert(lookup[fn], item)
+end
+end
+end
+return lookup
+end
+
+local function clearPriceTags(scrollFrame)
+for _, slot in ipairs(scrollFrame:GetDescendants()) do
+if isFruitCard(slot) then
+local tag = slot:FindFirstChild("_PriceTag")
+if tag then tag:Destroy() end
+end
+end
+end
+
+local function injectPriceTags(scrollFrame)
+local lookup = buildBackpackLookup()
+local usedLookup = {}
+for k, v in pairs(lookup) do usedLookup[k] = {table.unpack(v)} end
+
+for _, slot in ipairs(scrollFrame:GetDescendants()) do
+if not isFruitCard(slot) then continue end
+if slot:FindFirstChild("_PriceTag") then continue end
+
+local toolNameLabel = slot:FindFirstChild("ToolName")
+if not toolNameLabel then continue end
+local fruitName = toolNameLabel.Text
+if not fruitName or fruitName == "" then continue end
+
+local configs = usedLookup[fruitName]
+local fruitId = nil
+if configs and #configs > 0 then
+fruitId = configs[1]:GetAttribute("Id")
+table.remove(configs, 1)
+end
+
+local priceText = "¢?"
+if fruitId and Networking and Networking.NPCS and Networking.NPCS.GetFruitBid then
+local ok, result = pcall(function()
+return Networking.NPCS.GetFruitBid:Fire(fruitId)
+end)
+if ok and result then
+local price = result.CurrentSellValue or result.CurrentOffer or result.BidPrice or 0
+priceText = "¢" .. formatPrice(price)
+end
+end
+
+local tag = Instance.new("TextLabel")
+tag.Name = "_PriceTag"
+tag.Size = UDim2.new(1, 0, 0, 14)
+tag.Position = UDim2.new(0, 0, 1, -14)
+tag.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+tag.BackgroundTransparency = 0.3
+tag.TextColor3 = Color3.fromRGB(100, 255, 100)
+tag.Text = priceText
+tag.Font = Enum.Font.GothamBold
+tag.TextSize = 11
+tag.ZIndex = (slot.ZIndex or 1) + 5
+tag.BorderSizePixel = 0
+tag.Parent = slot
+Instance.new("UICorner", tag).CornerRadius = UDim.new(0, 3)
+end
+end
+
 task.spawn(function()
 local backpackGui = PlayerGui:WaitForChild("BackpackGui", 10)
 local backpackFrame = backpackGui and backpackGui:WaitForChild("Backpack", 10)
@@ -1326,42 +1182,24 @@ local inventory = backpackFrame and backpackFrame:WaitForChild("Inventory", 10)
 local scrollFrame = inventory and inventory:WaitForChild("ScrollingFrame", 10)
 
 if not scrollFrame then
-    warn("[FruitPriceDisplay] Gagal nemu path GUI: PlayerGui.BackpackGui.Backpack.Inventory.ScrollingFrame")
-    return
+warn("[FruitPriceDisplay] Gagal nemu path GUI: PlayerGui.BackpackGui.Backpack.Inventory.ScrollingFrame")
+return
 end
 
-for _, frame in pairs(scrollFrame:GetDescendants()) do
-    if isFruitCard(frame) then task.spawn(updateCardPrice, frame) end
+local lastState = false
+while task.wait(3) do
+local currentState = config.ShowFruitPrice
+if currentState ~= lastState then
+if not currentState then
+clearPriceTags(scrollFrame)
 end
-
--- Card baru muncul pas item baru masuk inventory (hasil harvest dll)
--- Pakai DescendantAdded karena card ada di dalam container UIGridFrame, bukan langsung child ScrollingFrame
-scrollFrame.DescendantAdded:Connect(function(frame)
-    task.wait(0.15)
-    if isFruitCard(frame) then task.spawn(updateCardPrice, frame) end
-end)
-
--- Loop ringan: cuma sync POSISI label tiap 0.1detik biar ngikutin pas di-scroll (gak ngitung ulang harga di sini, biar murah)
-task.spawn(function()
-    while task.wait(0.1) do
-        if config.ShowFruitPrice then
-            for cardFrame, lbl in pairs(priceLabelsByCard) do
-                if cardFrame.Parent then
-                    syncFloatingLabelPosition(cardFrame, lbl)
-                end
-            end
-        end
-    end
-end)
-
--- Loop refresh berkala: update harga & handle toggle on/off (sembunyikan label kalau off)
-while task.wait(2) do
-    for _, frame in pairs(scrollFrame:GetDescendants()) do
-        if isFruitCard(frame) then task.spawn(updateCardPrice, frame) end
-    end
+lastState = currentState
 end
-
-
+if config.ShowFruitPrice then
+clearPriceTags(scrollFrame)
+injectPriceTags(scrollFrame)
+end
+end
 end)
 
 -- ==========================================
