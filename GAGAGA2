@@ -1204,33 +1204,59 @@ return result
 
 end
 
-local function getOrCreatePriceLabel(cardFrame)
-local lbl = cardFrame:FindFirstChild("FruitPriceLabel")
-if not lbl then
+-- Overlay GUI terpisah khusus buat label harga, BUKAN child dari card -- biar gak numpuk/ke-clip sama isi card yang sempit
+local FruitPriceOverlayGui = PlayerGui:FindFirstChild("FruitPriceOverlayGui")
+if not FruitPriceOverlayGui then
+    FruitPriceOverlayGui = Instance.new("ScreenGui")
+    FruitPriceOverlayGui.Name = "FruitPriceOverlayGui"
+    FruitPriceOverlayGui.ResetOnSpawn = false
+    FruitPriceOverlayGui.DisplayOrder = 999
+    FruitPriceOverlayGui.Parent = PlayerGui
+end
+
+local priceLabelsByCard = {} -- [cardFrame] = TextLabel
+
+local function getOrCreateFloatingLabel(cardFrame)
+local lbl = priceLabelsByCard[cardFrame]
+if not lbl or not lbl.Parent then
 lbl = Instance.new("TextLabel")
-lbl.Name = "FruitPriceLabel"
-lbl.Size = UDim2.new(1, 0, 0, 14)
-lbl.Position = UDim2.new(0, 0, 1, -14) -- baris baru, nempel di bawah card
-lbl.BackgroundTransparency = 0.35
+lbl.Name = "FruitPriceFloatingLabel"
+lbl.AnchorPoint = Vector2.new(0, 0)
+lbl.BackgroundTransparency = 0.25
 lbl.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
 lbl.BorderSizePixel = 0
 lbl.Text = "¢..."
 lbl.TextColor3 = Color3.fromRGB(120, 255, 120)
 lbl.Font = Enum.Font.GothamBold
 lbl.TextSize = 11
-lbl.ZIndex = (cardFrame.ZIndex or 1) + 5
-lbl.Parent = cardFrame
+lbl.Parent = FruitPriceOverlayGui
+priceLabelsByCard[cardFrame] = lbl
 end
 return lbl
 end
 
+-- Update posisi label biar nempel persis di atas card yang dia wakilin (card-nya sendiri gak diubah/ditambah child apapun)
+local function syncFloatingLabelPosition(cardFrame, lbl)
+local pos = cardFrame.AbsolutePosition
+local size = cardFrame.AbsoluteSize
+if size.X <= 0 or size.Y <= 0 then
+    lbl.Visible = false
+    return
+end
+lbl.Position = UDim2.fromOffset(pos.X, pos.Y)
+lbl.Size = UDim2.fromOffset(size.X, 14)
+end
+
 -- STREAMING_CHUNK:Fetching live market prices...
 local function updateCardPrice(cardFrame)
-local lbl = getOrCreatePriceLabel(cardFrame)
+local lbl = getOrCreateFloatingLabel(cardFrame)
 if not config.ShowFruitPrice then
 lbl.Visible = false
 return
 end
+
+syncFloatingLabelPosition(cardFrame, lbl)
+if not lbl.Visible and cardFrame.AbsoluteSize.X <= 0 then return end
 lbl.Visible = true
 
 local item = findActualToolFromCard(cardFrame)
@@ -1293,6 +1319,19 @@ end
 scrollFrame.DescendantAdded:Connect(function(frame)
     task.wait(0.15)
     if isFruitCard(frame) then task.spawn(updateCardPrice, frame) end
+end)
+
+-- Loop ringan: cuma sync POSISI label tiap 0.1detik biar ngikutin pas di-scroll (gak ngitung ulang harga di sini, biar murah)
+task.spawn(function()
+    while task.wait(0.1) do
+        if config.ShowFruitPrice then
+            for cardFrame, lbl in pairs(priceLabelsByCard) do
+                if cardFrame.Parent then
+                    syncFloatingLabelPosition(cardFrame, lbl)
+                end
+            end
+        end
+    end
 end)
 
 -- Loop refresh berkala: update harga & handle toggle on/off (sembunyikan label kalau off)
