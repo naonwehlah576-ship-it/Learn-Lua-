@@ -72,7 +72,7 @@ local MasterGearList = {
     "Uncommon Sprinkler", "Vine Wrapper", "Wheelbarrow"
 }
 
-local FILE_NAME = "GAG2_Automation_Config_v15.json"
+local FILE_NAME = "GAG2_Automation_Config_v14.json"
 local config = {
     AutoHarvest = false, AutoSell = false, AutoBuySeed = false,
     AutoBuyGear = false, AutoClaimRare = false, AutoBuyPet = false, AutoPlant = false,
