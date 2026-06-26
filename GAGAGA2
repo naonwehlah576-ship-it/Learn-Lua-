@@ -1106,7 +1106,7 @@ return tostring(math.floor(num))
 end
 end
 
--- Cari Tool asli dari sebuah card UI di ScrollingFrame, match by FruitName attribute
+-- Cari item asli (Tool ATAU Configuration, dua-duanya bisa nyimpen fruit data) dari sebuah card UI di ScrollingFrame
 local function findActualToolFromCard(cardFrame)
 local backpack = LocalPlayer:FindFirstChild("Backpack")
 local character = LocalPlayer.Character
@@ -1124,25 +1124,24 @@ local function searchIn(container)
     local bestMatch = nil
     local bestDiff = math.huge
     for _, tool in pairs(container:GetChildren()) do
-        if tool:IsA("Tool") then
-            -- Match by FruitName attribute (paling akurat)
-            local attrName = tool:GetAttribute("FruitName") or tool:GetAttribute("Fruit")
-            if attrName == fruitName then
-                if weightNum then
-                    local tWeight = tool:GetAttribute("Weight")
-                    if type(tWeight) == "number" then
-                        local diff = math.abs(tWeight - weightNum)
-                        if diff < bestDiff then
-                            bestDiff = diff
-                            bestMatch = tool
-                        end
-                    else
-                        -- Ga ada Weight attribute, langsung return
-                        return tool
+        -- TIDAK filter ClassName -- item buah bisa berupa Tool (kalau lagi dipegang) ATAU Configuration (kalau cuma nangkring di tas)
+        -- Match by FruitName attribute (paling akurat)
+        local attrName = tool:GetAttribute("FruitName") or tool:GetAttribute("Fruit")
+        if attrName == fruitName then
+            if weightNum then
+                local tWeight = tool:GetAttribute("Weight")
+                if type(tWeight) == "number" then
+                    local diff = math.abs(tWeight - weightNum)
+                    if diff < bestDiff then
+                        bestDiff = diff
+                        bestMatch = tool
                     end
                 else
+                    -- Ga ada Weight attribute, langsung return
                     return tool
                 end
+            else
+                return tool
             end
         end
     end
@@ -1157,25 +1156,23 @@ if not result then
         local bestMatch = nil
         local bestDiff = math.huge
         for _, tool in pairs(container:GetChildren()) do
-            if tool:IsA("Tool") then
-                local tName = tool.Name
-                tName = string.gsub(tName, "%s*%[.-%]", "")
-                tName = string.match(tName, "^%s*(.-)%s*$")
-                if tName == fruitName then
-                    if weightNum then
-                        local tWeight = tool:GetAttribute("Weight")
-                        if type(tWeight) == "number" then
-                            local diff = math.abs(tWeight - weightNum)
-                            if diff < bestDiff then
-                                bestDiff = diff
-                                bestMatch = tool
-                            end
-                        else
-                            return tool
+            local tName = tool.Name
+            tName = string.gsub(tName, "%s*%[.-%]", "")
+            tName = string.match(tName, "^%s*(.-)%s*$")
+            if tName == fruitName then
+                if weightNum then
+                    local tWeight = tool:GetAttribute("Weight")
+                    if type(tWeight) == "number" then
+                        local diff = math.abs(tWeight - weightNum)
+                        if diff < bestDiff then
+                            bestDiff = diff
+                            bestMatch = tool
                         end
                     else
                         return tool
                     end
+                else
+                    return tool
                 end
             end
         end
@@ -1190,13 +1187,11 @@ if not result then
     local function collectCandidates(container)
         if not container then return end
         for _, tool in pairs(container:GetChildren()) do
-            if tool:IsA("Tool") then
-                local tName = tool:GetAttribute("Fruit") or tool.Name
-                tName = string.gsub(tName, "%s*%[%d+%.?%d*k?g?%]", "")
-                tName = string.match(tName, "^%s*(.-)%s*$")
-                if tName == fruitName then
-                    table.insert(candidates, tostring(tool:GetAttribute("Weight")))
-                end
+            local tName = tool:GetAttribute("Fruit") or tool.Name
+            tName = string.gsub(tName, "%s*%[%d+%.?%d*k?g?%]", "")
+            tName = string.match(tName, "^%s*(.-)%s*$")
+            if tName == fruitName then
+                table.insert(candidates, tostring(tool:GetAttribute("Weight")))
             end
         end
     end
@@ -1244,10 +1239,16 @@ if not item then
     return
 end
 
+local bidPrice = item:GetAttribute("BidPrice")
 local staticPrice = item:GetAttribute("FruitValue")
-if staticPrice then lbl.Text = "¢" .. formatPrice(staticPrice) end
+if type(bidPrice) == "number" and bidPrice > 0 then
+    lbl.Text = "¢" .. formatPrice(bidPrice)
+elseif staticPrice then
+    lbl.Text = "¢" .. formatPrice(staticPrice)
+end
 
--- Live fetch harga pasar, di-throttle biar gak spam remote
+-- Live fetch harga pasar (cuma kalau BidPrice masih 0/kosong), di-throttle biar gak spam remote
+if type(bidPrice) == "number" and bidPrice > 0 then return end
 local now = os.clock()
 if (lastPriceFetchTime[item] or 0) + PRICE_FETCH_COOLDOWN > now then return end
 lastPriceFetchTime[item] = now
