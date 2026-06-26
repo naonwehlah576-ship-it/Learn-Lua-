@@ -1,1 +1,1697 @@
-s
+-- =====================================================================
+-- AUTO BYPASS "PRESS ANY KEY" INTRO SCREEN
+-- =====================================================================
+if not game:IsLoaded() then
+    game.Loaded:Wait()
+end
+
+task.spawn(function()
+    local VirtualInputManager = game:GetService("VirtualInputManager")
+    for i = 1, 120 do
+        pcall(function()
+            VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Y, false, game)
+            task.wait(0.1)
+            VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Y, false, game)
+        end)
+        task.wait(1)
+    end
+end)
+
+-- =====================================================================
+-- GROW A GARDEN 2 - AUTOMATION PREMIUM HUB V25 (AUTO SHOVEL INTEGRATED)
+-- Features: Smart Favorite Tab, Condition-Based Auto Sell, Smart Harvest, Auto Shovel
+-- Config File: GAG2_Automation_Config_v15.json
+-- =====================================================================
+
+local Players = game:GetService("Players")
+local HttpService = game:GetService("HttpService")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+
+-- 1. NETWORKING SETUP
+local Networking = nil
+pcall(function()
+    Networking = require(ReplicatedStorage:WaitForChild("SharedModules"):WaitForChild("Networking"))
+end)
+
+-- 2. DATA, CONFIG & MASTER LISTS
+local PetData = {
+    ["Frog"] = { PriceStr = "¢10,000", PriceNum = 10000 },
+    ["Bunny"] = { PriceStr = "¢20,000", PriceNum = 20000 },
+    ["Owl"] = { PriceStr = "¢25,000", PriceNum = 25000 },
+    ["Deer"] = { PriceStr = "¢50,000", PriceNum = 50000 },
+    ["Robin"] = { PriceStr = "¢75,000", PriceNum = 75000 },
+    ["Bee"] = { PriceStr = "¢1,000,000", PriceNum = 1000000 },
+    ["Monkey"] = { PriceStr = "¢3,000,000", PriceNum = 3000000 },
+    ["Bear"] = { PriceStr = "¢5,000,000", PriceNum = 5000000 },
+    ["Golden Dragonfly"] = { PriceStr = "¢9,000,000", PriceNum = 9000000 },
+    ["Unicorn"] = { PriceStr = "¢12,000,000", PriceNum = 12000000 },
+    ["Racoon"] = { PriceStr = "¢15,000,000", PriceNum = 15000000 }
+}
+local PetOrder = {"Frog", "Bunny", "Owl", "Deer", "Robin", "Bee", "Monkey", "Bear", "Golden Dragonfly", "Unicorn", "Racoon"}
+
+local MasterPlantList = {
+    "Acorn", "Apple", "Bamboo", "Banana", "Blueberry", "Cactus", "Carrot", "Cherry",
+    "Coconut", "Corn", "Dragon Fruit", "Dragon's Breath", "Ghost Pepper", "Gold Seed", "Grape",
+    "Green Bean", "Mango", "Moon Bloom", "Mushroom", "Pineapple", "Poison Apple", "Pomegranate",
+    "Rainbow Seed", "Strawberry", "Sunflower", "Tomato", "Tulip", "Venom Spitter", "Venus Fly Trap"
+}
+
+local MasterGearList = {
+    "Basic Pot", "Common Sprinkler", "Common Watering Can", "Flashbang", "Freeze Ray",
+    "Gnome", "Grappling Hook", "Invisibility Mushroom", "Jump Mushroom", "Lantern",
+    "Legendary Sprinkler", "Megaphone", "Pet Server Teleporter", "Player Magnet",
+    "Power Hose", "Rainbow Carpet", "Rare Sprinkler", "Shackles", "Shrink Mushroom",
+    "Sign", "Speed Mushroom", "Spice Spritzer Sprinkler", "Super Sprinkler",
+    "Super Watering Can", "Supersize Mushroom", "Teleporter", "Trowel",
+    "Uncommon Sprinkler", "Vine Wrapper", "Wheelbarrow"
+}
+
+local FILE_NAME = "GAG2_Automation_Config_v15.json"
+local config = {
+    AutoHarvest = false, AutoSell = false, AutoBuySeed = false,
+    AutoBuyGear = false, AutoClaimRare = false, AutoBuyPet = false, AutoPlant = false,
+    AutoFavorite = false, AutoBoostFPS = false, AntiAFK = false, ForceMutation = true,
+    AntiNightThief = true, ShowFruitPrice = false, AutoReconnect = false,
+    AutoShovel = false, ShovelInterval = "0.5",
+    TweenSpeed = "50", WalkSpeed = "40", MoveMethod = "Tween",
+    FavoriteThreshold = "100", FavoritePrice = "0",
+    SellOneByOne = false, SellProtectKg = "50", SellProtectPrice = "1000000",
+    SelectedSeeds = {}, SelectedGears = {}, SelectedPets = {}, SelectedPlantSeeds = {},
+    SelectedHarvests = {}, SelectedFavSeeds = {}, SelectedShovels = {},
+    SeedLimits = {}, SeedImportantNumbers = {}, 
+    ShovelLimits = {}, ShovelBaseWeights = {}
+}
+
+local Hunt = { State = "IDLE", Target = nil, Type = nil, GraceTimer = 0, InitialMoney = 0, ExpectedPrice = 0 }
+local lastItemAddedTime = 0
+
+local function saveConfig() if writefile then pcall(function() writefile(FILE_NAME, HttpService:JSONEncode(config)) end) end end
+local function loadConfig()
+    if readfile and isfile and isfile(FILE_NAME) then
+        local success, decoded = pcall(function() return HttpService:JSONDecode(readfile(FILE_NAME)) end)
+        if success and type(decoded) == "table" then
+            for k, v in pairs(decoded) do if config[k] ~= nil then config[k] = v end end
+        end
+    end
+end
+loadConfig()
+
+-- 3. GUI CREATION (TAB SYSTEM)
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "GAG2_Automation_Hub"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+local existingGui = game:GetService("CoreGui"):FindFirstChild("GAG2_Automation_Hub") or PlayerGui:FindFirstChild("GAG2_Automation_Hub")
+if existingGui then existingGui:Destroy() end
+pcall(function() ScreenGui.Parent = game:GetService("CoreGui") end)
+if not ScreenGui.Parent then ScreenGui.Parent = PlayerGui end
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 920, 0, 550)
+MainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+MainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
+MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+MainFrame.BorderSizePixel = 0
+MainFrame.ClipsDescendants = true
+MainFrame.Parent = ScreenGui
+Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 8)
+
+local uiScale = Instance.new("UIScale")
+uiScale.Parent = MainFrame
+local function updateScale() 
+    local viewport = workspace.CurrentCamera.ViewportSize
+    local scaleX = viewport.X / 960
+    local scaleY = viewport.Y / 580
+    local minScale = math.min(scaleX, scaleY)
+    if minScale < 1 then uiScale.Scale = minScale else uiScale.Scale = 1 end 
+end
+updateScale()
+workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(updateScale)
+
+UserInputService.InputBegan:Connect(function(input, gameProcessed) 
+    if not gameProcessed and input.KeyCode == Enum.KeyCode.RightControl then MainFrame.Visible = not MainFrame.Visible end 
+end)
+
+local Topbar = Instance.new("Frame")
+Topbar.Size = UDim2.new(1, 0, 0, 35)
+Topbar.BackgroundColor3 = Color3.fromRGB(28, 28, 28)
+Topbar.BorderSizePixel = 0
+Topbar.Parent = MainFrame
+Instance.new("UICorner", Topbar).CornerRadius = UDim.new(0, 8)
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, -80, 1, 0)
+Title.Position = UDim2.new(0, 12, 0, 0)
+Title.BackgroundTransparency = 1
+Title.Text = "Grow a Garden 2 Hub Dafa Goreng v25 (Auto Shovel)"
+Title.TextColor3 = Color3.fromRGB(240, 240, 240)
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 14
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Parent = Topbar
+
+local CloseBtn = Instance.new("TextButton")
+CloseBtn.Size = UDim2.new(0, 30, 0, 30)
+CloseBtn.Position = UDim2.new(1, -32, 0, 2)
+CloseBtn.BackgroundTransparency = 1
+CloseBtn.Text = "✕"
+CloseBtn.TextColor3 = Color3.fromRGB(150, 150, 150)
+CloseBtn.Font = Enum.Font.GothamBold
+CloseBtn.TextSize = 16
+CloseBtn.Parent = Topbar
+CloseBtn.MouseButton1Click:Connect(function() ScreenGui:Destroy() end)
+
+local MinBtn = Instance.new("TextButton")
+MinBtn.Size = UDim2.new(0, 30, 0, 30)
+MinBtn.Position = UDim2.new(1, -62, 0, 2)
+MinBtn.BackgroundTransparency = 1
+MinBtn.Text = "—"
+MinBtn.TextColor3 = Color3.fromRGB(150, 150, 150)
+MinBtn.Font = Enum.Font.GothamBold
+MinBtn.TextSize = 16
+MinBtn.Parent = Topbar
+local isMinimized = false
+MinBtn.MouseButton1Click:Connect(function() 
+    isMinimized = not isMinimized 
+    TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quint), {Size = isMinimized and UDim2.new(0, 920, 0, 35) or UDim2.new(0, 920, 0, 550)}):Play() 
+end)
+
+local dragging, dragInput, dragStart, startPos
+Topbar.InputBegan:Connect(function(input) 
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then 
+        dragging = true; dragStart = input.Position; startPos = MainFrame.Position
+        input.Changed:Connect(function() if input.UserInputState == Enum.UserInputState.End then dragging = false end end) 
+    end 
+end)
+Topbar.InputChanged:Connect(function(input) 
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then dragInput = input end 
+end)
+UserInputService.InputChanged:Connect(function(input) 
+    if input == dragInput and dragging then 
+        local delta = input.Position - dragStart
+        MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y) 
+    end 
+end)
+
+local TabContainer = Instance.new("Frame")
+TabContainer.Size = UDim2.new(1, -20, 0, 30)
+TabContainer.Position = UDim2.new(0, 10, 0, 40)
+TabContainer.BackgroundTransparency = 1
+TabContainer.Parent = MainFrame
+local TabLayout = Instance.new("UIListLayout")
+TabLayout.FillDirection = Enum.FillDirection.Horizontal
+TabLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+TabLayout.Padding = UDim.new(0, 10)
+TabLayout.Parent = TabContainer
+
+local function createTabButton(text)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(0, 125, 1, 0)
+    btn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+    btn.TextColor3 = Color3.fromRGB(200, 200, 200)
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 11
+    btn.Text = text
+    btn.BorderSizePixel = 0
+    btn.Parent = TabContainer
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+    return btn
+end
+
+local TabSettings = createTabButton("⚙️ SETTINGS")
+local TabFarming = createTabButton("🌾 FARMING")
+local TabFavorite = createTabButton("⭐ AUTO FAV")
+local TabShop = createTabButton("🛒 SHOP")
+local TabShovel = createTabButton("⛏️ SHOVEL")
+
+local ContentContainer = Instance.new("Frame")
+ContentContainer.Size = UDim2.new(1, -20, 1, -85)
+ContentContainer.Position = UDim2.new(0, 10, 0, 75)
+ContentContainer.BackgroundTransparency = 1
+ContentContainer.Parent = MainFrame
+local ContentLayout = Instance.new("UIListLayout")
+ContentLayout.FillDirection = Enum.FillDirection.Horizontal
+ContentLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+ContentLayout.SortOrder = Enum.SortOrder.LayoutOrder
+ContentLayout.Padding = UDim.new(0, 15)
+ContentLayout.Parent = ContentContainer
+
+local function createPanel(width, order)
+    local pnl = Instance.new("Frame")
+    pnl.Size = UDim2.new(0, width, 1, 0)
+    pnl.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+    pnl.BorderSizePixel = 0
+    pnl.LayoutOrder = order
+    pnl.Parent = ContentContainer
+    Instance.new("UICorner", pnl).CornerRadius = UDim.new(0, 6)
+    return pnl
+end
+
+local LeftPanel = createPanel(350, 1)
+local PlantPanel = createPanel(280, 1)
+local HarvestPanel = createPanel(280, 2)
+local FavListPanel = createPanel(450, 1)
+local SeedPanel = createPanel(280, 1)
+local GearPanel = createPanel(280, 2)
+local PetPanel = createPanel(280, 3)
+local ShovelPanel = createPanel(280, 1)
+
+local function switchTab(tabName)
+    TabSettings.BackgroundColor3 = (tabName == "Settings") and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(45, 45, 45)
+    TabFarming.BackgroundColor3 = (tabName == "Farming") and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(45, 45, 45)
+    TabFavorite.BackgroundColor3 = (tabName == "Favorite") and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(45, 45, 45)
+    TabShop.BackgroundColor3 = (tabName == "Shop") and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(45, 45, 45)
+    TabShovel.BackgroundColor3 = (tabName == "Shovel") and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(45, 45, 45)
+
+    LeftPanel.Visible = (tabName == "Settings")
+    PlantPanel.Visible = (tabName == "Farming")
+    HarvestPanel.Visible = (tabName == "Farming")
+    FavListPanel.Visible = (tabName == "Favorite")
+    SeedPanel.Visible = (tabName == "Shop")
+    GearPanel.Visible = (tabName == "Shop")
+    PetPanel.Visible = (tabName == "Shop")
+    ShovelPanel.Visible = (tabName == "Shovel")
+end
+
+TabSettings.MouseButton1Click:Connect(function() switchTab("Settings") end)
+TabFarming.MouseButton1Click:Connect(function() switchTab("Farming") end)
+TabFavorite.MouseButton1Click:Connect(function() switchTab("Favorite") end)
+TabShop.MouseButton1Click:Connect(function() switchTab("Shop") end)
+TabShovel.MouseButton1Click:Connect(function() switchTab("Shovel") end)
+switchTab("Settings")
+
+local function createScrollList(parent, titleText)
+    local lbl = Instance.new("TextLabel")
+    lbl.Size = UDim2.new(1, 0, 0, 25)
+    lbl.BackgroundTransparency = 1
+    lbl.Text = titleText
+    lbl.TextColor3 = Color3.fromRGB(180, 180, 180)
+    lbl.Font = Enum.Font.GothamBold
+    lbl.TextSize = 12
+    lbl.Parent = parent
+    local sf = Instance.new("ScrollingFrame")
+    sf.Size = UDim2.new(1, -10, 1, -35)
+    sf.Position = UDim2.new(0, 5, 0, 30)
+    sf.BackgroundTransparency = 1
+    sf.BorderSizePixel = 0
+    sf.ScrollBarThickness = 3
+    sf.ScrollBarImageColor3 = Color3.fromRGB(80, 80, 80)
+    sf.Parent = parent
+    sf.CanvasSize = UDim2.new(0, 0, 0, 0)
+    sf.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    local layout = Instance.new("UIListLayout")
+    layout.Padding = UDim.new(0, 4)
+    layout.SortOrder = Enum.SortOrder.LayoutOrder
+    layout.Parent = sf
+    return sf
+end
+
+local SettingsScroll = createScrollList(LeftPanel, "GENERAL CONFIGURATION")
+local SeedScroll = createScrollList(SeedPanel, "SHOP: SEEDS")
+local GearScroll = createScrollList(GearPanel, "SHOP: GEARS")
+local PetScroll = createScrollList(PetPanel, "SHOP: PETS")
+local PlantScroll = createScrollList(PlantPanel, "PLANT: SEEDS")
+local HarvestScroll = createScrollList(HarvestPanel, "HARVEST: TARGETS")
+local FavListScroll = createScrollList(FavListPanel, "⭐ AUTO FAVORITE LIST TARGETS")
+local ShovelScroll = createScrollList(ShovelPanel, "⛏️ SHOVEL: TARGETS")
+
+local function createToggle(parent, text, configKey, yPos)
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(1, -16, 0, 30)
+    frame.BackgroundTransparency = 1
+    frame.LayoutOrder = yPos
+    frame.Parent = parent
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(0, 20, 0, 20)
+    btn.Position = UDim2.new(0, 2, 0, 5)
+    btn.BorderSizePixel = 0
+    btn.Text = ""
+    btn.Parent = frame
+    btn.BackgroundColor3 = config[configKey] and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(45, 45, 45)
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1, -30, 1, 0)
+    label.Position = UDim2.new(0, 30, 0, 0)
+    label.BackgroundTransparency = 1
+    label.Text = text
+    label.TextColor3 = Color3.fromRGB(220, 220, 220)
+    label.Font = Enum.Font.Gotham
+    label.TextSize = 12
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Parent = frame
+    btn.MouseButton1Click:Connect(function() 
+        config[configKey] = not config[configKey]
+        TweenService:Create(btn, TweenInfo.new(0.2), {BackgroundColor3 = config[configKey] and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(45, 45, 45)}):Play()
+        saveConfig() 
+    end)
+end
+
+local function createTextBox(parent, labelText, configKey, yPos)
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(1, -16, 0, 30)
+    frame.BackgroundTransparency = 1
+    frame.LayoutOrder = yPos
+    frame.Parent = parent
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(0.5, 0, 1, 0)
+    label.BackgroundTransparency = 1
+    label.Text = labelText
+    label.TextColor3 = Color3.fromRGB(220, 220, 220)
+    label.Font = Enum.Font.Gotham
+    label.TextSize = 12
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Parent = frame
+    local box = Instance.new("TextBox")
+    box.Size = UDim2.new(0.5, -4, 0, 24)
+    box.Position = UDim2.new(0.5, 4, 0, 3)
+    box.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+    box.BorderSizePixel = 0
+    box.Text = tostring(config[configKey])
+    box.TextColor3 = Color3.fromRGB(255, 255, 255)
+    box.Font = Enum.Font.Gotham
+    box.TextSize = 12
+    box.Parent = frame
+    Instance.new("UICorner", box).CornerRadius = UDim.new(0, 4)
+    
+    box.FocusLost:Connect(function()
+        local extracted = string.match(box.Text, "%-?%d+%.?%d*")
+        local num = extracted and tonumber(extracted)
+        if num then
+            config[configKey] = tostring(num)
+            box.Text = tostring(num)
+        else
+            box.Text = config[configKey]
+        end
+        saveConfig()
+    end)
+end
+
+local function createMultiModeButton(parent, labelText, configKey, optionsTable, yPos)
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(1, -16, 0, 30)
+    frame.BackgroundTransparency = 1
+    frame.LayoutOrder = yPos
+    frame.Parent = parent
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(0.5, 0, 1, 0)
+    label.BackgroundTransparency = 1
+    label.Text = labelText
+    label.TextColor3 = Color3.fromRGB(220, 220, 220)
+    label.Font = Enum.Font.Gotham
+    label.TextSize = 12
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Parent = frame
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(0.5, -4, 0, 24)
+    btn.Position = UDim2.new(0.5, 4, 0, 3)
+    btn.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
+    btn.BorderSizePixel = 0
+    btn.Text = config[configKey]
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 12
+    btn.Parent = frame
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
+    btn.MouseButton1Click:Connect(function() 
+        local currentIndex = table.find(optionsTable, config[configKey]) or 1
+        local nextIndex = (currentIndex % #optionsTable) + 1
+        config[configKey] = optionsTable[nextIndex]
+        btn.Text = config[configKey]
+        saveConfig() 
+    end)
+end
+
+local function createButton(parent, labelText, buttonText, yPos, callback)
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(1, -16, 0, 30)
+    frame.BackgroundTransparency = 1
+    frame.LayoutOrder = yPos
+    frame.Parent = parent
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(0.5, 0, 1, 0)
+    label.BackgroundTransparency = 1
+    label.Text = labelText
+    label.TextColor3 = Color3.fromRGB(220, 220, 220)
+    label.Font = Enum.Font.Gotham
+    label.TextSize = 12
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Parent = frame
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(0.5, -4, 0, 24)
+    btn.Position = UDim2.new(0.5, 4, 0, 3)
+    btn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+    btn.BorderSizePixel = 0
+    btn.Text = buttonText
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 12
+    btn.Parent = frame
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
+    btn.MouseButton1Click:Connect(callback)
+end
+
+local function populateFromList(scrollFrame, targetConfigTable, dataList)
+    local rowAll = Instance.new("Frame")
+    rowAll.Name = "_ToggleAll"
+    rowAll.Size = UDim2.new(1, -6, 0, 26)
+    rowAll.BackgroundTransparency = 1
+    rowAll.LayoutOrder = 0
+    rowAll.Parent = scrollFrame
+    
+    local chkAll = Instance.new("TextButton")
+    chkAll.Size = UDim2.new(0, 16, 0, 16)
+    chkAll.Position = UDim2.new(0, 4, 0, 5)
+    chkAll.BorderSizePixel = 0
+    chkAll.TextColor3 = Color3.fromRGB(255, 255, 255)
+    chkAll.Font = Enum.Font.GothamBold
+    chkAll.TextSize = 10
+    chkAll.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+    chkAll.Text = ""
+    chkAll.Parent = rowAll
+    Instance.new("UICorner", chkAll).CornerRadius = UDim.new(0, 3)
+    
+    local txtAll = Instance.new("TextLabel")
+    txtAll.Size = UDim2.new(1, -28, 1, 0)
+    txtAll.Position = UDim2.new(0, 26, 0, 0)
+    txtAll.BackgroundTransparency = 1
+    txtAll.Text = "-- TOGGLE ALL --"
+    txtAll.TextColor3 = Color3.fromRGB(255, 210, 50)
+    txtAll.Font = Enum.Font.GothamBold
+    txtAll.TextSize = 11
+    txtAll.TextXAlignment = Enum.TextXAlignment.Left
+    txtAll.Parent = rowAll
+
+    local isAllSelected = false
+    chkAll.MouseButton1Click:Connect(function()
+        isAllSelected = not isAllSelected
+        chkAll.BackgroundColor3 = isAllSelected and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(45, 45, 45)
+        chkAll.Text = isAllSelected and "✓" or ""
+        for _, itemName in ipairs(dataList) do
+            targetConfigTable[itemName] = isAllSelected
+            local childRow = scrollFrame:FindFirstChild(itemName)
+            if childRow then
+                local childChk = childRow:FindFirstChildOfClass("TextButton")
+                if childChk then 
+                    childChk.BackgroundColor3 = isAllSelected and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(45, 45, 45)
+                    childChk.Text = isAllSelected and "✓" or "" 
+                end
+            end
+        end
+        saveConfig()
+    end)
+
+    for i, itemName in ipairs(dataList) do
+        local row = Instance.new("Frame")
+        row.Name = itemName
+        row.Size = UDim2.new(1, -6, 0, 26)
+        row.BackgroundTransparency = 1
+        row.LayoutOrder = i
+        row.Parent = scrollFrame
+        
+        local chk = Instance.new("TextButton")
+        chk.Size = UDim2.new(0, 16, 0, 16)
+        chk.Position = UDim2.new(0, 4, 0, 5)
+        chk.BorderSizePixel = 0
+        chk.TextColor3 = Color3.fromRGB(255, 255, 255)
+        chk.Font = Enum.Font.GothamBold
+        chk.TextSize = 10
+        chk.BackgroundColor3 = targetConfigTable[itemName] and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(45, 45, 45)
+        chk.Text = targetConfigTable[itemName] and "✓" or ""
+        chk.Parent = row
+        Instance.new("UICorner", chk).CornerRadius = UDim.new(0, 3)
+        
+        local txt = Instance.new("TextLabel")
+        txt.Size = UDim2.new(1, -28, 1, 0)
+        txt.Position = UDim2.new(0, 26, 0, 0)
+        txt.BackgroundTransparency = 1
+        txt.Text = itemName
+        txt.TextColor3 = Color3.fromRGB(190, 190, 190)
+        txt.Font = Enum.Font.Gotham
+        txt.TextSize = 11
+        txt.TextXAlignment = Enum.TextXAlignment.Left
+        txt.Parent = row
+        
+        chk.MouseButton1Click:Connect(function() 
+            targetConfigTable[itemName] = not targetConfigTable[itemName]
+            chk.BackgroundColor3 = targetConfigTable[itemName] and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(45, 45, 45)
+            chk.Text = targetConfigTable[itemName] and "✓" or ""
+            saveConfig() 
+        end)
+    end
+end
+
+-- =====================================================================
+-- MASTER 3-STATE LIST POPULATOR (For Harvest & Shovel)
+-- =====================================================================
+local function populate3StateList(scrollFrame, targetConfigTable, limitDict, baseDict, dataList)
+    local masterState = 0
+    local function applyUIState(btn, state)
+        if state == 0 then 
+            btn.Text = "OFF"
+            btn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+        elseif state == 1 then 
+            btn.Text = "ALL"
+            btn.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
+        elseif state == 2 then 
+            btn.Text = "LIMIT"
+            btn.BackgroundColor3 = Color3.fromRGB(220, 150, 20) 
+        end
+    end
+
+    local rowAll = Instance.new("Frame")
+    rowAll.Name = "_ToggleAll"
+    rowAll.Size = UDim2.new(1, -6, 0, 26)
+    rowAll.BackgroundTransparency = 1
+    rowAll.LayoutOrder = 0
+    rowAll.Parent = scrollFrame
+    
+    local btnAll = Instance.new("TextButton")
+    btnAll.Size = UDim2.new(0, 38, 0, 16)
+    btnAll.Position = UDim2.new(0, 2, 0, 5)
+    btnAll.BorderSizePixel = 0
+    btnAll.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btnAll.Font = Enum.Font.GothamBold
+    btnAll.TextSize = 9
+    btnAll.Parent = rowAll
+    Instance.new("UICorner", btnAll).CornerRadius = UDim.new(0, 3)
+    
+    local txtAll = Instance.new("TextLabel")
+    txtAll.Size = UDim2.new(1, -46, 1, 0)
+    txtAll.Position = UDim2.new(0, 46, 0, 0)
+    txtAll.BackgroundTransparency = 1
+    txtAll.Text = "-- TOGGLE ALL --"
+    txtAll.TextColor3 = Color3.fromRGB(255, 210, 50)
+    txtAll.Font = Enum.Font.GothamBold
+    txtAll.TextSize = 11
+    txtAll.TextXAlignment = Enum.TextXAlignment.Left
+    txtAll.Parent = rowAll
+    
+    applyUIState(btnAll, masterState)
+
+    btnAll.MouseButton1Click:Connect(function()
+        masterState = (masterState + 1) % 3
+        applyUIState(btnAll, masterState)
+        for _, itemName in ipairs(dataList) do
+            targetConfigTable[itemName] = masterState
+            local childRow = scrollFrame:FindFirstChild(itemName)
+            if childRow then
+                local cBtn = childRow:FindFirstChildOfClass("TextButton")
+                if cBtn then applyUIState(cBtn, masterState) end
+                
+                local boxLim = childRow:FindFirstChild("BoxLimit")
+                local boxBase = childRow:FindFirstChild("BoxBase")
+                if boxLim and boxBase then
+                    boxLim.Visible = (masterState == 2)
+                    boxBase.Visible = (masterState == 2)
+                end
+            end
+        end
+        saveConfig()
+    end)
+
+    for i, itemName in ipairs(dataList) do
+        if targetConfigTable[itemName] == nil then targetConfigTable[itemName] = 0 end
+        if limitDict[itemName] == nil then limitDict[itemName] = "" end
+        if baseDict[itemName] == nil then baseDict[itemName] = "" end
+
+        local row = Instance.new("Frame")
+        row.Name = itemName
+        row.Size = UDim2.new(1, -6, 0, 26)
+        row.BackgroundTransparency = 1
+        row.LayoutOrder = i
+        row.Parent = scrollFrame
+        
+        local btn = Instance.new("TextButton")
+        btn.Size = UDim2.new(0, 38, 0, 16)
+        btn.Position = UDim2.new(0, 2, 0, 5)
+        btn.BorderSizePixel = 0
+        btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        btn.Font = Enum.Font.GothamBold
+        btn.TextSize = 9
+        btn.Parent = row
+        Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 3)
+        
+        local txt = Instance.new("TextLabel")
+        txt.Size = UDim2.new(1, -125, 1, 0)
+        txt.Position = UDim2.new(0, 46, 0, 0)
+        txt.BackgroundTransparency = 1
+        txt.Text = itemName
+        txt.TextColor3 = Color3.fromRGB(190, 190, 190)
+        txt.Font = Enum.Font.Gotham
+        txt.TextSize = 11
+        txt.TextXAlignment = Enum.TextXAlignment.Left
+        txt.Parent = row
+        
+        local boxLimit = Instance.new("TextBox")
+        boxLimit.Name = "BoxLimit"
+        boxLimit.Size = UDim2.new(0, 35, 0, 16)
+        boxLimit.Position = UDim2.new(1, -75, 0, 5) 
+        boxLimit.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+        boxLimit.TextColor3 = Color3.fromRGB(200, 200, 200)
+        boxLimit.Font = Enum.Font.Gotham
+        boxLimit.TextSize = 9
+        boxLimit.PlaceholderText = "Lim"
+        boxLimit.Text = tostring(limitDict[itemName])
+        boxLimit.Parent = row
+        Instance.new("UICorner", boxLimit).CornerRadius = UDim.new(0, 3)
+
+        local boxBase = Instance.new("TextBox")
+        boxBase.Name = "BoxBase"
+        boxBase.Size = UDim2.new(0, 35, 0, 16)
+        boxBase.Position = UDim2.new(1, -35, 0, 5) 
+        boxBase.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+        boxBase.TextColor3 = Color3.fromRGB(255, 170, 0) 
+        boxBase.Font = Enum.Font.Gotham
+        boxBase.TextSize = 9
+        boxBase.PlaceholderText = "Base"
+        boxBase.Text = tostring(baseDict[itemName])
+        boxBase.Parent = row
+        Instance.new("UICorner", boxBase).CornerRadius = UDim.new(0, 3)
+
+        local function updateVisibility()
+            local isLimit = (targetConfigTable[itemName] == 2)
+            boxLimit.Visible = isLimit
+            boxBase.Visible = isLimit
+        end
+
+        applyUIState(btn, targetConfigTable[itemName])
+        updateVisibility()
+
+        btn.MouseButton1Click:Connect(function()
+            targetConfigTable[itemName] = ((targetConfigTable[itemName] or 0) + 1) % 3
+            applyUIState(btn, targetConfigTable[itemName])
+            updateVisibility()
+            saveConfig()
+        end)
+
+        local function cleanNumber(box, dictKey)
+            local extracted = string.match(box.Text, "%-?%d+%.?%d*")
+            local num = extracted and tonumber(extracted)
+            if num then
+                dictKey[itemName] = tostring(num)
+                box.Text = tostring(num)
+            else
+                dictKey[itemName] = ""
+                box.Text = ""
+            end
+            saveConfig()
+        end
+
+        boxLimit.FocusLost:Connect(function() cleanNumber(boxLimit, limitDict) end)
+        boxBase.FocusLost:Connect(function() cleanNumber(boxBase, baseDict) end)
+    end
+end
+
+-- POPULATE LISTS
+populateFromList(SeedScroll, config.SelectedSeeds, MasterPlantList)
+populateFromList(GearScroll, config.SelectedGears, MasterGearList)
+populateFromList(PetScroll, config.SelectedPets, PetOrder)
+populateFromList(PlantScroll, config.SelectedPlantSeeds, MasterPlantList)
+populateFromList(FavListScroll, config.SelectedFavSeeds, MasterPlantList)
+
+populate3StateList(HarvestScroll, config.SelectedHarvests, config.SeedLimits, config.SeedImportantNumbers, MasterPlantList)
+populate3StateList(ShovelScroll, config.SelectedShovels, config.ShovelLimits, config.ShovelBaseWeights, MasterPlantList)
+
+-- POPULATE SETTINGS TAB
+createToggle(SettingsScroll, "Auto Collect/Harvest", "AutoHarvest", 1)
+createToggle(SettingsScroll, "Auto Plant Area", "AutoPlant", 2)
+createToggle(SettingsScroll, "Auto Sell All", "AutoSell", 3)
+createToggle(SettingsScroll, "Auto Buy Seed", "AutoBuySeed", 4)
+createToggle(SettingsScroll, "Auto Buy Gear", "AutoBuyGear", 5)
+createToggle(SettingsScroll, "Auto Buy Pet", "AutoBuyPet", 6)
+createToggle(SettingsScroll, "Auto Claim Rare Seed", "AutoClaimRare", 7)
+createToggle(SettingsScroll, "Force Harvest Mutation [!]", "ForceMutation", 8)
+createToggle(SettingsScroll, "Anti-Night Thief (Auto Hide)", "AntiNightThief", 9)
+createToggle(SettingsScroll, "Auto Shovel", "AutoShovel", 10)
+createTextBox(SettingsScroll, "Shovel Interval (s):", "ShovelInterval", 11)
+createMultiModeButton(SettingsScroll, "Move Method:", "MoveMethod", {"Tween", "SpamTP", "Walk"}, 12)
+createTextBox(SettingsScroll, "Bonus Tween Speed:", "TweenSpeed", 13)
+createTextBox(SettingsScroll, "Walk Speed:", "WalkSpeed", 14)
+createToggle(SettingsScroll, "Auto Favorite (Master Switch)", "AutoFavorite", 15)
+createTextBox(SettingsScroll, "Fav Threshold (>kg):", "FavoriteThreshold", 16)
+createTextBox(SettingsScroll, "Fav Price (>¢):", "FavoritePrice", 17)
+createToggle(SettingsScroll, "Sell 1-by-1 (bukan Sell All)", "SellOneByOne", 18)
+createTextBox(SettingsScroll, "Sell Protect (>=kg):", "SellProtectKg", 19)
+createTextBox(SettingsScroll, "Sell Protect (>=¢):", "SellProtectPrice", 20)
+createToggle(SettingsScroll, "Tampilkan Harga Buah (Inventory)", "ShowFruitPrice", 21)
+createToggle(SettingsScroll, "Auto Boost FPS (Hapus Plot Lain)", "AutoBoostFPS", 22)
+createToggle(SettingsScroll, "Auto Reconnect (Jika DC)", "AutoReconnect", 23)
+createButton(SettingsScroll, "Simulasi Putus Koneksi:", "TEST RECONNECT", 24, function()
+    local TeleportService = game:GetService("TeleportService")
+    pcall(function() TeleportService:Teleport(game.PlaceId, LocalPlayer) end)
+end)
+
+-- =====================================================================
+-- 4. UTILITY FUNCTIONS & SMART PATHFINDING
+-- =====================================================================
+local function getGardenSpawnPoint()
+    local plotId = LocalPlayer:GetAttribute("PlotId")
+    if plotId then
+        local gardensFolder = workspace:FindFirstChild("Gardens")
+        if gardensFolder then
+            local myPlot = gardensFolder:FindFirstChild("Plot" .. tostring(plotId))
+            if myPlot then return myPlot:FindFirstChild("SpawnPoint") end
+        end
+    end
+    return nil
+end
+
+local function getPromptLocation(prompt)
+    if not prompt or not prompt.Parent then return nil, nil end
+    if prompt.Parent:IsA("BasePart") then return prompt.Parent.Position, prompt.Parent.CFrame
+    elseif prompt.Parent:IsA("Attachment") then return prompt.Parent.WorldPosition, prompt.Parent.WorldCFrame
+    elseif prompt.Parent:IsA("Model") then return prompt.Parent:GetPivot().Position, prompt.Parent:GetPivot()
+    else
+        local part = prompt:FindFirstAncestorWhichIsA("BasePart")
+        if part then return part.Position, part.CFrame end
+    end
+    return nil, nil
+end
+
+local function getBestRoute(targetPos)
+    local char = LocalPlayer.Character
+    if not char or not char:FindFirstChild("HumanoidRootPart") then return math.huge, nil end
+    local currentPos = char.HumanoidRootPart.Position
+    local bestDist = (currentPos - targetPos).Magnitude
+    local bestRoute = nil
+
+    local teleports = workspace:FindFirstChild("Teleports")
+    if teleports then
+        local sellTP = teleports:FindFirstChild("Sell")
+        if sellTP and sellTP:IsA("BasePart") then 
+            local dist = (sellTP.Position - targetPos).Magnitude
+            if dist < bestDist then bestDist = dist; bestRoute = "Sell" end 
+        end
+        local seedsTP = teleports:FindFirstChild("Seeds")
+        if seedsTP and seedsTP:IsA("BasePart") then 
+            local dist = (seedsTP.Position - targetPos).Magnitude
+            if dist < bestDist then bestDist = dist; bestRoute = "Seeds" end 
+        end
+    end
+
+    local spawnPt = getGardenSpawnPoint()
+    if spawnPt and spawnPt:IsA("BasePart") then
+        local dist = (spawnPt.Position - targetPos).Magnitude
+        if dist < bestDist then bestDist = dist; bestRoute = "Garden" end
+    end
+    return bestDist, bestRoute 
+end
+
+local function getCurrentMoney()
+    local sheckles = LocalPlayer:FindFirstChild("leaderstats") and LocalPlayer.leaderstats:FindFirstChild("Sheckles")
+    return sheckles and sheckles.Value or 0
+end
+
+local noclipConnection = nil
+local currentOrbitConnection = nil
+
+local function toggleNoclip(state)
+    local char = LocalPlayer.Character
+    if not char then return end
+    if state then
+        if not noclipConnection then 
+            noclipConnection = RunService.Stepped:Connect(function() 
+                for _, part in pairs(char:GetDescendants()) do 
+                    if part:IsA("BasePart") and part.CanCollide then part.CanCollide = false end 
+                end 
+            end) 
+        end
+    else
+        if noclipConnection then noclipConnection:Disconnect(); noclipConnection = nil end
+    end
+end
+
+local function stopMovement()
+    if currentOrbitConnection then currentOrbitConnection:Disconnect(); currentOrbitConnection = nil end
+    local char = LocalPlayer.Character
+    if char then
+        if char:FindFirstChild("HumanoidRootPart") then char.HumanoidRootPart.Anchored = false end
+        if char:FindFirstChild("Humanoid") then 
+            char.Humanoid.WalkSpeed = 16
+            if char.PrimaryPart then char.Humanoid:MoveTo(char.PrimaryPart.Position) end 
+        end
+    end
+    toggleNoclip(false)
+end
+
+local function startSpamTP(targetObj)
+    if currentOrbitConnection then return end
+    stopMovement()
+    local char = LocalPlayer.Character
+    if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+    toggleNoclip(true)
+
+    currentOrbitConnection = RunService.Heartbeat:Connect(function()
+        if not targetObj or not targetObj.Parent or not targetObj:IsDescendantOf(workspace) or not targetObj.Enabled then 
+            stopMovement(); Hunt.State = "IDLE"; Hunt.Target = nil; return 
+        end
+        
+        local targetPos, targetCFrame = getPromptLocation(targetObj)
+        if not targetCFrame then stopMovement(); return end
+        char:PivotTo(targetCFrame)
+        if fireproximityprompt then fireproximityprompt(targetObj, 1, true) end
+        if Hunt.State == "FLYING" then 
+            if Hunt.Type == "PET" then Hunt.InitialMoney = getCurrentMoney() end
+            Hunt.State = "BUYING"
+            Hunt.GraceTimer = os.clock() + 10 
+        end
+    end)
+end
+
+local function startLinearFlight(targetObj)
+    if currentOrbitConnection then return end
+    stopMovement()
+    local char = LocalPlayer.Character
+    if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+    local hrp = char.HumanoidRootPart
+    local humanoid = char:FindFirstChild("Humanoid")
+    toggleNoclip(true)
+    hrp.Anchored = true
+
+    currentOrbitConnection = RunService.Heartbeat:Connect(function(deltaTime)
+        if not targetObj or not targetObj.Parent or not targetObj:IsDescendantOf(workspace) or not targetObj.Enabled then 
+            stopMovement(); Hunt.State = "IDLE"; Hunt.Target = nil; return 
+        end
+        local targetPos, _ = getPromptLocation(targetObj)
+        if not targetPos then stopMovement(); return end
+        
+        local baseWalkSpeed = 16 
+        if humanoid then baseWalkSpeed = humanoid.WalkSpeed end
+        local bonusSpeed = tonumber(config.TweenSpeed) or 0 
+        local finalApproachSpeed = baseWalkSpeed + bonusSpeed
+        local currentPos = hrp.Position
+
+        local distToTarget = (currentPos - targetPos).Magnitude
+        if distToTarget > 5 then
+            local moveDist = finalApproachSpeed * deltaTime
+            local moveAlpha = math.clamp(moveDist / distToTarget, 0, 1)
+            local nextPos = currentPos:Lerp(targetPos, moveAlpha)
+            hrp.CFrame = CFrame.new(nextPos)
+        else
+            if Hunt.State == "FLYING" then 
+                if Hunt.Type == "PET" then Hunt.InitialMoney = getCurrentMoney() end
+                Hunt.State = "BUYING"; Hunt.GraceTimer = os.clock() + 5 
+            end
+        end
+        if distToTarget <= 15 then 
+            if fireproximityprompt then fireproximityprompt(targetObj, 1, true) end 
+        end
+    end)
+end
+
+local rareEventActive = false
+local function isRareEventName(name) return name == "Goldmoon" or name == "RainbowMoon" end
+local function recheckRareEvent() rareEventActive = (workspace:FindFirstChild("Goldmoon") ~= nil) or (workspace:FindFirstChild("RainbowMoon") ~= nil) end
+recheckRareEvent()
+workspace.ChildAdded:Connect(function(child) if isRareEventName(child.Name) then rareEventActive = true end end)
+workspace.ChildRemoved:Connect(function(child)
+    if isRareEventName(child.Name) then
+        recheckRareEvent()
+        task.spawn(function()
+            task.wait(5)
+            if Networking and Networking.TeleportButton and Networking.TeleportButton.Request then
+                Networking.TeleportButton.Request:Fire("Garden")
+                task.wait(0.3)
+                local spawnPt = getGardenSpawnPoint()
+                if spawnPt and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                    LocalPlayer.Character.HumanoidRootPart.CFrame = spawnPt.CFrame + Vector3.new(0, 3, 0)
+                end
+            end
+        end)
+    end 
+end)
+
+local function scanForRare()
+    local bestTarget = nil
+    local minDistance = math.huge
+    for _, obj in pairs(workspace:GetDescendants()) do
+        if obj:IsA("ProximityPrompt") and obj.Enabled and obj.ActionText == "CLAIM" and (obj.ObjectText == "Gold Seed" or obj.ObjectText == "Rainbow Seed") then
+            local tPos, _ = getPromptLocation(obj)
+            if tPos then 
+                local effDist, _ = getBestRoute(tPos)
+                if effDist < minDistance then minDistance = effDist; bestTarget = obj end 
+            end
+        end
+    end
+    return bestTarget
+end
+
+local function scanForPet()
+    local bestTarget = nil
+    local bestPrice = 0
+    local minDistance = math.huge
+    for _, petName in ipairs(PetOrder) do
+        if config.SelectedPets[petName] and PetData[petName] then
+            local targetPriceStr = PetData[petName].PriceStr
+            for _, obj in pairs(workspace:GetDescendants()) do
+                if obj:IsA("ProximityPrompt") and obj.Enabled and obj.ActionText == "Buy" and obj.ObjectText == targetPriceStr then
+                    local tPos, _ = getPromptLocation(obj)
+                    if tPos then 
+                        local effDist, _ = getBestRoute(tPos)
+                        if effDist < minDistance then 
+                            minDistance = effDist; bestTarget = obj; bestPrice = PetData[petName].PriceNum 
+                        end 
+                    end
+                end
+            end
+        end
+    end
+    return bestTarget, bestPrice
+end
+
+-- =====================================================================
+-- 5. THE UNIFIED HUNT ENGINE
+-- =====================================================================
+task.spawn(function()
+    while task.wait(0.2) do
+        if not config.AutoBuyPet and not config.AutoClaimRare then 
+            if Hunt.State ~= "IDLE" then Hunt.State = "IDLE"; Hunt.Target = nil; stopMovement() end 
+            continue 
+        end
+
+        if Hunt.State == "IDLE" then
+            if config.AutoClaimRare and rareEventActive then
+                local rareTarget = scanForRare()
+                if rareTarget then
+                    local tPos, _ = getPromptLocation(rareTarget)
+                    if tPos then 
+                        local _, route = getBestRoute(tPos)
+                        if route and Networking and Networking.TeleportButton and Networking.TeleportButton.Request then 
+                            Networking.TeleportButton.Request:Fire(route); task.wait(0.3) 
+                        end 
+                    end
+                    Hunt.State = "FLYING"; Hunt.Target = rareTarget; Hunt.Type = "RARE"
+                    continue
+                end
+            end
+            
+            if config.AutoBuyPet then
+                local petTarget, priceNum = scanForPet()
+                if petTarget then
+                    local tPos, _ = getPromptLocation(petTarget)
+                    if tPos then 
+                        local _, route = getBestRoute(tPos)
+                        if route and Networking and Networking.TeleportButton and Networking.TeleportButton.Request then 
+                            Networking.TeleportButton.Request:Fire(route); task.wait(0.3) 
+                        end 
+                    end
+                    Hunt.State = "FLYING"; Hunt.Target = petTarget; Hunt.Type = "PET"; Hunt.ExpectedPrice = priceNum
+                    continue
+                end
+            end
+
+        elseif Hunt.State == "FLYING" then
+            if not Hunt.Target or not Hunt.Target.Parent or not Hunt.Target:IsDescendantOf(workspace) or not Hunt.Target.Enabled then 
+                Hunt.State = "IDLE"; Hunt.Target = nil; stopMovement(); continue 
+            end
+            
+            if config.MoveMethod == "SpamTP" then 
+                startSpamTP(Hunt.Target)
+            elseif config.MoveMethod == "Walk" then
+                local targetPos, _ = getPromptLocation(Hunt.Target)
+                if not targetPos then Hunt.State = "IDLE"; Hunt.Target = nil; stopMovement(); continue end
+                local char = LocalPlayer.Character
+                if char and char:FindFirstChild("HumanoidRootPart") and char:FindFirstChild("Humanoid") then
+                    local dist = (char.HumanoidRootPart.Position - targetPos).Magnitude
+                    if dist > 5 then 
+                        char.Humanoid.WalkSpeed = tonumber(config.WalkSpeed) or 40
+                        char.Humanoid:MoveTo(targetPos)
+                    else 
+                        stopMovement()
+                        if Hunt.Type == "PET" then Hunt.InitialMoney = getCurrentMoney() end
+                        Hunt.State = "BUYING"
+                        Hunt.GraceTimer = os.clock() + 5 
+                    end
+                end
+            else 
+                startLinearFlight(Hunt.Target) 
+            end
+
+        elseif Hunt.State == "BUYING" then
+            if config.MoveMethod == "Walk" and Hunt.Target and Hunt.Target:IsDescendantOf(workspace) and Hunt.Target.Enabled then 
+                if fireproximityprompt then fireproximityprompt(Hunt.Target, 1, true) end 
+            end
+            if Hunt.Target and not Hunt.Target.Enabled then 
+                Hunt.State = "IDLE"; Hunt.Target = nil; stopMovement(); continue 
+            end
+            
+            if Hunt.Type == "PET" then
+                local currentMoney = getCurrentMoney()
+                if currentMoney <= (Hunt.InitialMoney - Hunt.ExpectedPrice) then 
+                    Hunt.State = "IDLE"; Hunt.Target = nil; stopMovement()
+                elseif os.clock() > Hunt.GraceTimer then 
+                    Hunt.State = "IDLE"; Hunt.Target = nil; stopMovement() 
+                end
+            elseif Hunt.Type == "RARE" then
+                if not Hunt.Target or not Hunt.Target.Parent or not Hunt.Target:IsDescendantOf(workspace) then 
+                    Hunt.State = "IDLE"; Hunt.Target = nil; stopMovement()
+                elseif os.clock() > Hunt.GraceTimer then 
+                    Hunt.State = "IDLE"; Hunt.Target = nil; stopMovement() 
+                end
+            end
+        end
+    end
+end)
+
+-- =====================================================================
+-- 6. INDEPENDENT HARVEST MATRIX CORE
+-- =====================================================================
+task.spawn(function()
+    while task.wait(0.5) do
+        if config.AutoHarvest then
+            local isHuntingRare = config.AutoClaimRare and rareEventActive
+            local isMalamHari = config.AntiNightThief and workspace:FindFirstChild("ActiveNight")
+            
+            local spawnPt = getGardenSpawnPoint()
+            if Hunt.State == "IDLE" and not isHuntingRare and not isMalamHari then
+                if spawnPt and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                    local hrp = LocalPlayer.Character.HumanoidRootPart
+                    if (hrp.Position - spawnPt.Position).Magnitude > 60 then 
+                        hrp.CFrame = spawnPt.CFrame + Vector3.new(0, 3, 0)
+                        task.wait(0.1) 
+                    end
+                end
+            end
+
+            local plotId = LocalPlayer:GetAttribute("PlotId")
+            local gardensFolder = workspace:FindFirstChild("Gardens")
+            local myPlotFolder = gardensFolder and gardensFolder:FindFirstChild("Plot" .. tostring(plotId))
+            
+            if myPlotFolder then
+                for _, obj in pairs(myPlotFolder:GetDescendants()) do
+                    if obj:IsA("ProximityPrompt") and obj.Enabled and (obj.ActionText == "Harvest" or string.find(string.lower(obj.Name), "harvest")) then
+                        
+                        local harvestPart = obj:FindFirstAncestor("HarvestPart") or obj.Parent
+                        local fruitModel = harvestPart and harvestPart.Parent
+                        if not fruitModel then continue end
+                        
+                        local coreName = fruitModel:GetAttribute("CorePartName") or fruitModel.Name
+                        local objectTextName = ""
+                        if obj.ObjectText and obj.ObjectText ~= "" then
+                            for _, mn in ipairs(MasterPlantList) do
+                                if string.find(string.lower(obj.ObjectText), string.lower(mn)) then objectTextName = mn; break end
+                            end
+                        end
+                        local finalPlantName = (objectTextName ~= "") and objectTextName or coreName
+                        
+                        local state = config.SelectedHarvests[finalPlantName] or 0
+                        local shouldHarvest = false
+                        
+                        if config.ForceMutation then
+                            local mut = fruitModel:GetAttribute("Mutation")
+                            if mut and type(mut) == "string" and mut ~= "" and mut ~= "None" then
+                                shouldHarvest = true
+                            end
+                        end
+                        
+                        if not shouldHarvest then
+                            if state == 1 then 
+                                shouldHarvest = true
+                            elseif state == 2 then 
+                                local limitTarget = tonumber(config.SeedLimits[finalPlantName]) or 0
+                                local baseWeight = tonumber(config.SeedImportantNumbers[finalPlantName]) or 0
+                                local currentWeight = 0
+                                if baseWeight > 0 then
+                                    local sizeMulti = fruitModel:GetAttribute("SizeMulti") or 1
+                                    currentWeight = sizeMulti * baseWeight
+                                end
+                                if currentWeight > 0 and currentWeight < limitTarget then 
+                                    shouldHarvest = true 
+                                end
+                        end
+                        end
+
+                        if shouldHarvest then
+                            if fireproximityprompt then
+                                fireproximityprompt(obj, 1, true)
+                            else
+                                obj:InputHoldBegin()
+                                task.wait(obj.HoldDuration + 0.1)
+                                obj:InputHoldEnd()
+                            end
+                            task.wait(0.05) 
+                        end
+                    end
+                end
+            end
+        end
+    end
+end)
+
+-- =====================================================================
+-- 6.5 AUTO SHOVEL CORE ENGINE
+-- =====================================================================
+local function getShovelTool()
+    local backpack = LocalPlayer:FindFirstChild("Backpack")
+    local char = LocalPlayer.Character
+    if backpack and backpack:FindFirstChild("Shovel") then return backpack.Shovel end
+    if char and char:FindFirstChild("Shovel") then return char.Shovel end
+    return nil
+end
+
+local function getHumanoid()
+    local char = LocalPlayer.Character
+    return char and char:FindFirstChildOfClass("Humanoid")
+end
+
+local function equipShovel()
+    local tool = getShovelTool()
+    local hum = getHumanoid()
+    if tool and hum then
+        hum:EquipTool(tool)
+        task.wait(0.3)
+        return LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Shovel")
+    end
+    return nil
+end
+
+local function unequipShovel()
+    local hum = getHumanoid()
+    if hum then hum:UnequipTools() end
+end
+
+local wasAutoShovelActive = false
+
+task.spawn(function()
+    while task.wait(0.5) do
+        if config.AutoShovel then
+            wasAutoShovelActive = true
+            local interval = tonumber(config.ShovelInterval) or 0.5
+            
+            local plotId = LocalPlayer:GetAttribute("PlotId")
+            if not plotId then continue end
+            local gardens = workspace:FindFirstChild("Gardens")
+            local myPlot = gardens and gardens:FindFirstChild("Plot" .. tostring(plotId))
+            local plantsFolder = myPlot and myPlot:FindFirstChild("Plants")
+            
+            if not plantsFolder then continue end
+
+            local char = LocalPlayer.Character
+            local equippedShovel = char and char:FindFirstChild("Shovel")
+            if not equippedShovel then
+                equippedShovel = equipShovel()
+                if not equippedShovel then task.wait(1); continue end
+            end
+
+            local shovelAttr = equippedShovel:GetAttribute("Shovel")
+            if not shovelAttr then continue end
+
+            for _, plant in pairs(plantsFolder:GetChildren()) do
+                if not config.AutoShovel then break end
+                
+                local plantId = plant:GetAttribute("PlantId")
+                local seedName = plant:GetAttribute("SeedName")
+                if not plantId or not seedName then continue end
+                
+                local state = config.SelectedShovels[seedName] or 0
+                if state == 0 then continue end
+                
+                local fruitsFolder = plant:FindFirstChild("Fruits")
+                if not fruitsFolder then continue end
+                
+                for _, fruit in pairs(fruitsFolder:GetChildren()) do
+                    if not config.AutoShovel then break end
+                    
+                    local fruitId = fruit:GetAttribute("FruitId")
+                    if not fruitId then continue end
+                    
+                    local shouldShovel = false
+                    if state == 1 then
+                        shouldShovel = true
+                    elseif state == 2 then
+                        local limit = tonumber(config.ShovelLimits[seedName]) or 0
+                        local baseW = tonumber(config.ShovelBaseWeights[seedName]) or 0
+                        local sizeMulti = fruit:GetAttribute("SizeMulti") or 1
+                        
+                        local weight = sizeMulti * baseW
+                        if baseW > 0 and weight > 0 and weight < limit then
+                            shouldShovel = true
+                        end
+                    end
+                    
+                    if shouldShovel then
+                        pcall(function()
+                            Networking.Shovel.UseShovel:Fire(plantId, fruitId, shovelAttr, equippedShovel)
+                        end)
+                        task.wait(interval)
+                    end
+                end
+            end
+            task.wait(interval)
+        else
+            if wasAutoShovelActive then
+                wasAutoShovelActive = false
+                unequipShovel()
+            end
+        end
+    end
+end)
+
+-- =====================================================================
+-- 7. TURBO AUTO FAVORITE
+-- =====================================================================
+local pendingFavoriteChecks = 0
+local lastFavoriteActionTime = 0
+
+task.spawn(function()
+    local backpack = LocalPlayer:WaitForChild("Backpack")
+    
+    local function scanAndFavoriteItem(item)
+        if not item:IsA("Tool") then return end
+        pendingFavoriteChecks += 1
+        lastItemAddedTime = os.clock()
+
+        local ok, errMsg = pcall(function()
+            task.wait(0.2) 
+            if not config.AutoFavorite then return end
+
+            local isFruit = item:GetAttribute("HarvestedFruit") == true or item:GetAttribute("Fruit") ~= nil
+            if not isFruit then return end
+
+            local targetKg = tonumber(config.FavoriteThreshold) or 100
+            local targetPrice = tonumber(config.FavoritePrice) or 0
+            local rawName = item:GetAttribute("Fruit") or item.Name
+            local fruitName = string.gsub(rawName, "%s*%[%d+%.?%d*k?g?%]", "")
+            fruitName = string.match(fruitName, "^%s*(.-)%s*$") 
+
+            local weight = item:GetAttribute("Weight") or 0
+            local isNameMatch = config.SelectedFavSeeds[fruitName] == true
+            local isHeavy = (type(weight) == "number" and weight >= targetKg)
+
+            local isPricy = false
+            local price = item:GetAttribute("FruitValue") or 0 
+            if not isNameMatch and not isHeavy and targetPrice > 0 then
+                local fruitIdForBid = item:GetAttribute("Id")
+                if fruitIdForBid and Networking and Networking.NPCS and Networking.NPCS.GetFruitBid then
+                    local success, bidData = pcall(function() return Networking.NPCS.GetFruitBid:Fire(fruitIdForBid) end)
+                    if success and type(bidData) == "table" and bidData.CurrentSellValue then
+                        price = tonumber(bidData.CurrentSellValue) or price 
+                        isPricy = price >= targetPrice
+                    end
+                end
+            end
+
+            if (isNameMatch or isHeavy or isPricy) and item:GetAttribute("IsFavorite") ~= true then
+                local fruitId = item:GetAttribute("Id")
+                if fruitId then
+                    pcall(function()
+                        if Networking and Networking.Backpack and Networking.Backpack.SetFruitFavorite then
+                            Networking.Backpack.SetFruitFavorite:Fire(fruitId, true)
+                        end
+                        item:SetAttribute("IsFavorite", true)
+                    end)
+                    lastFavoriteActionTime = os.clock()
+                end
+            end
+        end)
+        pendingFavoriteChecks -= 1
+    end
+
+    for _, item in pairs(backpack:GetChildren()) do task.spawn(scanAndFavoriteItem, item) end
+    backpack.ChildAdded:Connect(function(item) task.spawn(scanAndFavoriteItem, item) end)
+end)
+
+-- =====================================================================
+-- 8. SMART SATPAM AUTO SELL
+-- =====================================================================
+task.spawn(function()
+    while task.wait(0.5) do
+        if (config.AutoSell or config.SellOneByOne) and Networking then
+            local backpack = LocalPlayer:FindFirstChild("Backpack")
+            local character = LocalPlayer.Character
+            local totalItems = 0
+            
+            if backpack then totalItems = totalItems + #backpack:GetChildren() end
+            if character then
+                for _, tool in pairs(character:GetChildren()) do if tool:IsA("Tool") then totalItems = totalItems + 1 end end
+            end
+
+            local noPendingChecks = (pendingFavoriteChecks == 0)
+            local waktuHeningCukup = (os.clock() - lastItemAddedTime > 1.0)
+            local clearOfFavoriteAction = (os.clock() - lastFavoriteActionTime > 1.0)
+            local tasNyarisPenuh = (totalItems >= 85)
+            
+            if (waktuHeningCukup and noPendingChecks and clearOfFavoriteAction) or tasNyarisPenuh then
+                if config.SellOneByOne then
+                    if backpack then
+                        local foundAny = false
+                        for _, item in pairs(backpack:GetChildren()) do
+                            local isFruit = item:GetAttribute("HarvestedFruit") == true or item:GetAttribute("Fruit") ~= nil or string.find(item.Name, "%[.-kg%]") ~= nil
+                            if isFruit then
+                                foundAny = true
+                                local fruitId = item:GetAttribute("Id")
+                                local itemNameDbg = item:GetAttribute("Fruit") or item.Name
+                                local timeout = 0
+                                while not fruitId and timeout < 10 do
+                                    task.wait(0.2)
+                                    timeout = timeout + 1
+                                    fruitId = item:GetAttribute("Id")
+                                end
+
+                                if fruitId then
+                                    task.spawn(function()
+                                        local weight = item:GetAttribute("Weight") or 0
+                                        local protectKg = tonumber(config.SellProtectKg) or 0
+                                        local protectPrice = tonumber(config.SellProtectPrice) or 0
+                                        
+                                        if protectKg > 0 and weight >= protectKg then return end
+
+                                        local currentPrice = item:GetAttribute("BidPrice") or item:GetAttribute("FruitValue") or 0
+                                        if protectPrice > 0 and Networking.NPCS and Networking.NPCS.GetFruitBid then
+                                            local success, bidData = pcall(function() return Networking.NPCS.GetFruitBid:Fire(fruitId) end)
+                                            if success and type(bidData) == "table" and bidData.CurrentSellValue then
+                                                currentPrice = tonumber(bidData.CurrentSellValue) or currentPrice
+                                            end
+                                            if currentPrice >= protectPrice then return end
+                                        end
+
+                                        pcall(function()
+                                            return Networking.NPCS.SellFruit and Networking.NPCS.SellFruit:Fire(fruitId)
+                                        end)
+                                    end)
+                                end
+                            end
+                        end
+                    end
+                else
+                    pcall(function() 
+                        if Networking and Networking.NPCS and Networking.NPCS.SellAll then
+                            if typeof(Networking.NPCS.SellAll) == "table" and Networking.NPCS.SellAll.Fire then 
+                                Networking.NPCS.SellAll:Fire() 
+                            elseif typeof(Networking.NPCS.SellAll) == "function" then 
+                                Networking.NPCS.SellAll() 
+                            end 
+                        end
+                    end)
+                end
+            end
+        end
+    end
+end)
+
+-- =====================================================================
+-- 8.5 SMART FRUIT PRICE DISPLAY
+-- =====================================================================
+local function formatPrice(n)
+    if n >= 1e9 then return string.format("%.2fB", n/1e9)
+    elseif n >= 1e6 then return string.format("%.2fM", n/1e6)
+    elseif n >= 1e3 then return string.format("%.1fK", n/1e3)
+    else return tostring(math.floor(n)) end
+end
+
+local function buildLookup()
+    local lookup = {}
+    local bp = LocalPlayer:FindFirstChild("Backpack")
+    if not bp then return lookup end
+    for _, item in ipairs(bp:GetChildren()) do
+        if item.ClassName == "Configuration" then
+            local fn = item:GetAttribute("FruitName")
+            if fn then
+                if not lookup[fn] then lookup[fn] = {} end
+                table.insert(lookup[fn], item)
+            end
+        end
+    end
+    return lookup
+end
+
+local function injectPrices()
+    local grid = LocalPlayer.PlayerGui:FindFirstChild("BackpackGui", true)
+    if not grid then return end
+    grid = grid:FindFirstChild("UIGridFrame", true)
+    if not grid then return end
+
+    local lookup = buildLookup()
+    local usedLookup = {}
+    for k, v in pairs(lookup) do usedLookup[k] = {table.unpack(v)} end
+
+    for _, slot in ipairs(grid:GetChildren()) do
+        if not (slot:IsA("Frame") or slot:IsA("TextButton") or slot:IsA("ImageButton")) then continue end
+        local toolNameLabel = slot:FindFirstChild("ToolName", true)
+        if not toolNameLabel then continue end
+        
+        local fruitName = toolNameLabel.Text
+        if not fruitName or fruitName == "" then continue end
+        if slot:FindFirstChild("_PriceTag") then continue end
+
+        local configs = usedLookup[fruitName]
+        local fruitId = nil
+        if configs and #configs > 0 then
+            fruitId = configs[1]:GetAttribute("Id")
+            table.remove(configs, 1)
+        end
+
+        local priceText = nil
+        if fruitId and Networking and Networking.NPCS and Networking.NPCS.GetFruitBid then
+            local ok, result = pcall(function() return Networking.NPCS.GetFruitBid:Fire(fruitId) end)
+            if ok and result then
+                local price = result.CurrentSellValue or result.CurrentOffer or result.BidPrice or 0
+                priceText = formatPrice(price)
+            end
+        end
+
+        if not priceText then continue end
+
+        local tag = Instance.new("TextLabel")
+        tag.Name = "_PriceTag"
+        tag.Size = UDim2.new(1, 0, 0, 14)
+        tag.Position = UDim2.new(0, 0, 1, -14)
+        tag.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+        tag.BackgroundTransparency = 0.3
+        tag.TextColor3 = Color3.fromRGB(100, 255, 100)
+        tag.Text = priceText
+        tag.Font = Enum.Font.GothamBold
+        tag.TextSize = 11
+        tag.ZIndex = (slot.ZIndex or 1) + 1
+        tag.Parent = slot
+        Instance.new("UICorner", tag).CornerRadius = UDim.new(0, 3)
+    end
+end
+
+local function clearPrices()
+    local grid = LocalPlayer.PlayerGui:FindFirstChild("BackpackGui", true)
+    if not grid then return end
+    grid = grid:FindFirstChild("UIGridFrame", true)
+    if not grid then return end
+    for _, slot in ipairs(grid:GetChildren()) do
+        local tag = slot:FindFirstChild("_PriceTag")
+        if tag then tag:Destroy() end
+    end
+end
+
+local function onInventoryChanged()
+    if not config.ShowFruitPrice then return end
+    task.wait(0.1) 
+    if config.ShowFruitPrice then clearPrices(); injectPrices() end
+end
+
+task.spawn(function()
+    local wasOn = false
+    local connections = {}
+
+    while task.wait(0.5) do
+        local isOn = config.ShowFruitPrice
+        if isOn and not wasOn then
+            wasOn = true
+            injectPrices()
+            
+            local bpAdded = LocalPlayer.Backpack.ChildAdded:Connect(onInventoryChanged)
+            local bpRemoved = LocalPlayer.Backpack.ChildRemoved:Connect(onInventoryChanged)
+            table.insert(connections, bpAdded)
+            table.insert(connections, bpRemoved)
+            
+            if LocalPlayer.Character then
+                local charAdded = LocalPlayer.Character.ChildAdded:Connect(function(child) if child:IsA("Tool") then onInventoryChanged() end end)
+                local charRemoved = LocalPlayer.Character.ChildRemoved:Connect(function(child) if child:IsA("Tool") then onInventoryChanged() end end)
+                table.insert(connections, charAdded)
+                table.insert(connections, charRemoved)
+            end
+            
+        elseif not isOn and wasOn then
+            wasOn = false
+            clearPrices()
+            for _, conn in ipairs(connections) do
+                if conn.Connected then conn:Disconnect() end
+            end
+            table.clear(connections)
+        end
+    end
+end)
+
+-- ==========================================
+-- ANTI-MALING MALAM HARI
+-- ==========================================
+task.spawn(function()
+    while task.wait(0.5) do
+        if config.AntiNightThief then
+            local nightModel = workspace:FindFirstChild("ActiveNight")
+            if nightModel then
+                local plotId = LocalPlayer:GetAttribute("PlotId")
+                if plotId then
+                    local gardens = workspace:FindFirstChild("Gardens")
+                    local myPlot = gardens and gardens:FindFirstChild("Plot" .. tostring(plotId))
+                    local targetInsidePos = nil
+
+                    if myPlot and myPlot:FindFirstChild("Visual") then
+                        local firstBed = myPlot.Visual:FindFirstChild("BedSection1") or myPlot.Visual:FindFirstChildWhichIsA("BasePart")
+                        if firstBed then targetInsidePos = firstBed.Position + Vector3.new(0, 3, 0) end
+                    end
+                    if not targetInsidePos and myPlot then targetInsidePos = myPlot:GetPivot().Position + Vector3.new(0, 3, 0) end
+
+                    local char = LocalPlayer.Character
+                    if targetInsidePos and char and char:FindFirstChild("HumanoidRootPart") then
+                        local hrp = char.HumanoidRootPart
+                        local jarakDariKebun = (hrp.Position - targetInsidePos).Magnitude
+                        if jarakDariKebun > 25 then
+                            stopMovement() 
+                            hrp.CFrame = CFrame.new(targetInsidePos)
+                            hrp.Velocity = Vector3.new(0, 0, 0) 
+                        end
+                    end
+                end
+            end
+        end
+    end
+end)
+
+-- ==========================================
+-- AUTO BUY SEED & GEAR
+-- ==========================================
+task.spawn(function()
+    while task.wait(1) do
+        if config.AutoBuySeed and Networking then
+            local SeedShopUI = PlayerGui:WaitForChild("SeedShop", 5) and PlayerGui.SeedShop:WaitForChild("Frame", 5) and PlayerGui.SeedShop.Frame:WaitForChild("NormalShop", 5)
+            for seedName, isSelected in pairs(config.SelectedSeeds) do 
+                if isSelected and SeedShopUI and SeedShopUI:FindFirstChild(seedName) then 
+                    pcall(function() Networking.SeedShop.PurchaseSeed:Fire(seedName, 1) end) 
+                end 
+            end
+        end
+        if config.AutoBuyGear and Networking then
+            local GearShopUI = PlayerGui:WaitForChild("GearShop", 5) and PlayerGui.GearShop:WaitForChild("Frame", 5) and PlayerGui.GearShop.Frame:WaitForChild("ScrollingFrame", 5)
+            for gearName, isSelected in pairs(config.SelectedGears) do 
+                if isSelected and GearShopUI and GearShopUI:FindFirstChild(gearName) then 
+                    pcall(function() Networking.GearShop.PurchaseGear:Fire(gearName) end) 
+                end 
+            end
+        end
+    end
+end)
+
+-- ==========================================
+-- AUTO PLANT
+-- ==========================================
+task.spawn(function()
+    while task.wait(1) do
+        if config.AutoPlant then
+            local char = LocalPlayer.Character
+            if not char then continue end
+            local seedTool = nil
+            for seedName, isSelected in pairs(config.SelectedPlantSeeds) do
+                if isSelected then
+                    local seedNameLower = string.lower(seedName)
+                    for _, tool in pairs(char:GetChildren()) do 
+                        if tool:IsA("Tool") and string.find(string.lower(tool.Name), seedNameLower) then seedTool = tool; break end 
+                    end
+                    if not seedTool and LocalPlayer:FindFirstChild("Backpack") then
+                        for _, tool in pairs(LocalPlayer.Backpack:GetChildren()) do 
+                            if tool:IsA("Tool") and string.find(string.lower(tool.Name), seedNameLower) then seedTool = tool; break end 
+                        end
+                    end
+                    if seedTool then break end
+                end
+            end
+
+            if seedTool and seedTool:GetAttribute("SeedTool") then
+                local seedValue = seedTool:GetAttribute("SeedTool")
+                if seedTool.Parent ~= char then seedTool.Parent = char; task.wait(0.2) end
+                local plotId = LocalPlayer:GetAttribute("PlotId")
+                if plotId then
+                    local gardens = workspace:FindFirstChild("Gardens")
+                    local myPlot = gardens and gardens:FindFirstChild("Plot" .. tostring(plotId))
+                    if myPlot and myPlot:FindFirstChild("Visual") then
+                        local spacing = 2.5 
+                        for _, bed in pairs(myPlot.Visual:GetChildren()) do
+                            if string.find(bed.Name, "BedSection") then
+                                local bedCFrame, bedSize = bed:GetBoundingBox()
+                                for x = -bedSize.X/2 + spacing, bedSize.X/2 - spacing, spacing do
+                                    for z = -bedSize.Z/2 + spacing, bedSize.Z/2 - spacing, spacing do
+                                        if not config.AutoPlant then break end 
+                                        local targetPos = (bedCFrame * CFrame.new(x, bedSize.Y/2, z)).Position
+                                        if Networking and Networking.Plant and Networking.Plant.PlantSeed then 
+                                            Networking.Plant.PlantSeed:Fire(targetPos, seedValue, seedTool); task.wait(0.05) 
+                                        end
+                                    end
+                                    if not config.AutoPlant then break end
+                                end
+                            end
+                            if not config.AutoPlant then break end
+                        end
+                    end
+                end
+            else
+                task.wait(2) 
+            end
+        end
+    end
+end)
+
+-- ==========================================
+-- AUTO BOOST FPS
+-- ==========================================
+task.spawn(function()
+    local function eksekusiGusur()
+        if config.AutoBoostFPS then
+            local myPlotId = LocalPlayer:GetAttribute("PlotId")
+            local gardensFolder = workspace:FindFirstChild("Gardens")
+            if gardensFolder and myPlotId then
+                local myPlotName = "Plot" .. tostring(myPlotId)
+                for _, plot in pairs(gardensFolder:GetChildren()) do 
+                    if string.find(plot.Name, "Plot") and plot.Name ~= myPlotName then plot:Destroy() end 
+                end
+            end
+        end
+    end
+    task.wait(2)
+    eksekusiGusur()
+    while task.wait(30) do eksekusiGusur() end
+end)
+
+-- ==========================================
+-- ANTI AFK
+-- ==========================================
+task.spawn(function()
+    local VirtualUser = game:GetService("VirtualUser")
+    while task.wait(180) do
+        if config.AntiAFK then
+            pcall(function()
+                VirtualUser:CaptureController()
+                VirtualUser:ClickButton2(Vector2.new())
+                local char = LocalPlayer.Character
+                if char and char:FindFirstChild("Humanoid") then char.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping) end
+            end)
+        end
+    end
+end)
+
+-- ==========================================
+-- AUTO RECONNECT
+-- ==========================================
+task.spawn(function()
+    local GuiService = game:GetService("GuiService")
+    local TeleportService = game:GetService("TeleportService")
+
+    GuiService.ErrorMessageChanged:Connect(function(errorMessage)
+        if config.AutoReconnect and errorMessage and errorMessage ~= "" then
+            task.wait(5)
+            pcall(function() TeleportService:Teleport(game.PlaceId, LocalPlayer) end)
+        end
+    end)
+end)
