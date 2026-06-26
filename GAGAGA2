@@ -1236,13 +1236,34 @@ return lbl
 end
 
 -- Update posisi label biar nempel persis di atas card yang dia wakilin (card-nya sendiri gak diubah/ditambah child apapun)
+-- Cek apakah cardFrame beneran kelihatan di layar (semua ancestor-nya Visible/Enabled),
+-- soalnya AbsolutePosition/AbsoluteSize tetep ngasih nilai lama walaupun panel inventory-nya udah ditutup
+local function isFullyVisible(obj)
+local current = obj
+while current and current ~= PlayerGui do
+    if current:IsA("GuiObject") and not current.Visible then
+        return false
+    end
+    if current:IsA("ScreenGui") and not current.Enabled then
+        return false
+    end
+    current = current.Parent
+end
+return true
+end
+
 local function syncFloatingLabelPosition(cardFrame, lbl)
+if not isFullyVisible(cardFrame) then
+    lbl.Visible = false
+    return
+end
 local pos = cardFrame.AbsolutePosition
 local size = cardFrame.AbsoluteSize
 if size.X <= 0 or size.Y <= 0 then
     lbl.Visible = false
     return
 end
+lbl.Visible = true
 lbl.Position = UDim2.fromOffset(pos.X, pos.Y)
 lbl.Size = UDim2.fromOffset(size.X, 14)
 end
@@ -1256,8 +1277,7 @@ return
 end
 
 syncFloatingLabelPosition(cardFrame, lbl)
-if not lbl.Visible and cardFrame.AbsoluteSize.X <= 0 then return end
-lbl.Visible = true
+if not lbl.Visible then return end
 
 local item = findActualToolFromCard(cardFrame)
 if not item then
