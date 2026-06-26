@@ -187,16 +187,11 @@ c.CornerRadius = UDim.new(0, 6); c.Parent = pnl; return pnl
 end
 
 local LeftPanel = createPanel(350, 1)
-
 local PlantPanel = createPanel(280, 1)
-
 local HarvestPanel = createPanel(280, 2)
-
 local FavListPanel = createPanel(450, 1)
 local SeedPanel = createPanel(280, 1)
-
 local GearPanel = createPanel(280, 2)
-
 local PetPanel = createPanel(280, 3)
 
 local function switchTab(tabName)
@@ -212,8 +207,6 @@ FavListPanel.Visible = (tabName == "Favorite")
 SeedPanel.Visible = (tabName == "Shop")
 GearPanel.Visible = (tabName == "Shop")
 PetPanel.Visible = (tabName == "Shop")
-
-
 end
 
 TabSettings.MouseButton1Click:Connect(function() switchTab("Settings") end)
@@ -369,8 +362,6 @@ for i, itemName in ipairs(dataList) do
     txt.Parent = row
     chk.MouseButton1Click:Connect(function() targetConfigTable[itemName] = not targetConfigTable[itemName]; chk.BackgroundColor3 = targetConfigTable[itemName] and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(45, 45, 45); chk.Text = targetConfigTable[itemName] and "✓" or ""; saveConfig() end)
 end
-
-
 end
 
 -- STREAMING_CHUNK:Populating harvest target limits...
@@ -408,7 +399,6 @@ btnAll.MouseButton1Click:Connect(function()
             local cBtn = childRow:FindFirstChildOfClass("TextButton")
             if cBtn then applyUIState(cBtn, masterState) end
             
-            -- Toggle textbox visibility global
             local boxLim = childRow:FindFirstChild("BoxLimit")
             local boxBase = childRow:FindFirstChild("BoxBase")
             if boxLim and boxBase then
@@ -428,24 +418,21 @@ for i, itemName in ipairs(dataList) do
     local row = Instance.new("Frame"); row.Name = itemName; row.Size = UDim2.new(1, -6, 0, 26); row.BackgroundTransparency = 1;
     row.LayoutOrder = i; row.Parent = scrollFrame
     
-    -- Tombol State (OFF/ALL/LIMIT)
     local btn = Instance.new("TextButton");
     btn.Size = UDim2.new(0, 38, 0, 16); btn.Position = UDim2.new(0, 2, 0, 5); btn.BorderSizePixel = 0; btn.TextColor3 = Color3.fromRGB(255, 255, 255);
     btn.Font = Enum.Font.GothamBold; btn.TextSize = 9; btn.Parent = row
     local btnCorner = Instance.new("UICorner");
     btnCorner.CornerRadius = UDim.new(0, 3); btnCorner.Parent = btn
     
-    -- Teks Nama Buah (Diperpendek biar gak nabrak textbox)
     local txt = Instance.new("TextLabel");
     txt.Size = UDim2.new(1, -125, 1, 0); txt.Position = UDim2.new(0, 46, 0, 0); txt.BackgroundTransparency = 1; txt.Text = itemName;
     txt.TextColor3 = Color3.fromRGB(190, 190, 190); txt.Font = Enum.Font.Gotham; txt.TextSize = 11; txt.TextXAlignment = Enum.TextXAlignment.Left;
     txt.Parent = row
     
-    -- Textbox 1: Limit KG (Muncul pas Limit mode)
     local boxLimit = Instance.new("TextBox")
     boxLimit.Name = "BoxLimit"
     boxLimit.Size = UDim2.new(0, 35, 0, 16)
-    boxLimit.Position = UDim2.new(1, -75, 0, 5) -- Geser agak kiri
+    boxLimit.Position = UDim2.new(1, -75, 0, 5) 
     boxLimit.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
     boxLimit.TextColor3 = Color3.fromRGB(200, 200, 200)
     boxLimit.Font = Enum.Font.Gotham
@@ -455,13 +442,12 @@ for i, itemName in ipairs(dataList) do
     boxLimit.Parent = row
     Instance.new("UICorner", boxLimit).CornerRadius = UDim.new(0, 3)
 
-    -- Textbox 2: Important Number / Base Weight (Paling Kanan)
     local boxBase = Instance.new("TextBox")
     boxBase.Name = "BoxBase"
     boxBase.Size = UDim2.new(0, 35, 0, 16)
-    boxBase.Position = UDim2.new(1, -35, 0, 5) -- Pojok kanan
+    boxBase.Position = UDim2.new(1, -35, 0, 5) 
     boxBase.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-    boxBase.TextColor3 = Color3.fromRGB(255, 170, 0) -- Warna beda biar gampang nandain
+    boxBase.TextColor3 = Color3.fromRGB(255, 170, 0) 
     boxBase.Font = Enum.Font.Gotham
     boxBase.TextSize = 9
     boxBase.PlaceholderText = "Base"
@@ -469,7 +455,6 @@ for i, itemName in ipairs(dataList) do
     boxBase.Parent = row
     Instance.new("UICorner", boxBase).CornerRadius = UDim.new(0, 3)
 
-    -- Fungsi update UI pas ngeklik tombol
     local function updateVisibility()
         local isLimit = (targetConfigTable[itemName] == 2)
         boxLimit.Visible = isLimit
@@ -486,7 +471,6 @@ for i, itemName in ipairs(dataList) do
         saveConfig()
     end)
 
-    -- Auto Clean Number pas lu kelar ngetik
     local function cleanNumber(box, dictKey)
         local extracted = string.match(box.Text, "%-?%d+%.?%d*")
         local num = extracted and tonumber(extracted)
@@ -503,8 +487,6 @@ for i, itemName in ipairs(dataList) do
     boxLimit.FocusLost:Connect(function() cleanNumber(boxLimit, config.SeedLimits) end)
     boxBase.FocusLost:Connect(function() cleanNumber(boxBase, config.SeedImportantNumbers) end)
 end
-
-
 end
 
 -- STREAMING_CHUNK:Populating Settings tab...
@@ -597,8 +579,6 @@ if spawnPt and spawnPt:IsA("BasePart") then
     if dist < bestDist then bestDist = dist; bestRoute = "Garden" end
 end
 return bestDist, bestRoute 
-
-
 end
 
 local function getCurrentMoney()
@@ -650,8 +630,6 @@ currentOrbitConnection = RunService.Heartbeat:Connect(function()
     if Hunt.State == "FLYING" then if Hunt.Type == "PET" then Hunt.InitialMoney = getCurrentMoney() end; Hunt.State = "BUYING";
         Hunt.GraceTimer = os.clock() + 10 end
 end)
-
-
 end
 
 -- STREAMING_CHUNK:Setting up linear flight bypass...
@@ -688,8 +666,6 @@ currentOrbitConnection = RunService.Heartbeat:Connect(function(deltaTime)
     end
     if distToTarget <= 15 then if fireproximityprompt then fireproximityprompt(targetObj, 1, true) end end
 end)
-
-
 end
 
 -- STREAMING_CHUNK:Scanning for rare events...
@@ -702,14 +678,12 @@ workspace.ChildRemoved:Connect(function(child)
 if isRareEventName(child.Name) then
 recheckRareEvent()
 
-    -- Logika: Tunggu 5 detik baru balik ke kebun
     task.spawn(function()
         task.wait(5)
         if Networking and Networking.TeleportButton and Networking.TeleportButton.Request then
             Networking.TeleportButton.Request:Fire("Garden")
             task.wait(0.3)
             
-            -- Tarik koordinat biar mendarat pas di bedengan
             local spawnPt = getGardenSpawnPoint()
             if spawnPt and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
                 LocalPlayer.Character.HumanoidRootPart.CFrame = spawnPt.CFrame + Vector3.new(0, 3, 0)
@@ -717,8 +691,6 @@ recheckRareEvent()
         end
     end)
 end 
-
-
 end)
 
 local function scanForRare()
@@ -821,8 +793,6 @@ if not config.AutoBuyPet and not config.AutoClaimRare then if Hunt.State ~= "IDL
         end
     end
 end
-
-
 end)
 
 -- =====================================================================
@@ -871,7 +841,6 @@ if config.AutoHarvest then
                     local state = config.SelectedHarvests[finalPlantName] or 0
                     local shouldHarvest = false
                     
-                    -- CEK 1: FORCE MUTATION
                     if config.ForceMutation then
                         local mut = fruitModel:GetAttribute("Mutation")
                         if mut and type(mut) == "string" and mut ~= "" and mut ~= "None" then
@@ -879,12 +848,10 @@ if config.AutoHarvest then
                         end
                     end
                     
-                    -- CEK 2: DINAMIS HARVEST LIMIT DARI UI
                     if not shouldHarvest then
                         if state == 1 then 
                             shouldHarvest = true
                         elseif state == 2 then 
-                            -- Ngebaca Textbox Limit KG dan Important Number spesifik buat buah ini
                             local limitTarget = tonumber(config.SeedLimits[finalPlantName]) or 0
                             local baseWeight = tonumber(config.SeedImportantNumbers[finalPlantName]) or 0
                             
@@ -895,7 +862,6 @@ if config.AutoHarvest then
                                 currentWeight = sizeMulti * baseWeight
                             end
                             
-                            -- Kalau currentWeight sukses dihitung & di bawah limit target
                             if currentWeight > 0 and currentWeight < limitTarget then 
                                 shouldHarvest = true 
                             end
@@ -917,8 +883,6 @@ if config.AutoHarvest then
         end
     end
 end
-
-
 end)
 
 -- =====================================================================
@@ -992,8 +956,6 @@ end
 
 for _, item in pairs(backpack:GetChildren()) do task.spawn(scanAndFavoriteItem, item) end
 backpack.ChildAdded:Connect(function(item) task.spawn(scanAndFavoriteItem, item) end)
-
-
 end)
 
 -- =====================================================================
@@ -1081,125 +1043,146 @@ local character = LocalPlayer.Character
         end
     end
 end
-
-
 end)
 
 -- =====================================================================
--- 8.5 FRUIT PRICE DISPLAY (OVERLAY DI GUI INVENTORY)
+-- 8.5 SMART FRUIT PRICE DISPLAY (EVENT-DRIVEN OVERLAY)
 -- =====================================================================
--- STREAMING_CHUNK:Configuring Overlay Display for Prices...
-
-local function formatPrice(num)
-num = tonumber(num)
-if not num then return "?" end
-if num >= 1000000000 then return string.format("%.1fB", num / 1000000000)
-elseif num >= 1000000 then return string.format("%.1fM", num / 1000000)
-elseif num >= 1000 then return string.format("%.1fK", num / 1000)
-else return tostring(math.floor(num)) end
+local function formatPrice(n)
+    if n >= 1e9 then return string.format("%.2fB", n/1e9)
+    elseif n >= 1e6 then return string.format("%.2fM", n/1e6)
+    elseif n >= 1e3 then return string.format("%.1fK", n/1e3)
+    else return tostring(math.floor(n)) end
 end
 
-local function isFruitCard(frame)
-return frame:FindFirstChild("ToolName") ~= nil and frame:FindFirstChild("ToolCount") ~= nil
+local function buildLookup()
+    local lookup = {}
+    local bp = LocalPlayer:FindFirstChild("Backpack")
+    if not bp then return lookup end
+    for _, item in ipairs(bp:GetChildren()) do
+        if item.ClassName == "Configuration" then
+            local fn = item:GetAttribute("FruitName")
+            if fn then
+                if not lookup[fn] then lookup[fn] = {} end
+                table.insert(lookup[fn], item)
+            end
+        end
+    end
+    return lookup
 end
 
-local function buildBackpackLookup()
-local lookup = {}
-for _, item in ipairs(LocalPlayer.Backpack:GetChildren()) do
-if item.ClassName == "Configuration" then
-local fn = item:GetAttribute("FruitName")
-if fn then
-if not lookup[fn] then lookup[fn] = {} end
-table.insert(lookup[fn], item)
-end
-end
-end
-return lookup
+local function injectPrices()
+    local grid = LocalPlayer.PlayerGui:FindFirstChild("BackpackGui", true)
+    if not grid then return end
+    grid = grid:FindFirstChild("UIGridFrame", true)
+    if not grid then return end
+
+    local lookup = buildLookup()
+    local usedLookup = {}
+    for k, v in pairs(lookup) do usedLookup[k] = {table.unpack(v)} end
+
+    for _, slot in ipairs(grid:GetChildren()) do
+        if not (slot:IsA("Frame") or slot:IsA("TextButton") or slot:IsA("ImageButton")) then continue end
+
+        local toolNameLabel = slot:FindFirstChild("ToolName", true)
+        if not toolNameLabel then continue end
+
+        local fruitName = toolNameLabel.Text
+        if not fruitName or fruitName == "" then continue end
+
+        if slot:FindFirstChild("_PriceTag") then continue end
+
+        local configs = usedLookup[fruitName]
+        local fruitId = nil
+        if configs and #configs > 0 then
+            fruitId = configs[1]:GetAttribute("Id")
+            table.remove(configs, 1)
+        end
+
+        local priceText = nil
+        if fruitId and Networking and Networking.NPCS and Networking.NPCS.GetFruitBid then
+            local ok, result = pcall(function() return Networking.NPCS.GetFruitBid:Fire(fruitId) end)
+            if ok and result then
+                local price = result.CurrentSellValue or result.CurrentOffer or result.BidPrice or 0
+                priceText = formatPrice(price)
+            end
+        end
+
+        if not priceText then continue end
+
+        local tag = Instance.new("TextLabel")
+        tag.Name = "_PriceTag"
+        tag.Size = UDim2.new(1, 0, 0, 14)
+        tag.Position = UDim2.new(0, 0, 1, -14)
+        tag.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+        tag.BackgroundTransparency = 0.3
+        tag.TextColor3 = Color3.fromRGB(100, 255, 100)
+        tag.Text = priceText
+        tag.Font = Enum.Font.GothamBold
+        tag.TextSize = 11
+        tag.ZIndex = (slot.ZIndex or 1) + 1
+        tag.Parent = slot
+        Instance.new("UICorner", tag).CornerRadius = UDim.new(0, 3)
+    end
 end
 
-local function clearPriceTags(scrollFrame)
-for _, slot in ipairs(scrollFrame:GetDescendants()) do
-if isFruitCard(slot) then
-local tag = slot:FindFirstChild("_PriceTag")
-if tag then tag:Destroy() end
-end
-end
-end
-
-local function injectPriceTags(scrollFrame)
-local lookup = buildBackpackLookup()
-local usedLookup = {}
-for k, v in pairs(lookup) do usedLookup[k] = {table.unpack(v)} end
-
-for _, slot in ipairs(scrollFrame:GetDescendants()) do
-if not isFruitCard(slot) then continue end
-if slot:FindFirstChild("_PriceTag") then continue end
-
-local toolNameLabel = slot:FindFirstChild("ToolName")
-if not toolNameLabel then continue end
-local fruitName = toolNameLabel.Text
-if not fruitName or fruitName == "" then continue end
-
-local configs = usedLookup[fruitName]
-local fruitId = nil
-if configs and #configs > 0 then
-fruitId = configs[1]:GetAttribute("Id")
-table.remove(configs, 1)
+local function clearPrices()
+    local grid = LocalPlayer.PlayerGui:FindFirstChild("BackpackGui", true)
+    if not grid then return end
+    grid = grid:FindFirstChild("UIGridFrame", true)
+    if not grid then return end
+    for _, slot in ipairs(grid:GetChildren()) do
+        local tag = slot:FindFirstChild("_PriceTag")
+        if tag then tag:Destroy() end
+    end
 end
 
-local priceText = "¢?"
-if fruitId and Networking and Networking.NPCS and Networking.NPCS.GetFruitBid then
-local ok, result = pcall(function()
-return Networking.NPCS.GetFruitBid:Fire(fruitId)
-end)
-if ok and result then
-local price = result.CurrentSellValue or result.CurrentOffer or result.BidPrice or 0
-priceText = "¢" .. formatPrice(price)
-end
+local function onInventoryChanged()
+    if not config.ShowFruitPrice then return end
+    task.wait(0.1) 
+    if config.ShowFruitPrice then
+        clearPrices()
+        injectPrices()
+    end
 end
 
-local tag = Instance.new("TextLabel")
-tag.Name = "_PriceTag"
-tag.Size = UDim2.new(1, 0, 0, 14)
-tag.Position = UDim2.new(0, 0, 1, -14)
-tag.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-tag.BackgroundTransparency = 0.3
-tag.TextColor3 = Color3.fromRGB(100, 255, 100)
-tag.Text = priceText
-tag.Font = Enum.Font.GothamBold
-tag.TextSize = 11
-tag.ZIndex = (slot.ZIndex or 1) + 5
-tag.BorderSizePixel = 0
-tag.Parent = slot
-Instance.new("UICorner", tag).CornerRadius = UDim.new(0, 3)
-end
-end
-
+-- Monitor config.ShowFruitPrice (Dikendalikan oleh Toggle di UI Settings)
 task.spawn(function()
-local backpackGui = PlayerGui:WaitForChild("BackpackGui", 10)
-local backpackFrame = backpackGui and backpackGui:WaitForChild("Backpack", 10)
-local inventory = backpackFrame and backpackFrame:WaitForChild("Inventory", 10)
-local scrollFrame = inventory and inventory:WaitForChild("ScrollingFrame", 10)
+    local wasOn = false
+    local connections = {}
 
-if not scrollFrame then
-warn("[FruitPriceDisplay] Gagal nemu path GUI: PlayerGui.BackpackGui.Backpack.Inventory.ScrollingFrame")
-return
-end
-
-local lastState = false
-while task.wait(3) do
-local currentState = config.ShowFruitPrice
-if currentState ~= lastState then
-if not currentState then
-clearPriceTags(scrollFrame)
-end
-lastState = currentState
-end
-if config.ShowFruitPrice then
-clearPriceTags(scrollFrame)
-injectPriceTags(scrollFrame)
-end
-end
+    while task.wait(0.5) do
+        local isOn = config.ShowFruitPrice
+        
+        if isOn and not wasOn then
+            wasOn = true
+            injectPrices()
+            
+            local bpAdded = LocalPlayer.Backpack.ChildAdded:Connect(onInventoryChanged)
+            local bpRemoved = LocalPlayer.Backpack.ChildRemoved:Connect(onInventoryChanged)
+            table.insert(connections, bpAdded)
+            table.insert(connections, bpRemoved)
+            
+            if LocalPlayer.Character then
+                local charAdded = LocalPlayer.Character.ChildAdded:Connect(function(child)
+                    if child:IsA("Tool") then onInventoryChanged() end
+                end)
+                local charRemoved = LocalPlayer.Character.ChildRemoved:Connect(function(child)
+                    if child:IsA("Tool") then onInventoryChanged() end
+                end)
+                table.insert(connections, charAdded)
+                table.insert(connections, charRemoved)
+            end
+            
+        elseif not isOn and wasOn then
+            wasOn = false
+            clearPrices()
+            for _, conn in ipairs(connections) do
+                if conn.Connected then conn:Disconnect() end
+            end
+            table.clear(connections)
+        end
+    end
 end)
 
 -- ==========================================
@@ -1238,8 +1221,6 @@ local targetInsidePos = nil
         end
     end
 end
-
-
 end)
 
 -- STREAMING_CHUNK:Automating Seed and Gear purchases...
@@ -1308,8 +1289,6 @@ end
         end
     end
 end
-
-
 end)
 
 -- STREAMING_CHUNK:Executing Auto Boost FPS cleaner...
@@ -1354,20 +1333,16 @@ local GuiService = game:GetService("GuiService")
 local TeleportService = game:GetService("TeleportService")
 
 GuiService.ErrorMessageChanged:Connect(function(errorMessage)
-    -- Jika toggle nyala dan ada pesan error (Disconnected)
     if config.AutoReconnect and errorMessage and errorMessage ~= "" then
         print("⚠️ [AUTO RECONNECT] Terdeteksi Disconnect! Pesan: " .. tostring(errorMessage))
         print("🔄 [AUTO RECONNECT] Mencoba masuk kembali ke server dalam 5 detik...")
         task.wait(5)
         
         pcall(function()
-            -- Teleport kembali ke PlaceId game ini agar otomatis masuk server baru
             TeleportService:Teleport(game.PlaceId, LocalPlayer)
         end)
     end
 end)
-
-
 end)
 
 print("[GAG2 HUB] MARKER-FINAL: Seluruh script berhasil dijalankan sampai baris terakhir, tanpa error.")
