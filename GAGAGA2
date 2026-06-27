@@ -1088,9 +1088,10 @@ task.spawn(function()
     while task.wait(0.1) do
         if config.AutoHarvest then
             local isHuntingRare = config.AutoClaimRare and rareEventActive
+            local isHuntingPet = config.AutoBuyPet and Hunt.Type == "PET"
             local isMalamHari = config.AntiNightThief and workspace:FindFirstChild("ActiveNight")
             
-            if Hunt.State == "IDLE" and not isHuntingRare and not isMalamHari then
+            if Hunt.State == "IDLE" and not isHuntingRare and not isHuntingPet and not isMalamHari then
                 local targetInsidePos = getSafeGardenPos()
                 local char = LocalPlayer.Character
                 if targetInsidePos and char and char:FindFirstChild("HumanoidRootPart") then
