@@ -1140,15 +1140,6 @@ task.spawn(function()
                             Networking.TeleportButton.Request:Fire("Garden")
                             task.wait(1) 
                         end
-                    else
-                        local dist = (hrp.Position - targetInsidePos).Magnitude
-                        if dist > 40 then 
-                            dbg("Satpam: Karakter terlalu jauh (" .. tostring(math.floor(dist)) .. " stud). Tarik pulang.")
-                            stopMovement()
-                            hrp.CFrame = CFrame.new(targetInsidePos)
-                            hrp.Velocity = Vector3.new(0, 0, 0)
-                            task.wait(0.1) 
-                        end
                     end
                 end
             end
@@ -1616,14 +1607,6 @@ task.spawn(function()
                             Networking.TeleportButton.Request:Fire("Garden")
                             task.wait(1) 
                         end
-                    else
-                        local jarakDariKebun = (hrp.Position - targetInsidePos).Magnitude
-                        if jarakDariKebun > 40 then
-                            dbg("AntiThief: Menarik paksa ke area aman kebun.")
-                            stopMovement() 
-                            hrp.CFrame = CFrame.new(targetInsidePos)
-                            hrp.Velocity = Vector3.new(0, 0, 0) 
-                        end
                     end
                 end
             end
@@ -1764,28 +1747,4 @@ task.spawn(function()
             pcall(function() TeleportService:Teleport(game.PlaceId, LocalPlayer) end)
         end
     end)
-end)
-
--- =========================================
--- SISTEM SATPAM BARU (REAL-TIME)
--- =========================================
-task.spawn(function()
-    while task.wait(0.5) do -- Cek setiap 0.5 detik, gak bakal nunggu proses farming selesai
-        pcall(function()
-            local char = LocalPlayer.Character
-            local hrp = char and char:FindFirstChild("HumanoidRootPart")
-            local targetInsidePos = getSafeGardenPos()
-            
-            if hrp and targetInsidePos and Hunt.State == "IDLE" then
-                local dist = (hrp.Position - targetInsidePos).Magnitude
-                
-                -- Lu bisa ganti angka 40 ini sesuai kemauan lu
-                if dist > 40 then 
-                    -- Paksa TP langsung, memotong proses lain
-                    hrp.CFrame = CFrame.new(targetInsidePos)
-                    hrp.Velocity = Vector3.new(0, 0, 0)
-                end
-            end
-        end)
-    end
 end)
