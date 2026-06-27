@@ -77,7 +77,7 @@ local config = {
     AutoHarvest = false, AutoSell = false, AutoBuySeed = false,
     AutoBuyGear = false, AutoClaimRare = false, AutoBuyPet = false, AutoPlant = false,
     AutoFavorite = false, AutoBoostFPS = false, AntiAFK = false, ForceMutation = true,
-    AntiNightThief = true, ShowFruitPrice = false, AutoReconnect = false,
+    AntiNightThief = true, ShowFruitPrice = false, AutoReconnect = false, DebugMode = false,
     AutoShovel = false, ShovelInterval = "0.5",
     TweenSpeed = "50", WalkSpeed = "40", MoveMethod = "TP+Walk",
     FavoriteThreshold = "100", FavoritePrice = "0",
@@ -101,6 +101,13 @@ local function loadConfig()
     end
 end
 loadConfig()
+
+-- UTILITY: Custom Debug Print
+local function dbg(msg)
+    if config.DebugMode then
+        print("[GAG2 HUB DEBUG] " .. tostring(msg))
+    end
+end
 
 -- 3. GUI CREATION (TAB SYSTEM)
 local ScreenGui = Instance.new("ScreenGui")
@@ -150,7 +157,7 @@ local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(1, -80, 1, 0)
 Title.Position = UDim2.new(0, 12, 0, 0)
 Title.BackgroundTransparency = 1
-Title.Text = "Grow a Garden 2 Hub Dafa Goreng v25 (Auto Shovel)"
+Title.Text = "Grow a Garden 2 Hub Dafa Goreng v25 (Auto Shovel & Fix TP)"
 Title.TextColor3 = Color3.fromRGB(240, 240, 240)
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 14
@@ -747,6 +754,15 @@ createButton(SettingsScroll, "Simulasi Putus Koneksi:", "TEST RECONNECT", 24, fu
     local TeleportService = game:GetService("TeleportService")
     pcall(function() TeleportService:Teleport(game.PlaceId, LocalPlayer) end)
 end)
+createToggle(SettingsScroll, "Debug Mode (Print Console)", "DebugMode", 25)
+createButton(SettingsScroll, "Buka Console / F9 (Emulator)", "TEKAN F9", 26, function()
+    local VirtualInputManager = game:GetService("VirtualInputManager")
+    pcall(function()
+        VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.F9, false, game)
+        task.wait(0.1)
+        VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.F9, false, game)
+    end)
+end)
 
 -- =====================================================================
 -- 4. UTILITY FUNCTIONS & SMART PATHFINDING
@@ -870,7 +886,7 @@ local function startSpamTP(targetObj)
 
     currentOrbitConnection = RunService.Heartbeat:Connect(function()
         if not targetObj or not targetObj.Parent or not targetObj:IsDescendantOf(workspace) or not targetObj.Enabled then 
-            stopMovement(); Hunt.State = "IDLE"; Hunt.Target = nil; return 
+            stopMovement(); Hunt.State = "IDLE"; Hunt.Target = nil; Hunt.Type = nil; return 
         end
         
         local targetPos, targetCFrame = getPromptLocation(targetObj)
@@ -897,7 +913,7 @@ local function startLinearFlight(targetObj)
 
     currentOrbitConnection = RunService.Heartbeat:Connect(function(deltaTime)
         if not targetObj or not targetObj.Parent or not targetObj:IsDescendantOf(workspace) or not targetObj.Enabled then 
-            stopMovement(); Hunt.State = "IDLE"; Hunt.Target = nil; return 
+            stopMovement(); Hunt.State = "IDLE"; Hunt.Target = nil; Hunt.Type = nil; return 
         end
         local targetPos, _ = getPromptLocation(targetObj)
         if not targetPos then stopMovement(); return end
@@ -938,10 +954,19 @@ workspace.ChildRemoved:Connect(function(child)
             task.wait(5)
             local targetInsidePos = getSafeGardenPos()
             local char = LocalPlayer.Character
-            if targetInsidePos and char and char:FindFirstChild("HumanoidRootPart") then
+            if char and char:FindFirstChild("HumanoidRootPart") then
+                local hrp = char.HumanoidRootPart
                 stopMovement()
-                char.HumanoidRootPart.CFrame = CFrame.new(targetInsidePos)
-                char.HumanoidRootPart.Velocity = Vector3.new(0, 0, 0)
+                if not targetInsidePos then
+                    dbg("Rare Event End: Kebun unloaded. Force TP UI...")
+                    if Networking and Networking.TeleportButton and Networking.TeleportButton.Request then
+                        Networking.TeleportButton.Request:Fire("Garden")
+                    end
+                else
+                    dbg("Rare Event End: Force TP CFrame ke BedSection1...")
+                    hrp.CFrame = CFrame.new(targetInsidePos)
+                    hrp.Velocity = Vector3.new(0, 0, 0)
+                end
             end
         end)
     end 
@@ -991,7 +1016,10 @@ end
 task.spawn(function()
     while task.wait(0.2) do
         if not config.AutoBuyPet and not config.AutoClaimRare then 
-            if Hunt.State ~= "IDLE" then Hunt.State = "IDLE"; Hunt.Target = nil; stopMovement() end 
+            if Hunt.State ~= "IDLE" then 
+                dbg("HuntEngine: Master Off. Reset IDLE.")
+                Hunt.State = "IDLE"; Hunt.Target = nil; Hunt.Type = nil; stopMovement() 
+            end 
             continue 
         end
 
@@ -1003,9 +1031,11 @@ task.spawn(function()
                     if tPos and config.MoveMethod ~= "Walk" then 
                         local _, route = getBestRoute(tPos)
                         if route and Networking and Networking.TeleportButton and Networking.TeleportButton.Request then 
+                            dbg("HuntEngine: Memakai rute UI TP: " .. tostring(route))
                             Networking.TeleportButton.Request:Fire(route); task.wait(0.3) 
                         end 
                     end
+                    dbg("HuntEngine: Target Rare Seed Ditemukan.")
                     Hunt.State = "FLYING"; Hunt.Target = rareTarget; Hunt.Type = "RARE"
                     continue
                 end
@@ -1018,9 +1048,11 @@ task.spawn(function()
                     if tPos and config.MoveMethod ~= "Walk" then 
                         local _, route = getBestRoute(tPos)
                         if route and Networking and Networking.TeleportButton and Networking.TeleportButton.Request then 
+                            dbg("HuntEngine: Memakai rute UI TP: " .. tostring(route))
                             Networking.TeleportButton.Request:Fire(route); task.wait(0.3) 
                         end 
                     end
+                    dbg("HuntEngine: Target Pet Ditemukan. Harga: " .. tostring(priceNum))
                     Hunt.State = "FLYING"; Hunt.Target = petTarget; Hunt.Type = "PET"; Hunt.ExpectedPrice = priceNum
                     continue
                 end
@@ -1028,14 +1060,15 @@ task.spawn(function()
 
         elseif Hunt.State == "FLYING" then
             if not Hunt.Target or not Hunt.Target.Parent or not Hunt.Target:IsDescendantOf(workspace) or not Hunt.Target.Enabled then 
-                Hunt.State = "IDLE"; Hunt.Target = nil; stopMovement(); continue 
+                dbg("HuntEngine: Terbang dibatalkan. Prompt tidak valid.")
+                Hunt.State = "IDLE"; Hunt.Target = nil; Hunt.Type = nil; stopMovement(); continue 
             end
             
             if config.MoveMethod == "SpamTP" then 
                 startSpamTP(Hunt.Target)
             elseif config.MoveMethod == "Walk" or config.MoveMethod == "TP+Walk" then
                 local targetPos, _ = getPromptLocation(Hunt.Target)
-                if not targetPos then Hunt.State = "IDLE"; Hunt.Target = nil; stopMovement(); continue end
+                if not targetPos then Hunt.State = "IDLE"; Hunt.Target = nil; Hunt.Type = nil; stopMovement(); continue end
                 local char = LocalPlayer.Character
                 if char and char:FindFirstChild("HumanoidRootPart") and char:FindFirstChild("Humanoid") then
                     local dist = (char.HumanoidRootPart.Position - targetPos).Magnitude
@@ -1045,6 +1078,7 @@ task.spawn(function()
                     else 
                         stopMovement()
                         if Hunt.Type == "PET" then Hunt.InitialMoney = getCurrentMoney() end
+                        dbg("HuntEngine: Sampai di target. Mulai aksi BUYING.")
                         Hunt.State = "BUYING"
                         Hunt.GraceTimer = os.clock() + 5 
                     end
@@ -1058,20 +1092,25 @@ task.spawn(function()
                 if fireproximityprompt then fireproximityprompt(Hunt.Target, 1, true) end 
             end
             if Hunt.Target and not Hunt.Target.Enabled then 
+                dbg("HuntEngine: Aksi selesai (prompt mati).")
                 Hunt.State = "IDLE"; Hunt.Target = nil; Hunt.Type = nil; stopMovement(); continue 
             end
             
             if Hunt.Type == "PET" then
                 local currentMoney = getCurrentMoney()
                 if currentMoney <= (Hunt.InitialMoney - Hunt.ExpectedPrice) then 
+                    dbg("HuntEngine: Pet berhasil dibeli. Uang berkurang.")
                     Hunt.State = "IDLE"; Hunt.Target = nil; Hunt.Type = nil; stopMovement()
                 elseif os.clock() > Hunt.GraceTimer then 
+                    dbg("HuntEngine: Timeout pembelian pet.")
                     Hunt.State = "IDLE"; Hunt.Target = nil; Hunt.Type = nil; stopMovement() 
                 end
             elseif Hunt.Type == "RARE" then
                 if not Hunt.Target or not Hunt.Target.Parent or not Hunt.Target:IsDescendantOf(workspace) then 
+                    dbg("HuntEngine: Rare object berhasil diklaim.")
                     Hunt.State = "IDLE"; Hunt.Target = nil; Hunt.Type = nil; stopMovement()
                 elseif os.clock() > Hunt.GraceTimer then 
+                    dbg("HuntEngine: Timeout klaim rare.")
                     Hunt.State = "IDLE"; Hunt.Target = nil; Hunt.Type = nil; stopMovement() 
                 end
             end
@@ -1089,15 +1128,27 @@ task.spawn(function()
             local isHuntingPet = config.AutoBuyPet and (Hunt.Type == "PET" or Hunt.State ~= "IDLE")
             local isMalamHari = config.AntiNightThief and workspace:FindFirstChild("ActiveNight")
             
-            local targetInsidePos = getSafeGardenPos()
             if Hunt.State == "IDLE" and not isHuntingRare and not isHuntingPet and not isMalamHari then
-                if targetInsidePos and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-                    local hrp = LocalPlayer.Character.HumanoidRootPart
-                    if (hrp.Position - targetInsidePos).Magnitude > 40 then 
-                        stopMovement()
-                        hrp.CFrame = CFrame.new(targetInsidePos)
-                        hrp.Velocity = Vector3.new(0, 0, 0)
-                        task.wait(0.1) 
+                local targetInsidePos = getSafeGardenPos()
+                local char = LocalPlayer.Character
+                local hrp = char and char:FindFirstChild("HumanoidRootPart")
+                
+                if hrp then
+                    if not targetInsidePos then
+                        dbg("Satpam: Kebun Unloaded (Streaming). Memicu paksa UI TP...")
+                        if Networking and Networking.TeleportButton and Networking.TeleportButton.Request then
+                            Networking.TeleportButton.Request:Fire("Garden")
+                            task.wait(1) 
+                        end
+                    else
+                        local dist = (hrp.Position - targetInsidePos).Magnitude
+                        if dist > 40 then 
+                            dbg("Satpam: Karakter terlalu jauh (" .. tostring(math.floor(dist)) .. " stud). Tarik pulang.")
+                            stopMovement()
+                            hrp.CFrame = CFrame.new(targetInsidePos)
+                            hrp.Velocity = Vector3.new(0, 0, 0)
+                            task.wait(0.1) 
+                        end
                     end
                 end
             end
@@ -1557,13 +1608,22 @@ task.spawn(function()
             if nightModel then
                 local targetInsidePos = getSafeGardenPos()
                 local char = LocalPlayer.Character
-                if targetInsidePos and char and char:FindFirstChild("HumanoidRootPart") then
+                if char and char:FindFirstChild("HumanoidRootPart") then
                     local hrp = char.HumanoidRootPart
-                    local jarakDariKebun = (hrp.Position - targetInsidePos).Magnitude
-                    if jarakDariKebun > 40 then
-                        stopMovement() 
-                        hrp.CFrame = CFrame.new(targetInsidePos)
-                        hrp.Velocity = Vector3.new(0, 0, 0) 
+                    if not targetInsidePos then
+                        dbg("AntiThief: Plot Unloaded (Streaming). Memicu paksa UI TP...")
+                        if Networking and Networking.TeleportButton and Networking.TeleportButton.Request then
+                            Networking.TeleportButton.Request:Fire("Garden")
+                            task.wait(1) 
+                        end
+                    else
+                        local jarakDariKebun = (hrp.Position - targetInsidePos).Magnitude
+                        if jarakDariKebun > 40 then
+                            dbg("AntiThief: Menarik paksa ke area aman kebun.")
+                            stopMovement() 
+                            hrp.CFrame = CFrame.new(targetInsidePos)
+                            hrp.Velocity = Vector3.new(0, 0, 0) 
+                        end
                     end
                 end
             end
