@@ -1058,21 +1058,21 @@ task.spawn(function()
                 if fireproximityprompt then fireproximityprompt(Hunt.Target, 1, true) end 
             end
             if Hunt.Target and not Hunt.Target.Enabled then 
-                Hunt.State = "IDLE"; Hunt.Target = nil; stopMovement(); continue 
+                Hunt.State = "IDLE"; Hunt.Target = nil; Hunt.Type = nil; stopMovement(); continue 
             end
             
             if Hunt.Type == "PET" then
                 local currentMoney = getCurrentMoney()
                 if currentMoney <= (Hunt.InitialMoney - Hunt.ExpectedPrice) then 
-                    Hunt.State = "IDLE"; Hunt.Target = nil; stopMovement()
+                    Hunt.State = "IDLE"; Hunt.Target = nil; Hunt.Type = nil; stopMovement()
                 elseif os.clock() > Hunt.GraceTimer then 
-                    Hunt.State = "IDLE"; Hunt.Target = nil; stopMovement() 
+                    Hunt.State = "IDLE"; Hunt.Target = nil; Hunt.Type = nil; stopMovement() 
                 end
             elseif Hunt.Type == "RARE" then
                 if not Hunt.Target or not Hunt.Target.Parent or not Hunt.Target:IsDescendantOf(workspace) then 
-                    Hunt.State = "IDLE"; Hunt.Target = nil; stopMovement()
+                    Hunt.State = "IDLE"; Hunt.Target = nil; Hunt.Type = nil; stopMovement()
                 elseif os.clock() > Hunt.GraceTimer then 
-                    Hunt.State = "IDLE"; Hunt.Target = nil; stopMovement() 
+                    Hunt.State = "IDLE"; Hunt.Target = nil; Hunt.Type = nil; stopMovement() 
                 end
             end
         end
