@@ -20,7 +20,7 @@ end)
 -- =====================================================================
 -- GROW A GARDEN 2 - AUTOMATION PREMIUM HUB V25 (AUTO SHOVEL INTEGRATED)
 -- Features: Smart Favorite Tab, Condition-Based Auto Sell, Smart Harvest, Auto Shovel
--- Config File: GAG2_Automation_Config_v15.json
+-- Config File: GAG2_Automation_Config_v14.json
 -- =====================================================================
 
 local Players = game:GetService("Players")
@@ -79,7 +79,7 @@ local config = {
     AutoFavorite = false, AutoBoostFPS = false, AntiAFK = false, ForceMutation = true,
     AntiNightThief = true, ShowFruitPrice = false, AutoReconnect = false,
     AutoShovel = false, ShovelInterval = "0.5",
-    TweenSpeed = "50", WalkSpeed = "40", MoveMethod = "Tween",
+    TweenSpeed = "50", WalkSpeed = "40", MoveMethod = "TP+Walk",
     FavoriteThreshold = "100", FavoritePrice = "0",
     SellOneByOne = false, SellProtectKg = "50", SellProtectPrice = "1000000",
     SelectedSeeds = {}, SelectedGears = {}, SelectedPets = {}, SelectedPlantSeeds = {},
@@ -731,7 +731,7 @@ createToggle(SettingsScroll, "Force Harvest Mutation [!]", "ForceMutation", 8)
 createToggle(SettingsScroll, "Anti-Night Thief (Auto Hide)", "AntiNightThief", 9)
 createToggle(SettingsScroll, "Auto Shovel", "AutoShovel", 10)
 createTextBox(SettingsScroll, "Shovel Interval (s):", "ShovelInterval", 11)
-createMultiModeButton(SettingsScroll, "Move Method:", "MoveMethod", {"Tween", "SpamTP", "Walk"}, 12)
+createMultiModeButton(SettingsScroll, "Move Method:", "MoveMethod", {"Tween", "SpamTP", "Walk", "TP+Walk"}, 12)
 createTextBox(SettingsScroll, "Bonus Tween Speed:", "TweenSpeed", 13)
 createTextBox(SettingsScroll, "Walk Speed:", "WalkSpeed", 14)
 createToggle(SettingsScroll, "Auto Favorite (Master Switch)", "AutoFavorite", 15)
@@ -751,16 +751,36 @@ end)
 -- =====================================================================
 -- 4. UTILITY FUNCTIONS & SMART PATHFINDING
 -- =====================================================================
-local function getGardenSpawnPoint()
+
+-- Fungsi untuk mendapatkan BedSection1 dari plot secara presisi
+local function getSafeGardenPos()
     local plotId = LocalPlayer:GetAttribute("PlotId")
-    if plotId then
-        local gardensFolder = workspace:FindFirstChild("Gardens")
-        if gardensFolder then
-            local myPlot = gardensFolder:FindFirstChild("Plot" .. tostring(plotId))
-            if myPlot then return myPlot:FindFirstChild("SpawnPoint") end
+    if not plotId then return nil end
+    local gardens = workspace:FindFirstChild("Gardens")
+    local myPlot = gardens and gardens:FindFirstChild("Plot" .. tostring(plotId))
+    if not myPlot then return nil end
+    
+    local targetInsidePos = nil
+    if myPlot:FindFirstChild("Visual") then
+        local firstBed = myPlot.Visual:FindFirstChild("BedSection1") or myPlot.Visual:FindFirstChildWhichIsA("BasePart")
+        if firstBed then
+            if firstBed:IsA("Model") then
+                targetInsidePos = firstBed:GetPivot().Position + Vector3.new(0, 3, 0)
+            elseif firstBed:IsA("BasePart") then
+                targetInsidePos = firstBed.Position + Vector3.new(0, 3, 0)
+            end
         end
     end
-    return nil
+    
+    if not targetInsidePos then
+        local sp = myPlot:FindFirstChild("SpawnPoint")
+        if sp and sp:IsA("BasePart") then
+            targetInsidePos = sp.Position + Vector3.new(0, 3, 0)
+        else
+            pcall(function() targetInsidePos = myPlot:GetPivot().Position + Vector3.new(0, 3, 0) end)
+        end
+    end
+    return targetInsidePos
 end
 
 local function getPromptLocation(prompt)
@@ -796,9 +816,9 @@ local function getBestRoute(targetPos)
         end
     end
 
-    local spawnPt = getGardenSpawnPoint()
-    if spawnPt and spawnPt:IsA("BasePart") then
-        local dist = (spawnPt.Position - targetPos).Magnitude
+    local spawnPt = getSafeGardenPos()
+    if spawnPt then
+        local dist = (spawnPt - targetPos).Magnitude
         if dist < bestDist then bestDist = dist; bestRoute = "Garden" end
     end
     return bestDist, bestRoute 
@@ -916,13 +936,12 @@ workspace.ChildRemoved:Connect(function(child)
         recheckRareEvent()
         task.spawn(function()
             task.wait(5)
-            if Networking and Networking.TeleportButton and Networking.TeleportButton.Request then
-                Networking.TeleportButton.Request:Fire("Garden")
-                task.wait(0.3)
-                local spawnPt = getGardenSpawnPoint()
-                if spawnPt and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-                    LocalPlayer.Character.HumanoidRootPart.CFrame = spawnPt.CFrame + Vector3.new(0, 3, 0)
-                end
+            local targetInsidePos = getSafeGardenPos()
+            local char = LocalPlayer.Character
+            if targetInsidePos and char and char:FindFirstChild("HumanoidRootPart") then
+                stopMovement()
+                char.HumanoidRootPart.CFrame = CFrame.new(targetInsidePos)
+                char.HumanoidRootPart.Velocity = Vector3.new(0, 0, 0)
             end
         end)
     end 
@@ -981,7 +1000,7 @@ task.spawn(function()
                 local rareTarget = scanForRare()
                 if rareTarget then
                     local tPos, _ = getPromptLocation(rareTarget)
-                    if tPos then 
+                    if tPos and config.MoveMethod ~= "Walk" then 
                         local _, route = getBestRoute(tPos)
                         if route and Networking and Networking.TeleportButton and Networking.TeleportButton.Request then 
                             Networking.TeleportButton.Request:Fire(route); task.wait(0.3) 
@@ -996,7 +1015,7 @@ task.spawn(function()
                 local petTarget, priceNum = scanForPet()
                 if petTarget then
                     local tPos, _ = getPromptLocation(petTarget)
-                    if tPos then 
+                    if tPos and config.MoveMethod ~= "Walk" then 
                         local _, route = getBestRoute(tPos)
                         if route and Networking and Networking.TeleportButton and Networking.TeleportButton.Request then 
                             Networking.TeleportButton.Request:Fire(route); task.wait(0.3) 
@@ -1014,7 +1033,7 @@ task.spawn(function()
             
             if config.MoveMethod == "SpamTP" then 
                 startSpamTP(Hunt.Target)
-            elseif config.MoveMethod == "Walk" then
+            elseif config.MoveMethod == "Walk" or config.MoveMethod == "TP+Walk" then
                 local targetPos, _ = getPromptLocation(Hunt.Target)
                 if not targetPos then Hunt.State = "IDLE"; Hunt.Target = nil; stopMovement(); continue end
                 local char = LocalPlayer.Character
@@ -1035,7 +1054,7 @@ task.spawn(function()
             end
 
         elseif Hunt.State == "BUYING" then
-            if config.MoveMethod == "Walk" and Hunt.Target and Hunt.Target:IsDescendantOf(workspace) and Hunt.Target.Enabled then 
+            if (config.MoveMethod == "Walk" or config.MoveMethod == "TP+Walk") and Hunt.Target and Hunt.Target:IsDescendantOf(workspace) and Hunt.Target.Enabled then 
                 if fireproximityprompt then fireproximityprompt(Hunt.Target, 1, true) end 
             end
             if Hunt.Target and not Hunt.Target.Enabled then 
@@ -1061,20 +1080,23 @@ task.spawn(function()
 end)
 
 -- =====================================================================
--- 6. INDEPENDENT HARVEST MATRIX CORE
+-- 6. INDEPENDENT HARVEST MATRIX CORE & SATPAM PENGAWAS
 -- =====================================================================
 task.spawn(function()
     while task.wait(0.5) do
         if config.AutoHarvest then
             local isHuntingRare = config.AutoClaimRare and rareEventActive
+            local isHuntingPet = config.AutoBuyPet and (Hunt.Type == "PET" or Hunt.State ~= "IDLE")
             local isMalamHari = config.AntiNightThief and workspace:FindFirstChild("ActiveNight")
             
-            local spawnPt = getGardenSpawnPoint()
-            if Hunt.State == "IDLE" and not isHuntingRare and not isMalamHari then
-                if spawnPt and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            local targetInsidePos = getSafeGardenPos()
+            if Hunt.State == "IDLE" and not isHuntingRare and not isHuntingPet and not isMalamHari then
+                if targetInsidePos and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
                     local hrp = LocalPlayer.Character.HumanoidRootPart
-                    if (hrp.Position - spawnPt.Position).Magnitude > 60 then 
-                        hrp.CFrame = spawnPt.CFrame + Vector3.new(0, 3, 0)
+                    if (hrp.Position - targetInsidePos).Magnitude > 40 then 
+                        stopMovement()
+                        hrp.CFrame = CFrame.new(targetInsidePos)
+                        hrp.Velocity = Vector3.new(0, 0, 0)
                         task.wait(0.1) 
                     end
                 end
@@ -1533,27 +1555,15 @@ task.spawn(function()
         if config.AntiNightThief then
             local nightModel = workspace:FindFirstChild("ActiveNight")
             if nightModel then
-                local plotId = LocalPlayer:GetAttribute("PlotId")
-                if plotId then
-                    local gardens = workspace:FindFirstChild("Gardens")
-                    local myPlot = gardens and gardens:FindFirstChild("Plot" .. tostring(plotId))
-                    local targetInsidePos = nil
-
-                    if myPlot and myPlot:FindFirstChild("Visual") then
-                        local firstBed = myPlot.Visual:FindFirstChild("BedSection1") or myPlot.Visual:FindFirstChildWhichIsA("BasePart")
-                        if firstBed then targetInsidePos = firstBed.Position + Vector3.new(0, 3, 0) end
-                    end
-                    if not targetInsidePos and myPlot then targetInsidePos = myPlot:GetPivot().Position + Vector3.new(0, 3, 0) end
-
-                    local char = LocalPlayer.Character
-                    if targetInsidePos and char and char:FindFirstChild("HumanoidRootPart") then
-                        local hrp = char.HumanoidRootPart
-                        local jarakDariKebun = (hrp.Position - targetInsidePos).Magnitude
-                        if jarakDariKebun > 25 then
-                            stopMovement() 
-                            hrp.CFrame = CFrame.new(targetInsidePos)
-                            hrp.Velocity = Vector3.new(0, 0, 0) 
-                        end
+                local targetInsidePos = getSafeGardenPos()
+                local char = LocalPlayer.Character
+                if targetInsidePos and char and char:FindFirstChild("HumanoidRootPart") then
+                    local hrp = char.HumanoidRootPart
+                    local jarakDariKebun = (hrp.Position - targetInsidePos).Magnitude
+                    if jarakDariKebun > 40 then
+                        stopMovement() 
+                        hrp.CFrame = CFrame.new(targetInsidePos)
+                        hrp.Velocity = Vector3.new(0, 0, 0) 
                     end
                 end
             end
