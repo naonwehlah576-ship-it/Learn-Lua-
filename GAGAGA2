@@ -1140,6 +1140,15 @@ task.spawn(function()
                             Networking.TeleportButton.Request:Fire("Garden")
                             task.wait(1) 
                         end
+                    else
+                        local dist = (hrp.Position - targetInsidePos).Magnitude
+                        if dist > 40 then 
+                            dbg("Satpam: Karakter terlalu jauh (" .. tostring(math.floor(dist)) .. " stud). Tarik pulang.")
+                            stopMovement()
+                            hrp.CFrame = CFrame.new(targetInsidePos)
+                            hrp.Velocity = Vector3.new(0, 0, 0)
+                            task.wait(0.1) 
+                        end
                     end
                 end
             end
@@ -1606,6 +1615,14 @@ task.spawn(function()
                         if Networking and Networking.TeleportButton and Networking.TeleportButton.Request then
                             Networking.TeleportButton.Request:Fire("Garden")
                             task.wait(1) 
+                        end
+                    else
+                        local jarakDariKebun = (hrp.Position - targetInsidePos).Magnitude
+                        if jarakDariKebun > 40 then
+                            dbg("AntiThief: Menarik paksa ke area aman kebun.")
+                            stopMovement() 
+                            hrp.CFrame = CFrame.new(targetInsidePos)
+                            hrp.Velocity = Vector3.new(0, 0, 0) 
                         end
                     end
                 end
