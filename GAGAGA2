@@ -719,6 +719,42 @@ populateFromList(FavListScroll, config.SelectedFavSeeds, MasterPlantList)
 populate3StateList(HarvestScroll, config.SelectedHarvests, config.SeedLimits, config.SeedImportantNumbers, MasterPlantList)
 populate3StateList(ShovelScroll, config.SelectedShovels, config.ShovelLimits, config.ShovelBaseWeights, MasterPlantList)
 
+-- SERVER HOP FUNCTION (Fungsi Khusus Lompat Server)
+local function performServerHop()
+    local TeleportService = game:GetService("TeleportService")
+    local placeId = game.PlaceId
+    local currentJobId = game.JobId
+    local url = "https://games.roblox.com/v1/games/" .. placeId .. "/servers/Public?sortOrder=Desc&limit=100"
+
+    print("Mencari server kosong...")
+    local success, result = pcall(function()
+        return game:HttpGet(url)
+    end)
+
+    if success and result then
+        local data = HttpService:JSONDecode(result)
+        if data and data.data then
+            local availableServers = {}
+            for _, server in ipairs(data.data) do
+                -- Pastikan server bukan server saat ini, dan pemain belum penuh
+                if server.id ~= currentJobId and server.playing < server.maxPlayers then
+                    table.insert(availableServers, server.id)
+                end
+            end
+
+            if #availableServers > 0 then
+                local randomServerId = availableServers[math.random(1, #availableServers)]
+                print("Server ditemukan! Teleporting ke ID: " .. randomServerId)
+                TeleportService:TeleportToPlaceInstance(placeId, randomServerId, LocalPlayer)
+            else
+                print("Waduh, nggak nemu server publik lain yang kosong nih.")
+            end
+        end
+    else
+        print("Gagal ngambil data server dari Roblox API.")
+    end
+end
+
 -- POPULATE SETTINGS TAB
 createToggle(SettingsScroll, "Auto Collect/Harvest", "AutoHarvest", 1)
 createToggle(SettingsScroll, "Auto Plant Area", "AutoPlant", 2)
@@ -747,6 +783,9 @@ createToggle(SettingsScroll, "Auto Reconnect (Jika DC)", "AutoReconnect", 24)
 createButton(SettingsScroll, "Simulasi Putus Koneksi:", "TEST RECONNECT", 25, function()
     local TeleportService = game:GetService("TeleportService")
     pcall(function() TeleportService:Teleport(game.PlaceId, LocalPlayer) end)
+end)
+createButton(SettingsScroll, "Pindah Random Server (Hop):", "SERVER HOP", 26, function()
+    performServerHop()
 end)
 
 -- =====================================================================
@@ -1029,6 +1068,7 @@ task.spawn(function()
                         char.Humanoid.WalkSpeed = tonumber(config.WalkSpeed) or 40
                         char.Humanoid:MoveTo(targetPos)
                         
+                        -- Anti-stuck biar nggak nyangkut tembok pas jalan kaki
                         if char.HumanoidRootPart.Velocity.Magnitude < 2 then
                             char.Humanoid.Jump = true
                         end
@@ -1045,7 +1085,19 @@ task.spawn(function()
 
         elseif Hunt.State == "BUYING" then
             if (config.MoveMethod == "Walk" or config.MoveMethod == "TP+Walk") and Hunt.Target and Hunt.Target:IsDescendantOf(workspace) and Hunt.Target.Enabled then 
-                if fireproximityprompt then fireproximityprompt(Hunt.Target, 1, true) end 
+                if fireproximityprompt then 
+                    -- SPAM BRUTAL 0.01 DETIK KHUSUS MODE WALK/TP+WALK
+                    task.spawn(function()
+                        for i = 1, 20 do
+                            if Hunt.Target and Hunt.Target.Enabled then
+                                fireproximityprompt(Hunt.Target, 1, true)
+                            else
+                                break
+                            end
+                            task.wait(0.01)
+                        end
+                    end)
+                end 
             end
             if Hunt.Target and not Hunt.Target.Enabled then 
                 Hunt.State = "IDLE"; Hunt.Target = nil; stopMovement(); continue 
