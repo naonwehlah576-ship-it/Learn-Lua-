@@ -1065,15 +1065,15 @@ task.spawn(function()
             if Hunt.Type == "PET" then
                 local currentMoney = getCurrentMoney()
                 if currentMoney <= (Hunt.InitialMoney - Hunt.ExpectedPrice) then 
-                    Hunt.State = "IDLE"; Hunt.Target = nil; stopMovement()
+                    Hunt.State = "IDLE"; Hunt.Target = nil; Hunt.Type = nil; stopMovement()
                 elseif os.clock() > Hunt.GraceTimer then 
-                    Hunt.State = "IDLE"; Hunt.Target = nil; stopMovement() 
+                    Hunt.State = "IDLE"; Hunt.Target = nil; Hunt.Type = nil; stopMovement() 
                 end
             elseif Hunt.Type == "RARE" then
                 if not Hunt.Target or not Hunt.Target.Parent or not Hunt.Target:IsDescendantOf(workspace) then 
-                    Hunt.State = "IDLE"; Hunt.Target = nil; stopMovement()
+                    Hunt.State = "IDLE"; Hunt.Target = nil; Hunt.Type = nil; stopMovement()
                 elseif os.clock() > Hunt.GraceTimer then 
-                    Hunt.State = "IDLE"; Hunt.Target = nil; stopMovement() 
+                    Hunt.State = "IDLE"; Hunt.Target = nil; Hunt.Type = nil; stopMovement() 
                 end
             end
         end
