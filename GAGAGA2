@@ -20,7 +20,7 @@ end)
 -- =====================================================================
 -- GROW A GARDEN 2 - AUTOMATION PREMIUM HUB V25 (AUTO SHOVEL INTEGRATED)
 -- Features: Smart Favorite Tab, Condition-Based Auto Sell, Smart Harvest, Auto Shovel
--- Config File: GAG2_Automation_Config_v15.json
+-- Config File: GAG2_Automation_Config_v14.json
 -- =====================================================================
 
 local Players = game:GetService("Players")
@@ -751,16 +751,36 @@ end)
 -- =====================================================================
 -- 4. UTILITY FUNCTIONS & SMART PATHFINDING
 -- =====================================================================
-local function getGardenSpawnPoint()
+
+-- Fungsi baru untuk mendapatkan koordinat bedengan pertama atau spawn point yang aman dari error Model vs BasePart
+local function getSafeGardenPos()
     local plotId = LocalPlayer:GetAttribute("PlotId")
-    if plotId then
-        local gardensFolder = workspace:FindFirstChild("Gardens")
-        if gardensFolder then
-            local myPlot = gardensFolder:FindFirstChild("Plot" .. tostring(plotId))
-            if myPlot then return myPlot:FindFirstChild("SpawnPoint") end
+    if not plotId then return nil end
+    local gardens = workspace:FindFirstChild("Gardens")
+    local myPlot = gardens and gardens:FindFirstChild("Plot" .. tostring(plotId))
+    if not myPlot then return nil end
+    
+    local targetInsidePos = nil
+    if myPlot:FindFirstChild("Visual") then
+        local firstBed = myPlot.Visual:FindFirstChild("BedSection1") or myPlot.Visual:FindFirstChildWhichIsA("BasePart")
+        if firstBed then
+            if firstBed:IsA("Model") then
+                targetInsidePos = firstBed:GetPivot().Position + Vector3.new(0, 3, 0)
+            elseif firstBed:IsA("BasePart") then
+                targetInsidePos = firstBed.Position + Vector3.new(0, 3, 0)
+            end
         end
     end
-    return nil
+    
+    if not targetInsidePos then
+        local sp = myPlot:FindFirstChild("SpawnPoint")
+        if sp and sp:IsA("BasePart") then
+            targetInsidePos = sp.Position + Vector3.new(0, 3, 0)
+        else
+            pcall(function() targetInsidePos = myPlot:GetPivot().Position + Vector3.new(0, 3, 0) end)
+        end
+    end
+    return targetInsidePos
 end
 
 local function getPromptLocation(prompt)
@@ -796,9 +816,9 @@ local function getBestRoute(targetPos)
         end
     end
 
-    local spawnPt = getGardenSpawnPoint()
-    if spawnPt and spawnPt:IsA("BasePart") then
-        local dist = (spawnPt.Position - targetPos).Magnitude
+    local spawnPt = getSafeGardenPos()
+    if spawnPt then
+        local dist = (spawnPt - targetPos).Magnitude
         if dist < bestDist then bestDist = dist; bestRoute = "Garden" end
     end
     return bestDist, bestRoute 
@@ -916,25 +936,13 @@ workspace.ChildRemoved:Connect(function(child)
         recheckRareEvent()
         task.spawn(function()
             task.wait(5)
-            local plotId = LocalPlayer:GetAttribute("PlotId")
-            if plotId then
-                local gardens = workspace:FindFirstChild("Gardens")
-                local myPlot = gardens and gardens:FindFirstChild("Plot" .. tostring(plotId))
-                local targetInsidePos = nil
-
-                if myPlot and myPlot:FindFirstChild("Visual") then
-                    local firstBed = myPlot.Visual:FindFirstChild("BedSection1") or myPlot.Visual:FindFirstChildWhichIsA("BasePart")
-                    if firstBed then targetInsidePos = firstBed.Position + Vector3.new(0, 3, 0) end
-                end
-                if not targetInsidePos and myPlot then targetInsidePos = myPlot:GetPivot().Position + Vector3.new(0, 3, 0) end
-
-                local char = LocalPlayer.Character
-                if targetInsidePos and char and char:FindFirstChild("HumanoidRootPart") then
-                    stopMovement()
-                    local hrp = char.HumanoidRootPart
-                    hrp.CFrame = CFrame.new(targetInsidePos)
-                    hrp.Velocity = Vector3.new(0, 0, 0)
-                end
+            local targetInsidePos = getSafeGardenPos()
+            local char = LocalPlayer.Character
+            if targetInsidePos and char and char:FindFirstChild("HumanoidRootPart") then
+                stopMovement()
+                local hrp = char.HumanoidRootPart
+                hrp.CFrame = CFrame.new(targetInsidePos)
+                hrp.Velocity = Vector3.new(0, 0, 0)
             end
         end)
     end 
@@ -1072,41 +1080,39 @@ task.spawn(function()
     end
 end)
 
+
+-- =====================================================================
+-- 5.5 SATPAM 40 STUD (INSTANT TETHER ENGINE)
+-- =====================================================================
+task.spawn(function()
+    while task.wait(0.1) do
+        if config.AutoHarvest then
+            local isHuntingRare = config.AutoClaimRare and rareEventActive
+            local isMalamHari = config.AntiNightThief and workspace:FindFirstChild("ActiveNight")
+            
+            if Hunt.State == "IDLE" and not isHuntingRare and not isMalamHari then
+                local targetInsidePos = getSafeGardenPos()
+                local char = LocalPlayer.Character
+                if targetInsidePos and char and char:FindFirstChild("HumanoidRootPart") then
+                    local hrp = char.HumanoidRootPart
+                    if (hrp.Position - targetInsidePos).Magnitude > 40 then
+                        stopMovement()
+                        hrp.CFrame = CFrame.new(targetInsidePos)
+                        hrp.Velocity = Vector3.new(0, 0, 0)
+                    end
+                end
+            end
+        end
+    end
+end)
+
+
 -- =====================================================================
 -- 6. INDEPENDENT HARVEST MATRIX CORE
 -- =====================================================================
 task.spawn(function()
     while task.wait(0.5) do
         if config.AutoHarvest then
-            local isHuntingRare = config.AutoClaimRare and rareEventActive
-            local isMalamHari = config.AntiNightThief and workspace:FindFirstChild("ActiveNight")
-            
-            if Hunt.State == "IDLE" and not isHuntingRare and not isMalamHari then
-                local plotId = LocalPlayer:GetAttribute("PlotId")
-                if plotId then
-                    local gardens = workspace:FindFirstChild("Gardens")
-                    local myPlot = gardens and gardens:FindFirstChild("Plot" .. tostring(plotId))
-                    local targetInsidePos = nil
-                    
-                    if myPlot and myPlot:FindFirstChild("Visual") then
-                        local firstBed = myPlot.Visual:FindFirstChild("BedSection1") or myPlot.Visual:FindFirstChildWhichIsA("BasePart")
-                        if firstBed then targetInsidePos = firstBed.Position + Vector3.new(0, 3, 0) end
-                    end
-                    if not targetInsidePos and myPlot then targetInsidePos = myPlot:GetPivot().Position + Vector3.new(0, 3, 0) end
-
-                    local char = LocalPlayer.Character
-                    if targetInsidePos and char and char:FindFirstChild("HumanoidRootPart") then
-                        local hrp = char.HumanoidRootPart
-                        if (hrp.Position - targetInsidePos).Magnitude > 40 then
-                            stopMovement()
-                            hrp.CFrame = CFrame.new(targetInsidePos)
-                            hrp.Velocity = Vector3.new(0, 0, 0)
-                            task.wait(0.1)
-                        end
-                    end
-                end
-            end
-
             local plotId = LocalPlayer:GetAttribute("PlotId")
             local gardensFolder = workspace:FindFirstChild("Gardens")
             local myPlotFolder = gardensFolder and gardensFolder:FindFirstChild("Plot" .. tostring(plotId))
@@ -1560,27 +1566,15 @@ task.spawn(function()
         if config.AntiNightThief then
             local nightModel = workspace:FindFirstChild("ActiveNight")
             if nightModel then
-                local plotId = LocalPlayer:GetAttribute("PlotId")
-                if plotId then
-                    local gardens = workspace:FindFirstChild("Gardens")
-                    local myPlot = gardens and gardens:FindFirstChild("Plot" .. tostring(plotId))
-                    local targetInsidePos = nil
-
-                    if myPlot and myPlot:FindFirstChild("Visual") then
-                        local firstBed = myPlot.Visual:FindFirstChild("BedSection1") or myPlot.Visual:FindFirstChildWhichIsA("BasePart")
-                        if firstBed then targetInsidePos = firstBed.Position + Vector3.new(0, 3, 0) end
-                    end
-                    if not targetInsidePos and myPlot then targetInsidePos = myPlot:GetPivot().Position + Vector3.new(0, 3, 0) end
-
-                    local char = LocalPlayer.Character
-                    if targetInsidePos and char and char:FindFirstChild("HumanoidRootPart") then
-                        local hrp = char.HumanoidRootPart
-                        local jarakDariKebun = (hrp.Position - targetInsidePos).Magnitude
-                        if jarakDariKebun > 40 then
-                            stopMovement() 
-                            hrp.CFrame = CFrame.new(targetInsidePos)
-                            hrp.Velocity = Vector3.new(0, 0, 0) 
-                        end
+                local targetInsidePos = getSafeGardenPos()
+                local char = LocalPlayer.Character
+                if targetInsidePos and char and char:FindFirstChild("HumanoidRootPart") then
+                    local hrp = char.HumanoidRootPart
+                    local jarakDariKebun = (hrp.Position - targetInsidePos).Magnitude
+                    if jarakDariKebun > 40 then
+                        stopMovement() 
+                        hrp.CFrame = CFrame.new(targetInsidePos)
+                        hrp.Velocity = Vector3.new(0, 0, 0) 
                     end
                 end
             end
