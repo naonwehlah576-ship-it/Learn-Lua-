@@ -116,7 +116,7 @@ if not ScreenGui.Parent then ScreenGui.Parent = PlayerGui end
 local MainFrame = Instance.new("Frame")
 MainFrame.Size = UDim2.new(0, 920, 0, 550)
 MainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
-MainFrame.Position = UDim2.new(0.5, 0, 0.4, 0)
+MainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
 MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 MainFrame.BorderSizePixel = 0
 MainFrame.ClipsDescendants = true
@@ -230,7 +230,6 @@ local TabFarming = createTabButton("🌾 FARMING")
 local TabFavorite = createTabButton("⭐ AUTO FAV")
 local TabShop = createTabButton("🛒 SHOP")
 local TabShovel = createTabButton("⛏️ SHOVEL")
-local TabHop = createTabButton("🚀 HOP")
 
 local ContentContainer = Instance.new("Frame")
 ContentContainer.Size = UDim2.new(1, -20, 1, -85)
@@ -263,7 +262,6 @@ local SeedPanel = createPanel(280, 1)
 local GearPanel = createPanel(280, 2)
 local PetPanel = createPanel(280, 3)
 local ShovelPanel = createPanel(280, 1)
-local HopPanel = createPanel(600, 1)
 
 local function switchTab(tabName)
     TabSettings.BackgroundColor3 = (tabName == "Settings") and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(45, 45, 45)
@@ -271,7 +269,6 @@ local function switchTab(tabName)
     TabFavorite.BackgroundColor3 = (tabName == "Favorite") and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(45, 45, 45)
     TabShop.BackgroundColor3 = (tabName == "Shop") and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(45, 45, 45)
     TabShovel.BackgroundColor3 = (tabName == "Shovel") and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(45, 45, 45)
-    TabHop.BackgroundColor3 = (tabName == "Hop") and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(45, 45, 45)
 
     LeftPanel.Visible = (tabName == "Settings")
     PlantPanel.Visible = (tabName == "Farming")
@@ -281,7 +278,6 @@ local function switchTab(tabName)
     GearPanel.Visible = (tabName == "Shop")
     PetPanel.Visible = (tabName == "Shop")
     ShovelPanel.Visible = (tabName == "Shovel")
-    HopPanel.Visible = (tabName == "Hop")
 end
 
 TabSettings.MouseButton1Click:Connect(function() switchTab("Settings") end)
@@ -289,7 +285,6 @@ TabFarming.MouseButton1Click:Connect(function() switchTab("Farming") end)
 TabFavorite.MouseButton1Click:Connect(function() switchTab("Favorite") end)
 TabShop.MouseButton1Click:Connect(function() switchTab("Shop") end)
 TabShovel.MouseButton1Click:Connect(function() switchTab("Shovel") end)
-TabHop.MouseButton1Click:Connect(function() switchTab("Hop") end)
 switchTab("Settings")
 
 local function createScrollList(parent, titleText)
@@ -326,111 +321,6 @@ local PlantScroll = createScrollList(PlantPanel, "PLANT: SEEDS")
 local HarvestScroll = createScrollList(HarvestPanel, "HARVEST: TARGETS")
 local FavListScroll = createScrollList(FavListPanel, "⭐ AUTO FAVORITE LIST TARGETS")
 local ShovelScroll = createScrollList(ShovelPanel, "⛏️ SHOVEL: TARGETS")
-
--- ===== SERVER HOP UI =====
-local HopThreshold = 3
-local HopMaxPlayers = 7
-local isHopping = false
-
-local HopTitle = Instance.new("TextLabel")
-HopTitle.Size = UDim2.new(1, 0, 0, 30)
-HopTitle.BackgroundTransparency = 1
-HopTitle.Text = "⚙️ SERVER HOP CONFIGURATION"
-HopTitle.TextColor3 = Color3.fromRGB(180, 180, 180)
-HopTitle.Font = Enum.Font.GothamBold
-HopTitle.TextSize = 13
-HopTitle.Parent = HopPanel
-
-local ConfigFrame = Instance.new("Frame")
-ConfigFrame.Size = UDim2.new(1, -20, 0, 100)
-ConfigFrame.Position = UDim2.new(0, 10, 0, 40)
-ConfigFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-ConfigFrame.BorderSizePixel = 0
-ConfigFrame.Parent = HopPanel
-Instance.new("UICorner", ConfigFrame).CornerRadius = UDim.new(0, 6)
-
--- Min Players Label
-local MinLabel = Instance.new("TextLabel")
-MinLabel.Size = UDim2.new(0, 120, 0, 20)
-MinLabel.Position = UDim2.new(0, 10, 0, 10)
-MinLabel.BackgroundTransparency = 1
-MinLabel.Text = "MIN PLAYERS:"
-MinLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
-MinLabel.Font = Enum.Font.Gotham
-MinLabel.TextSize = 11
-MinLabel.TextXAlignment = Enum.TextXAlignment.Left
-MinLabel.Parent = ConfigFrame
-
--- Min Players Input
-local MinInput = Instance.new("TextBox")
-MinInput.Size = UDim2.new(0, 60, 0, 25)
-MinInput.Position = UDim2.new(0, 130, 0, 8)
-MinInput.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-MinInput.BorderSizePixel = 0
-MinInput.Text = "3"
-MinInput.TextColor3 = Color3.fromRGB(255, 255, 255)
-MinInput.Font = Enum.Font.Gotham
-MinInput.TextSize = 12
-MinInput.Parent = ConfigFrame
-Instance.new("UICorner", MinInput).CornerRadius = UDim.new(0, 4)
-MinInput.FocusLost:Connect(function()
-    local val = tonumber(MinInput.Text)
-    if val then HopThreshold = val else MinInput.Text = tostring(HopThreshold) end
-end)
-
--- Max Players Label
-local MaxLabel = Instance.new("TextLabel")
-MaxLabel.Size = UDim2.new(0, 120, 0, 20)
-MaxLabel.Position = UDim2.new(0, 210, 0, 10)
-MaxLabel.BackgroundTransparency = 1
-MaxLabel.Text = "MAX PLAYERS:"
-MaxLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
-MaxLabel.Font = Enum.Font.Gotham
-MaxLabel.TextSize = 11
-MaxLabel.TextXAlignment = Enum.TextXAlignment.Left
-MaxLabel.Parent = ConfigFrame
-
--- Max Players Input
-local MaxInput = Instance.new("TextBox")
-MaxInput.Size = UDim2.new(0, 60, 0, 25)
-MaxInput.Position = UDim2.new(0, 330, 0, 8)
-MaxInput.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-MaxInput.BorderSizePixel = 0
-MaxInput.Text = "7"
-MaxInput.TextColor3 = Color3.fromRGB(255, 255, 255)
-MaxInput.Font = Enum.Font.Gotham
-MaxInput.TextSize = 12
-MaxInput.Parent = ConfigFrame
-Instance.new("UICorner", MaxInput).CornerRadius = UDim.new(0, 4)
-MaxInput.FocusLost:Connect(function()
-    local val = tonumber(MaxInput.Text)
-    if val then HopMaxPlayers = val else MaxInput.Text = tostring(HopMaxPlayers) end
-end)
-
--- Start Hop Button
-local StartHopBtn = Instance.new("TextButton")
-StartHopBtn.Size = UDim2.new(0, 100, 0, 30)
-StartHopBtn.Position = UDim2.new(0, 410, 0, 8)
-StartHopBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
-StartHopBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-StartHopBtn.Font = Enum.Font.GothamBold
-StartHopBtn.TextSize = 12
-StartHopBtn.Text = "START HOP"
-StartHopBtn.BorderSizePixel = 0
-StartHopBtn.Parent = ConfigFrame
-Instance.new("UICorner", StartHopBtn).CornerRadius = UDim.new(0, 4)
-
--- Status Label
-local StatusLabel = Instance.new("TextLabel")
-StatusLabel.Size = UDim2.new(1, -20, 0, 20)
-StatusLabel.Position = UDim2.new(0, 10, 0, 50)
-StatusLabel.BackgroundTransparency = 1
-StatusLabel.Text = "Status: Ready | Threshold: 3-7 players"
-StatusLabel.TextColor3 = Color3.fromRGB(150, 200, 255)
-StatusLabel.Font = Enum.Font.Gotham
-StatusLabel.TextSize = 11
-StatusLabel.TextXAlignment = Enum.TextXAlignment.Left
-StatusLabel.Parent = ConfigFrame
 
 local function createToggle(parent, text, configKey, yPos)
     local frame = Instance.new("Frame")
@@ -829,42 +719,6 @@ populateFromList(FavListScroll, config.SelectedFavSeeds, MasterPlantList)
 populate3StateList(HarvestScroll, config.SelectedHarvests, config.SeedLimits, config.SeedImportantNumbers, MasterPlantList)
 populate3StateList(ShovelScroll, config.SelectedShovels, config.ShovelLimits, config.ShovelBaseWeights, MasterPlantList)
 
--- SERVER HOP FUNCTION (Fungsi Khusus Lompat Server)
-local function performServerHop()
-    local TeleportService = game:GetService("TeleportService")
-    local placeId = game.PlaceId
-    local currentJobId = game.JobId
-    local url = "https://games.roblox.com/v1/games/" .. placeId .. "/servers/Public?sortOrder=Desc&limit=100"
-
-    print("Mencari server kosong...")
-    local success, result = pcall(function()
-        return game:HttpGet(url)
-    end)
-
-    if success and result then
-        local data = HttpService:JSONDecode(result)
-        if data and data.data then
-            local availableServers = {}
-            for _, server in ipairs(data.data) do
-                -- Pastikan server bukan server saat ini, dan pemain belum penuh
-                if server.id ~= currentJobId and server.playing < server.maxPlayers then
-                    table.insert(availableServers, server.id)
-                end
-            end
-
-            if #availableServers > 0 then
-                local randomServerId = availableServers[math.random(1, #availableServers)]
-                print("Server ditemukan! Teleporting ke ID: " .. randomServerId)
-                TeleportService:TeleportToPlaceInstance(placeId, randomServerId, LocalPlayer)
-            else
-                print("Waduh, nggak nemu server publik lain yang kosong nih.")
-            end
-        end
-    else
-        print("Gagal ngambil data server dari Roblox API.")
-    end
-end
-
 -- POPULATE SETTINGS TAB
 createToggle(SettingsScroll, "Auto Collect/Harvest", "AutoHarvest", 1)
 createToggle(SettingsScroll, "Auto Plant Area", "AutoPlant", 2)
@@ -893,9 +747,6 @@ createToggle(SettingsScroll, "Auto Reconnect (Jika DC)", "AutoReconnect", 24)
 createButton(SettingsScroll, "Simulasi Putus Koneksi:", "TEST RECONNECT", 25, function()
     local TeleportService = game:GetService("TeleportService")
     pcall(function() TeleportService:Teleport(game.PlaceId, LocalPlayer) end)
-end)
-createButton(SettingsScroll, "Pindah Random Server (Hop):", "SERVER HOP", 26, function()
-    performServerHop()
 end)
 
 -- =====================================================================
@@ -1730,125 +1581,6 @@ task.spawn(function()
             end
         end
     end
-end)
-
--- ==========================================
--- SERVER HOP FUNCTION
--- ==========================================
-local HopData = { AllIDs = {}, foundAnything = "" }
-local function ServerHop(minPlayers, maxPlayers)
-    local PlaceID = game.PlaceId
-    local TeleportService = game:GetService("TeleportService")
-    local HttpService = game:GetService("HttpService")
-    
-    print("╔════════════════════════════════════════╗")
-    print("║  SERVER HOP ACTIVE - LOOPING           ║")
-    print("║  MIN PLAYERS: " .. minPlayers .. " | MAX: " .. maxPlayers .. "          ║")
-    print("║  Will keep searching until found...    ║")
-    print("╚════════════════════════════════════════╝")
-    
-    while isHopping do
-        local serversChecked = 0
-        local serversValid = 0
-        local foundServer = false
-        
-        -- Reset cursor untuk cycle baru
-        HopData.foundAnything = ""
-        
-        -- Fetch dari API dengan multiple requests (400 servers per cycle)
-        for requestNum = 1, 4 do
-            if not isHopping then break end
-            if foundServer then break end
-            
-            local Site
-            pcall(function()
-                if HopData.foundAnything == "" then
-                    Site = HttpService:JSONDecode(game:HttpGet('https://games.roblox.com/v1/games/' .. PlaceID .. '/servers/Public?sortOrder=Asc&limit=100'))
-                else
-                    Site = HttpService:JSONDecode(game:HttpGet('https://games.roblox.com/v1/games/' .. PlaceID .. '/servers/Public?sortOrder=Asc&limit=100&cursor=' .. HopData.foundAnything))
-                end
-            end)
-            
-            if not Site or not Site.data then 
-                print("[ERROR] Failed to fetch servers on request " .. requestNum)
-                break 
-            end
-            
-            if Site.nextPageCursor and Site.nextPageCursor ~= "null" and Site.nextPageCursor ~= nil then
-                HopData.foundAnything = Site.nextPageCursor
-            end
-            
-            print("[REQUEST " .. requestNum .. "] Checking " .. #Site.data .. " servers...")
-            
-            for i, v in pairs(Site.data) do
-                if not isHopping then break end
-                
-                local ID = tostring(v.id)
-                local currentPlayers = tonumber(v.playing)
-                local maxPlayersInServer = tonumber(v.maxPlayers)
-                local hasSlots = maxPlayersInServer > currentPlayers
-                
-                serversChecked = serversChecked + 1
-                
-                -- Check: has slots AND within player range
-                if hasSlots and currentPlayers >= minPlayers and currentPlayers <= maxPlayers then
-                    local isNew = true
-                    for _, existingID in pairs(HopData.AllIDs) do
-                        if ID == tostring(existingID) then
-                            isNew = false
-                            break
-                        end
-                    end
-                    
-                    if isNew then
-                        serversValid = serversValid + 1
-                        table.insert(HopData.AllIDs, ID)
-                        print("✓ [FOUND] Server: " .. ID .. " | Players: " .. currentPlayers .. "/" .. maxPlayersInServer)
-                        StatusLabel.Text = "Status: Hopping to Server " .. ID .. "..."
-                        StatusLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
-                        
-                        task.wait(1)
-                        pcall(function()
-                            TeleportService:TeleportToPlaceInstance(PlaceID, ID, LocalPlayer)
-                        end)
-                        foundServer = true
-                        isHopping = false
-                        return
-                    end
-                end
-            end
-            
-            task.wait(0.3)
-        end
-        
-        print("[CYCLE] Checked " .. serversChecked .. " servers | Valid: " .. serversValid .. " | Retrying in 1 second...")
-        
-        if not isHopping then break end
-        task.wait(1)
-    end
-    
-    print("[STOPPED] Server hop cancelled by user")
-    StatusLabel.Text = "Status: Stopped"
-    StatusLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
-    isHopping = false
-end
-
-StartHopBtn.MouseButton1Click:Connect(function()
-    if isHopping then
-        print("[STOPPED] Server hop cancelled!")
-        isHopping = false
-        StatusLabel.Text = "Status: Stopped by user"
-        StatusLabel.TextColor3 = Color3.fromRGB(200, 100, 100)
-        return
-    end
-    
-    isHopping = true
-    StatusLabel.Text = "Status: Hopping... (searching)"
-    StatusLabel.TextColor3 = Color3.fromRGB(255, 200, 100)
-    
-    task.spawn(function()
-        ServerHop(HopThreshold, HopMaxPlayers)
-    end)
 end)
 
 -- ==========================================
