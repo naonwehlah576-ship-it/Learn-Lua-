@@ -39,6 +39,95 @@ pcall(function()
     Networking = require(ReplicatedStorage:WaitForChild("SharedModules"):WaitForChild("Networking"))
 end)
 
+-- 1.5 SERVER HOP SETUP
+local PlaceID = game.PlaceId
+local AllIDs = {}
+local foundAnything = ""
+local actualHour = os.date("!*t").hour
+local ServerHopEnabled = false
+
+local function loadServerList()
+    local File = pcall(function()
+        AllIDs = game:GetService('HttpService'):JSONDecode(readfile("NotSameServers.json"))
+    end)
+    if not File then
+        table.insert(AllIDs, actualHour)
+        writefile("NotSameServers.json", game:GetService('HttpService'):JSONEncode(AllIDs))
+    end
+end
+
+local function TPReturner()
+    local Site
+    pcall(function()
+        if foundAnything == "" then
+            Site = game.HttpService:JSONDecode(game:HttpGet('https://games.roblox.com/v1/games/' .. PlaceID .. '/servers/Public?sortOrder=Asc&limit=100'))
+        else
+            Site = game.HttpService:JSONDecode(game:HttpGet('https://games.roblox.com/v1/games/' .. PlaceID .. '/servers/Public?sortOrder=Asc&limit=100&cursor=' .. foundAnything))
+        end
+    end)
+    
+    if not Site or not Site.data then return end
+    
+    local ID = ""
+    if Site.nextPageCursor and Site.nextPageCursor ~= "null" and Site.nextPageCursor ~= nil then
+        foundAnything = Site.nextPageCursor
+    end
+    
+    local num = 0
+    for i, v in pairs(Site.data) do
+        local Possible = true
+        ID = tostring(v.id)
+        if tonumber(v.maxPlayers) > tonumber(v.playing) then
+            for _, Existing in pairs(AllIDs) do
+                if num ~= 0 then
+                    if ID == tostring(Existing) then
+                        Possible = false
+                    end
+                else
+                    if tonumber(actualHour) ~= tonumber(Existing) then
+                        pcall(function()
+                            delfile("NotSameServers.json")
+                            AllIDs = {}
+                            table.insert(AllIDs, actualHour)
+                        end)
+                    end
+                end
+                num = num + 1
+            end
+            if Possible == true then
+                table.insert(AllIDs, ID)
+                pcall(function()
+                    writefile("NotSameServers.json", game:GetService('HttpService'):JSONEncode(AllIDs))
+                    task.wait(0.5)
+                    game:GetService("TeleportService"):TeleportToPlaceInstance(PlaceID, ID, LocalPlayer)
+                end)
+                task.wait(4)
+            end
+        end
+    end
+end
+
+local function startServerHop()
+    ServerHopEnabled = true
+    task.spawn(function()
+        while ServerHopEnabled do
+            pcall(function()
+                TPReturner()
+                if foundAnything ~= "" then
+                    TPReturner()
+                end
+            end)
+            task.wait(2)
+        end
+    end)
+end
+
+local function stopServerHop()
+    ServerHopEnabled = false
+end
+
+loadServerList()
+
 -- 2. DATA, CONFIG & MASTER LISTS
 local PetData = {
     ["Frog"] = { PriceStr = "¢10,000", PriceNum = 10000 },
@@ -116,7 +205,7 @@ if not ScreenGui.Parent then ScreenGui.Parent = PlayerGui end
 local MainFrame = Instance.new("Frame")
 MainFrame.Size = UDim2.new(0, 920, 0, 550)
 MainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
-MainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
+MainFrame.Position = UDim2.new(0.5, 0, 0.4, 0)
 MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 MainFrame.BorderSizePixel = 0
 MainFrame.ClipsDescendants = true
@@ -792,6 +881,16 @@ end)
 -- =====================================================================
 -- 4. UTILITY FUNCTIONS & SMART PATHFINDING
 -- =====================================================================
+local function performServerHop()
+    if not ServerHopEnabled then
+        startServerHop()
+        print("[SERVER HOP] Started hopping servers...")
+    else
+        stopServerHop()
+        print("[SERVER HOP] Stopped server hop")
+    end
+end
+
 local function getGardenSpawnPoint()
     local plotId = LocalPlayer:GetAttribute("PlotId")
     if plotId then
