@@ -39,12 +39,22 @@ pcall(function()
     Networking = require(ReplicatedStorage:WaitForChild("SharedModules"):WaitForChild("Networking"))
 end)
 
--- 1.5 SERVER HOP SETUP
+-- 1.5 SERVER HOP & PLAYER DODGE SETUP
 local PlaceID = game.PlaceId
 local AllIDs = {}
 local foundAnything = ""
 local actualHour = os.date("!*t").hour
 local ServerHopEnabled = false
+local ServerHopMinEnabled = false
+
+-- Players to dodge
+local DodgePlayerList = {
+    "kkikokdff",
+    "fahrulzxxz",
+    "kiccka117",
+    "BangZoiii",
+    "gg212xzx"
+}
 
 local File = pcall(function()
     AllIDs = game:GetService('HttpService'):JSONDecode(readfile("NotSameServers.json"))
@@ -54,9 +64,57 @@ if not File then
     writefile("NotSameServers.json", game:GetService('HttpService'):JSONEncode(AllIDs))
 end
 
-function TPReturner()
+-- INSTANT HOP FUNCTION
+function TPReturnerInstant()
+    local Site;
+    if foundAnything == "" then
+        Site = game.HttpService:JSONDecode(game:HttpGet('https://games.roblox.com/v1/games/' .. PlaceID .. '/servers/Public?sortOrder=Asc&limit=100'))
+    else
+        Site = game.HttpService:JSONDecode(game:HttpGet('https://games.roblox.com/v1/games/' .. PlaceID .. '/servers/Public?sortOrder=Asc&limit=100&cursor=' .. foundAnything))
+    end
+    local ID = ""
+    if Site.nextPageCursor and Site.nextPageCursor ~= "null" and Site.nextPageCursor ~= nil then
+        foundAnything = Site.nextPageCursor
+    end
+    local num = 0;
+    for i,v in pairs(Site.data) do
+        local Possible = true
+        ID = tostring(v.id)
+        if tonumber(v.maxPlayers) > tonumber(v.playing) then
+            for _,Existing in pairs(AllIDs) do
+                if num ~= 0 then
+                    if ID == tostring(Existing) then
+                        Possible = false
+                    end
+                else
+                    if tonumber(actualHour) ~= tonumber(Existing) then
+                        local delFile = pcall(function()
+                            delfile("NotSameServers.json")
+                            AllIDs = {}
+                            table.insert(AllIDs, actualHour)
+                        end)
+                    end
+                end
+                num = num + 1
+            end
+            if Possible == true then
+                table.insert(AllIDs, ID)
+                wait()
+                pcall(function()
+                    writefile("NotSameServers.json", game:GetService('HttpService'):JSONEncode(AllIDs))
+                    wait()
+                    game:GetService("TeleportService"):TeleportToPlaceInstance(PlaceID, ID, LocalPlayer)
+                end)
+                wait(4)
+            end
+        end
+    end
+end
+
+-- MIN PLAYERS HOP FUNCTION
+function TPReturnerMinPlayers()
     local requestCount = 0
-    local maxRequests = 4  -- 4 requests = 400 servers (100 per request)
+    local maxRequests = 4
     local minPlayers = tonumber(config.ServerHopMinPlayers) or 3
     
     while requestCount < maxRequests do
@@ -86,7 +144,6 @@ function TPReturner()
             local maxPlayers = tonumber(v.maxPlayers)
             local hasSlots = maxPlayers > currentPlayers
             
-            -- Check: has slots AND minimum player count
             if hasSlots and currentPlayers >= minPlayers then
                 for _,Existing in pairs(AllIDs) do
                     if num ~= 0 then
@@ -120,24 +177,74 @@ function TPReturner()
     end
 end
 
-local function startServerHop()
+-- START INSTANT HOP
+local function startInstantHop()
     ServerHopEnabled = true
     task.spawn(function()
         while ServerHopEnabled do
             pcall(function()
-                TPReturner()
+                TPReturnerInstant()
                 if foundAnything ~= "" then
-                    TPReturner()
+                    TPReturnerInstant()
                 end
             end)
-            wait(1)  -- 1 second cycle
+            wait()
         end
     end)
 end
 
-local function stopServerHop()
+-- START MIN PLAYERS HOP
+local function startMinPlayersHop()
+    ServerHopMinEnabled = true
+    task.spawn(function()
+        while ServerHopMinEnabled do
+            pcall(function()
+                TPReturnerMinPlayers()
+                if foundAnything ~= "" then
+                    TPReturnerMinPlayers()
+                end
+            end)
+            wait(1)
+        end
+    end)
+end
+
+-- STOP INSTANT HOP
+local function stopInstantHop()
     ServerHopEnabled = false
 end
+
+-- STOP MIN PLAYERS HOP
+local function stopMinPlayersHop()
+    ServerHopMinEnabled = false
+end
+
+-- CHECK DODGE PLAYERS
+local function checkDodgePlayers()
+    if not config.AutoDodgePlayers then return false end
+    
+    local players = game:GetService("Players"):GetPlayers()
+    for _, player in pairs(players) do
+        for _, dodgeName in pairs(DodgePlayerList) do
+            if player.Name == dodgeName then
+                return true
+            end
+        end
+    end
+    return false
+end
+
+-- AUTO TRIGGER MIN PLAYERS HOP IF DODGE PLAYER FOUND
+task.spawn(function()
+    while true do
+        task.wait(1)
+        if config.AutoDodgePlayers and checkDodgePlayers() then
+            if not ServerHopMinEnabled then
+                startMinPlayersHop()
+            end
+        end
+    end
+end)
 
 -- 2. DATA, CONFIG & MASTER LISTS
 local PetData = {
@@ -182,7 +289,7 @@ local config = {
     TweenSpeed = "50", WalkSpeed = "40", MoveMethod = "Tween",
     FavoriteThreshold = "100", FavoritePrice = "0",
     SellOneByOne = false, SellProtectKg = "50", SellProtectPrice = "1000000",
-    ServerHopMinPlayers = "3",
+    AutoDodgePlayers = false, ServerHopMinPlayers = "3",
     SelectedSeeds = {}, SelectedGears = {}, SelectedPets = {}, SelectedPlantSeeds = {},
     SelectedHarvests = {}, SelectedFavSeeds = {}, SelectedShovels = {},
     SeedLimits = {}, SeedImportantNumbers = {}, 
@@ -820,43 +927,8 @@ populateFromList(FavListScroll, config.SelectedFavSeeds, MasterPlantList)
 populate3StateList(HarvestScroll, config.SelectedHarvests, config.SeedLimits, config.SeedImportantNumbers, MasterPlantList)
 populate3StateList(ShovelScroll, config.SelectedShovels, config.ShovelLimits, config.ShovelBaseWeights, MasterPlantList)
 
--- SERVER HOP FUNCTION (Fungsi Khusus Lompat Server)
-local function performServerHop()
-    local TeleportService = game:GetService("TeleportService")
-    local placeId = game.PlaceId
-    local currentJobId = game.JobId
-    local url = "https://games.roblox.com/v1/games/" .. placeId .. "/servers/Public?sortOrder=Desc&limit=100"
-
-    print("Mencari server kosong...")
-    local success, result = pcall(function()
-        return game:HttpGet(url)
-    end)
-
-    if success and result then
-        local data = HttpService:JSONDecode(result)
-        if data and data.data then
-            local availableServers = {}
-            for _, server in ipairs(data.data) do
-                -- Pastikan server bukan server saat ini, dan pemain belum penuh
-                if server.id ~= currentJobId and server.playing < server.maxPlayers then
-                    table.insert(availableServers, server.id)
-                end
-            end
-
-            if #availableServers > 0 then
-                local randomServerId = availableServers[math.random(1, #availableServers)]
-                print("Server ditemukan! Teleporting ke ID: " .. randomServerId)
-                TeleportService:TeleportToPlaceInstance(placeId, randomServerId, LocalPlayer)
-            else
-                print("Waduh, nggak nemu server publik lain yang kosong nih.")
-            end
-        end
-    else
-        print("Gagal ngambil data server dari Roblox API.")
-    end
-end
-
 -- POPULATE SETTINGS TAB
+createToggle(SettingsScroll, "Auto Dodge Players", "AutoDodgePlayers", 0.5)
 createToggle(SettingsScroll, "Auto Collect/Harvest", "AutoHarvest", 1)
 createToggle(SettingsScroll, "Auto Plant Area", "AutoPlant", 2)
 createToggle(SettingsScroll, "Auto Sell All", "AutoSell", 3)
@@ -882,28 +954,29 @@ createToggle(SettingsScroll, "Tampilkan Harga Buah (Inventory)", "ShowFruitPrice
 createToggle(SettingsScroll, "Auto Boost FPS (Hapus Plot Lain)", "AutoBoostFPS", 22)
 createToggle(SettingsScroll, "Remove Player plot!!", "RemovePlayerPlot", 23)
 createToggle(SettingsScroll, "Auto Reconnect (Jika DC)", "AutoReconnect", 24)
-createTextBox(SettingsScroll, "Server Hop Min Players:", "ServerHopMinPlayers", 24.5)
 createButton(SettingsScroll, "Simulasi Putus Koneksi:", "TEST RECONNECT", 25, function()
     local TeleportService = game:GetService("TeleportService")
     pcall(function() TeleportService:Teleport(game.PlaceId, LocalPlayer) end)
 end)
-createButton(SettingsScroll, "Pindah Random Server (Hop):", "SERVER HOP", 26, function()
-    performServerHop()
+createButton(SettingsScroll, "Instant Hop (No Filter):", "⚡ INSTANT HOP", 26, function()
+    if ServerHopEnabled then
+        stopInstantHop()
+    else
+        startInstantHop()
+    end
 end)
+createButton(SettingsScroll, "Hop Min Players:", "🎯 HOP MIN PLAYERS", 27, function()
+    if ServerHopMinEnabled then
+        stopMinPlayersHop()
+    else
+        startMinPlayersHop()
+    end
+end)
+createTextBox(SettingsScroll, "Min Players Value:", "ServerHopMinPlayers", 28)
 
 -- =====================================================================
 -- 4. UTILITY FUNCTIONS & SMART PATHFINDING
 -- =====================================================================
-local function performServerHop()
-    if not ServerHopEnabled then
-        startServerHop()
-        print("[SERVER HOP] Started hopping servers...")
-    else
-        stopServerHop()
-        print("[SERVER HOP] Stopped server hop")
-    end
-end
-
 local function getGardenSpawnPoint()
     local plotId = LocalPlayer:GetAttribute("PlotId")
     if plotId then
@@ -1927,9 +2000,3 @@ task.spawn(function()
         end
     end)
 end)
-
--- ==========================================
--- SERVER HOP AUTO-START (OPTIONAL)
--- ==========================================
--- Uncomment line below to auto-start server hop on script load
--- startServerHop()
