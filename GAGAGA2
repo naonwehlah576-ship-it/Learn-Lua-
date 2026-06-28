@@ -111,34 +111,33 @@ function TPReturnerInstant()
     end
 end
 
--- MIN PLAYERS HOP FUNCTION (DENGAN DEBUG)
+-- MIN PLAYERS HOP FUNCTION (CLEAN VERSION - APPROACH 400HOP)
 function TPReturnerMinPlayers()
     local requestCount = 0
     local maxRequests = 4
     local minPlayers = tonumber(config.ServerHopMinPlayers) or 3
+    local serversChecked = 0
+    local serversFound = 0
     
-    warn("[MIN PLAYERS HOP] Mencari server dengan min " .. minPlayers .. " pemain...")
+    print("[MIN PLAYERS HOP] Starting search for servers with min " .. minPlayers .. " players...")
     
     while requestCount < maxRequests do
         local Site;
         pcall(function()
             if foundAnything == "" then
-                warn("[REQ #" .. (requestCount + 1) .. "] Fetching server list...")
                 Site = game.HttpService:JSONDecode(game:HttpGet('https://games.roblox.com/v1/games/' .. PlaceID .. '/servers/Public?sortOrder=Asc&limit=100'))
             else
-                warn("[REQ #" .. (requestCount + 1) .. "] Fetching with cursor...")
                 Site = game.HttpService:JSONDecode(game:HttpGet('https://games.roblox.com/v1/games/' .. PlaceID .. '/servers/Public?sortOrder=Asc&limit=100&cursor=' .. foundAnything))
             end
         end)
         
         if not Site or not Site.data then 
-            warn("[REQ #" .. (requestCount + 1) .. "] Data kosong")
+            print("[ERROR] Failed to fetch servers on request " .. (requestCount + 1))
             break 
         end
         
-        warn("[REQ #" .. (requestCount + 1) .. "] Ditemukan " .. tostring(#Site.data) .. " server")
-        
         requestCount = requestCount + 1
+        print("[REQUEST " .. requestCount .. "] Scanning " .. #Site.data .. " servers...")
         
         local ID = ""
         if Site.nextPageCursor and Site.nextPageCursor ~= "null" and Site.nextPageCursor ~= nil then
@@ -153,8 +152,9 @@ function TPReturnerMinPlayers()
             local maxPlayers = tonumber(v.maxPlayers)
             local hasSlots = maxPlayers > currentPlayers
             
+            serversChecked = serversChecked + 1
+            
             if hasSlots and currentPlayers >= minPlayers then
-                warn("[Server #" .. i .. "] COCOK - Players: " .. currentPlayers .. "/" .. maxPlayers)
                 for _,Existing in pairs(AllIDs) do
                     if num ~= 0 then
                         if ID == tostring(Existing) then
@@ -172,12 +172,14 @@ function TPReturnerMinPlayers()
                     num = num + 1
                 end
                 if Possible == true then
-                    warn("[HOPPING] KE SERVER: " .. ID)
+                    serversFound = serversFound + 1
                     table.insert(AllIDs, ID)
-                    wait()
+                    print("[FOUND] Server: " .. ID .. " | Players: " .. currentPlayers .. "/" .. maxPlayers)
+                    
                     pcall(function()
                         writefile("NotSameServers.json", game:GetService('HttpService'):JSONEncode(AllIDs))
                         wait()
+                        print("[HOP] Teleporting to server...")
                         game:GetService("TeleportService"):TeleportToPlaceInstance(PlaceID, ID, LocalPlayer)
                     end)
                     wait(4)
@@ -186,7 +188,9 @@ function TPReturnerMinPlayers()
             end
         end
     end
-    warn("[MIN PLAYERS HOP] Selesai - Tidak ada server cocok dari " .. requestCount .. " request")
+    
+    print("[CYCLE] Checked " .. serversChecked .. " servers | Found: " .. serversFound)
+    print("[DONE] No suitable servers found")
 end
 
 -- START INSTANT HOP
@@ -205,18 +209,18 @@ local function startInstantHop()
     end)
 end
 
--- START MIN PLAYERS HOP (DENGAN DEBUG)
+-- START MIN PLAYERS HOP (CLEAN VERSION)
 local function startMinPlayersHop()
-    warn("[START] Min Players Hop dimulai")
-    warn("[CONFIG] Min Players: " .. (tonumber(config.ServerHopMinPlayers) or 3))
+    print("[START] Min Players Hop initialized")
+    print("[CONFIG] Min Players: " .. (tonumber(config.ServerHopMinPlayers) or 3))
     ServerHopMinEnabled = true
     task.spawn(function()
         while ServerHopMinEnabled do
             pcall(function()
-                warn("[CYCLE] Loop searching...")
+                print("\n[LOOP] Starting new cycle...")
                 TPReturnerMinPlayers()
                 if foundAnything ~= "" then
-                    warn("[CYCLE] Scan next page...")
+                    print("[LOOP] Continue scanning next page...")
                     TPReturnerMinPlayers()
                 end
             end)
@@ -230,9 +234,9 @@ local function stopInstantHop()
     ServerHopEnabled = false
 end
 
--- STOP MIN PLAYERS HOP (DENGAN DEBUG)
+-- STOP MIN PLAYERS HOP (CLEAN VERSION)
 local function stopMinPlayersHop()
-    warn("[STOP] Min Players Hop dihentikan")
+    print("[STOP] Min Players Hop stopped")
     ServerHopMinEnabled = false
 end
 
@@ -984,10 +988,10 @@ createButton(SettingsScroll, "Instant Hop (No Filter):", "⚡ INSTANT HOP", 26, 
 end)
 createButton(SettingsScroll, "Hop Min Players:", "🎯 HOP MIN PLAYERS", 27, function()
     if ServerHopMinEnabled then
-        warn("[BUTTON] Min Players Hop AKTIF - Stopping...")
+        print("[BUTTON] Min Players Hop is ACTIVE - Stopping...")
         stopMinPlayersHop()
     else
-        warn("[BUTTON] Min Players Hop NONAKTIF - Starting...")
+        print("[BUTTON] Min Players Hop is INACTIVE - Starting...")
         startMinPlayersHop()
     end
 end)
