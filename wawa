@@ -111,32 +111,35 @@ function TPReturnerInstant()
     end
 end
 
--- MIN PLAYERS HOP FUNCTION (DENGAN DEBUG)
+-- MIN PLAYERS HOP FUNCTION (400 SERVERS PER CYCLE - OPTIMIZED)
 function TPReturnerMinPlayers()
     local requestCount = 0
-    local maxRequests = 4
+    local maxRequests = 4  -- 4 requests = 400 servers (100 per request)
     local minPlayers = tonumber(config.ServerHopMinPlayers) or 3
+    local maxPlayers = tonumber(config.ServerHopMaxPlayers) or 7
+    local serversChecked = 0
+    local serversValid = 0
     
-    warn("[MIN PLAYERS HOP] Mencari server dengan min " .. minPlayers .. " pemain...")
+    print("═══════════════════════════════════════")
+    print("[MIN PLAYERS HOP] Starting scan...")
+    print("[CONFIG] MIN: " .. minPlayers .. " | MAX: " .. maxPlayers)
+    print("[CONFIG] 400 servers/cycle | 4 requests")
+    print("═══════════════════════════════════════")
     
     while requestCount < maxRequests do
-        local Site;
+        local Site
         pcall(function()
             if foundAnything == "" then
-                warn("[REQ #" .. (requestCount + 1) .. "] Fetching server list...")
                 Site = game.HttpService:JSONDecode(game:HttpGet('https://games.roblox.com/v1/games/' .. PlaceID .. '/servers/Public?sortOrder=Asc&limit=100'))
             else
-                warn("[REQ #" .. (requestCount + 1) .. "] Fetching with cursor...")
                 Site = game.HttpService:JSONDecode(game:HttpGet('https://games.roblox.com/v1/games/' .. PlaceID .. '/servers/Public?sortOrder=Asc&limit=100&cursor=' .. foundAnything))
             end
         end)
         
         if not Site or not Site.data then 
-            warn("[REQ #" .. (requestCount + 1) .. "] Data kosong")
+            print("[ERROR] Failed to fetch servers on request " .. (requestCount + 1))
             break 
         end
-        
-        warn("[REQ #" .. (requestCount + 1) .. "] Ditemukan " .. tostring(#Site.data) .. " server")
         
         requestCount = requestCount + 1
         
@@ -145,16 +148,22 @@ function TPReturnerMinPlayers()
             foundAnything = Site.nextPageCursor
         end
         
-        local num = 0;
+        local num = 0
+        
+        print("[REQUEST " .. requestCount .. "] Scanning " .. #Site.data .. " servers...")
+        
         for i,v in pairs(Site.data) do
             local Possible = true
             ID = tostring(v.id)
             local currentPlayers = tonumber(v.playing)
-            local maxPlayers = tonumber(v.maxPlayers)
-            local hasSlots = maxPlayers > currentPlayers
+            local maxPlayersInServer = tonumber(v.maxPlayers)
+            local hasSlots = maxPlayersInServer > currentPlayers
             
-            if hasSlots and currentPlayers >= minPlayers then
-                warn("[Server #" .. i .. "] COCOK - Players: " .. currentPlayers .. "/" .. maxPlayers)
+            serversChecked = serversChecked + 1
+            
+            -- Check: has slots AND minimum player count AND maximum player count
+            if hasSlots and currentPlayers >= minPlayers and currentPlayers <= maxPlayers then
+                print("✓ [FOUND] Server: " .. ID .. " | Players: " .. currentPlayers .. "/" .. maxPlayersInServer)
                 for _,Existing in pairs(AllIDs) do
                     if num ~= 0 then
                         if ID == tostring(Existing) then
@@ -171,22 +180,26 @@ function TPReturnerMinPlayers()
                     end
                     num = num + 1
                 end
+                
                 if Possible == true then
-                    warn("[HOPPING] KE SERVER: " .. ID)
+                    serversValid = serversValid + 1
                     table.insert(AllIDs, ID)
-                    wait()
+                    print("[HOP] Teleporting to server " .. ID .. "...")
+                    
                     pcall(function()
                         writefile("NotSameServers.json", game:GetService('HttpService'):JSONEncode(AllIDs))
                         wait()
                         game:GetService("TeleportService"):TeleportToPlaceInstance(PlaceID, ID, LocalPlayer)
                     end)
                     wait(4)
-                    return
+                    return  -- Exit after successful teleport
                 end
             end
         end
     end
-    warn("[MIN PLAYERS HOP] Selesai - Tidak ada server cocok dari " .. requestCount .. " request")
+    
+    print("[CYCLE] Checked " .. serversChecked .. " total | Valid: " .. serversValid)
+    print("═══════════════════════════════════════")
 end
 
 -- START INSTANT HOP
