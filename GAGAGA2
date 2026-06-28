@@ -796,6 +796,12 @@ createButton(SettingsScroll, "Hop ke Server:", "HOP MIN PLAYERS", 27, function()
     
     print("✈️ Teleport sent!")
 end)
+createButton(SettingsScroll, "Buka Console:", "F9", 28, function()
+    local VirtualInputManager = game:GetService("VirtualInputManager")
+    VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.F9, false, game)
+    task.wait(0.1)
+    VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.F9, false, game)
+end)
 
 -- =====================================================================
 -- 4. UTILITY FUNCTIONS & SMART PATHFINDING
