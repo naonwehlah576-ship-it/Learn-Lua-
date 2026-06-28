@@ -58,7 +58,7 @@ local PetOrder = {"Frog", "Bunny", "Owl", "Deer", "Robin", "Bee", "Monkey", "Bea
 local MasterPlantList = {
     "Acorn", "Apple", "Bamboo", "Banana", "Blueberry", "Cactus", "Carrot", "Cherry",
     "Coconut", "Corn", "Dragon Fruit", "Dragon's Breath", "Ghost Pepper", "Gold Seed", "Grape",
-    "Green Bean", "Mango", "Moon Bloom", "Mushroom", "Pineapple", "Poison Apple", "Pomegranate",
+    "Green Bean", "Mango", "Mega Seed", "Moon Bloom", "Mushroom", "Pineapple", "Poison Apple", "Pomegranate",
     "Rainbow Seed", "Strawberry", "Sunflower", "Tomato", "Tulip", "Venom Spitter", "Venus Fly Trap"
 }
 
@@ -75,7 +75,7 @@ local MasterGearList = {
 local FILE_NAME = "GAG2_Automation_Config_v14.json"
 local config = {
     AutoHarvest = false, AutoSell = false, AutoBuySeed = false,
-    AutoBuyGear = false, AutoClaimRare = false, AutoBuyPet = false, AutoPlant = false,
+    AutoBuyGear = false, AutoClaimRare = false, AutoClaimMega = false, AutoBuyPet = false, AutoPlant = false,
     AutoFavorite = false, AutoBoostFPS = false, RemovePlayerPlot = false, AntiAFK = false, ForceMutation = true,
     AntiNightThief = true, ShowFruitPrice = false, AutoReconnect = false,
     AutoShovel = false, ShovelInterval = "0.5",
@@ -763,6 +763,7 @@ createToggle(SettingsScroll, "Auto Buy Seed", "AutoBuySeed", 4)
 createToggle(SettingsScroll, "Auto Buy Gear", "AutoBuyGear", 5)
 createToggle(SettingsScroll, "Auto Buy Pet", "AutoBuyPet", 6)
 createToggle(SettingsScroll, "Auto Claim Rare Seed", "AutoClaimRare", 7)
+createToggle(SettingsScroll, "Auto Claim Mega Seed", "AutoClaimMega", 7.5)
 createToggle(SettingsScroll, "Force Harvest Mutation [!]", "ForceMutation", 8)
 createToggle(SettingsScroll, "Anti-Night Thief (Auto Hide)", "AntiNightThief", 9)
 createToggle(SettingsScroll, "Auto Shovel", "AutoShovel", 10)
@@ -947,10 +948,17 @@ local function startLinearFlight(targetObj)
 end
 
 local rareEventActive = false
+local megaEventActive = false
 local function isRareEventName(name) return name == "Goldmoon" or name == "RainbowMoon" end
+local function isMegaEventName(name) return name == "MegaSeed" or string.find(name, "Mega") ~= nil end
 local function recheckRareEvent() rareEventActive = (workspace:FindFirstChild("Goldmoon") ~= nil) or (workspace:FindFirstChild("RainbowMoon") ~= nil) end
+local function recheckMegaEvent() megaEventActive = (workspace:FindFirstChild("MegaSeed") ~= nil) or (workspace:FindFirstChild("Mega") ~= nil) end
 recheckRareEvent()
-workspace.ChildAdded:Connect(function(child) if isRareEventName(child.Name) then rareEventActive = true end end)
+recheckMegaEvent()
+workspace.ChildAdded:Connect(function(child) 
+    if isRareEventName(child.Name) then rareEventActive = true end
+    if isMegaEventName(child.Name) then megaEventActive = true end
+end)
 workspace.ChildRemoved:Connect(function(child)
     if isRareEventName(child.Name) then
         recheckRareEvent()
@@ -966,13 +974,42 @@ workspace.ChildRemoved:Connect(function(child)
             end
         end)
     end 
+    if isMegaEventName(child.Name) then
+        recheckMegaEvent()
+        task.spawn(function()
+            task.wait(5)
+            if Networking and Networking.TeleportButton and Networking.TeleportButton.Request then
+                Networking.TeleportButton.Request:Fire("Garden")
+                task.wait(0.3)
+                local spawnPt = getGardenSpawnPoint()
+                if spawnPt and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                    LocalPlayer.Character.HumanoidRootPart.CFrame = spawnPt.CFrame + Vector3.new(0, 3, 0)
+                end
+            end
+        end)
+    end
 end)
 
 local function scanForRare()
     local bestTarget = nil
     local minDistance = math.huge
     for _, obj in pairs(workspace:GetDescendants()) do
-        if obj:IsA("ProximityPrompt") and obj.Enabled and obj.ActionText == "CLAIM" and (obj.ObjectText == "Gold Seed" or obj.ObjectText == "Rainbow Seed" or obj.ObjectText == "Mega Seed") then
+        if obj:IsA("ProximityPrompt") and obj.Enabled and obj.ActionText == "CLAIM" and (obj.ObjectText == "Gold Seed" or obj.ObjectText == "Rainbow Seed") then
+            local tPos, _ = getPromptLocation(obj)
+            if tPos then 
+                local effDist, _ = getBestRoute(tPos)
+                if effDist < minDistance then minDistance = effDist; bestTarget = obj end 
+            end
+        end
+    end
+    return bestTarget
+end
+
+local function scanForMega()
+    local bestTarget = nil
+    local minDistance = math.huge
+    for _, obj in pairs(workspace:GetDescendants()) do
+        if obj:IsA("ProximityPrompt") and obj.Enabled and obj.ActionText == "CLAIM" and obj.ObjectText == "Mega Seed" then
             local tPos, _ = getPromptLocation(obj)
             if tPos then 
                 local effDist, _ = getBestRoute(tPos)
@@ -1011,7 +1048,7 @@ end
 -- =====================================================================
 task.spawn(function()
     while task.wait(0.2) do
-        if not config.AutoBuyPet and not config.AutoClaimRare then 
+        if not config.AutoBuyPet and not config.AutoClaimRare and not config.AutoClaimMega then 
             if Hunt.State ~= "IDLE" then Hunt.State = "IDLE"; Hunt.Target = nil; stopMovement() end 
             continue 
         end
@@ -1030,6 +1067,23 @@ task.spawn(function()
                         end
                     end
                     Hunt.State = "FLYING"; Hunt.Target = rareTarget; Hunt.Type = "RARE"
+                    continue
+                end
+            end
+            
+            if config.AutoClaimMega and megaEventActive then
+                local megaTarget = scanForMega()
+                if megaTarget then
+                    local tPos, _ = getPromptLocation(megaTarget)
+                    if tPos then 
+                        if config.MoveMethod ~= "Walk" then
+                            local _, route = getBestRoute(tPos)
+                            if route and Networking and Networking.TeleportButton and Networking.TeleportButton.Request then 
+                                Networking.TeleportButton.Request:Fire(route); task.wait(0.3) 
+                            end 
+                        end
+                    end
+                    Hunt.State = "FLYING"; Hunt.Target = megaTarget; Hunt.Type = "MEGA"
                     continue
                 end
             end
@@ -1110,7 +1164,7 @@ task.spawn(function()
                 elseif os.clock() > Hunt.GraceTimer then 
                     Hunt.State = "IDLE"; Hunt.Target = nil; stopMovement() 
                 end
-            elseif Hunt.Type == "RARE" then
+            elseif Hunt.Type == "RARE" or Hunt.Type == "MEGA" then
                 if not Hunt.Target or not Hunt.Target.Parent or not Hunt.Target:IsDescendantOf(workspace) then 
                     Hunt.State = "IDLE"; Hunt.Target = nil; stopMovement()
                 elseif os.clock() > Hunt.GraceTimer then 
@@ -1128,10 +1182,11 @@ task.spawn(function()
     while task.wait(0.5) do
         if config.AutoHarvest then
             local isHuntingRare = config.AutoClaimRare and rareEventActive
+            local isHuntingMega = config.AutoClaimMega and megaEventActive
             local isMalamHari = config.AntiNightThief and workspace:FindFirstChild("ActiveNight")
             
             local spawnPt = getGardenSpawnPoint()
-            if Hunt.State == "IDLE" and not isHuntingRare and not isMalamHari then
+            if Hunt.State == "IDLE" and not isHuntingRare and not isHuntingMega and not isMalamHari then
                 if spawnPt and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
                     local hrp = LocalPlayer.Character.HumanoidRootPart
                     if (hrp.Position - spawnPt.Position).Magnitude > 60 then 
