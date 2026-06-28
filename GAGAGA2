@@ -85,7 +85,8 @@ local config = {
     SelectedSeeds = {}, SelectedGears = {}, SelectedPets = {}, SelectedPlantSeeds = {},
     SelectedHarvests = {}, SelectedFavSeeds = {}, SelectedShovels = {},
     SeedLimits = {}, SeedImportantNumbers = {}, 
-    ShovelLimits = {}, ShovelBaseWeights = {}
+    ShovelLimits = {}, ShovelBaseWeights = {},
+    HopMinPlayers = "3"
 }
 
 local Hunt = { State = "IDLE", Target = nil, Type = nil, GraceTimer = 0, InitialMoney = 0, ExpectedPrice = 0 }
@@ -747,6 +748,53 @@ createToggle(SettingsScroll, "Auto Reconnect (Jika DC)", "AutoReconnect", 24)
 createButton(SettingsScroll, "Simulasi Putus Koneksi:", "TEST RECONNECT", 25, function()
     local TeleportService = game:GetService("TeleportService")
     pcall(function() TeleportService:Teleport(game.PlaceId, LocalPlayer) end)
+end)
+createTextBox(SettingsScroll, "Hop Min Players:", "HopMinPlayers", 26)
+createButton(SettingsScroll, "Hop ke Server:", "HOP MIN PLAYERS", 27, function()
+    local TeleportService = game:GetService("TeleportService")
+    local HttpService = game:GetService("HttpService")
+    
+    local Servers = "https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Asc&limit=100"
+    local Server, Next = nil, nil
+    local minPlayers = tonumber(config.HopMinPlayers) or 3
+    
+    local function ListServers(cursor)
+        local success, Raw = pcall(function()
+            return game:HttpGet(Servers .. ((cursor and "&cursor=" .. cursor) or ""))
+        end)
+        
+        if success then
+            local decoded = HttpService:JSONDecode(Raw)
+            return decoded
+        else
+            print("❌ HTTP Error (likely 429), waiting before retry...")
+            wait(3)
+            return nil
+        end
+    end
+    
+    print("🔍 Mulai cari server...")
+    repeat
+        local ServerList = ListServers(Next)
+        
+        if ServerList and ServerList.data and #ServerList.data > 0 then
+            Server = ServerList.data[math.random(1, math.ceil(#ServerList.data / 3))]
+            Next = ServerList.nextPageCursor
+            
+            print("✓ Found: " .. Server.playing .. "/" .. Server.maxPlayers .. " players | ID: " .. Server.id)
+        else
+            print("⏳ No data received, retrying...")
+            wait(2)
+        end
+        
+    until Server and Server.playing >= minPlayers and Server.playing < Server.maxPlayers and Server.id ~= game.JobId
+    
+    print("✅ Server cocok! Players: " .. Server.playing .. " | Server ID: " .. Server.id)
+    print("📍 Teleporting...")
+    
+    TeleportService:TeleportToPlaceInstance(game.PlaceId, Server.id, LocalPlayer)
+    
+    print("✈️ Teleport sent!")
 end)
 
 -- =====================================================================
