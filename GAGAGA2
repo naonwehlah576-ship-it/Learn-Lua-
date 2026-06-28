@@ -55,46 +55,66 @@ if not File then
 end
 
 function TPReturner()
-    local Site;
-    if foundAnything == "" then
-        Site = game.HttpService:JSONDecode(game:HttpGet('https://games.roblox.com/v1/games/' .. PlaceID .. '/servers/Public?sortOrder=Asc&limit=100'))
-    else
-        Site = game.HttpService:JSONDecode(game:HttpGet('https://games.roblox.com/v1/games/' .. PlaceID .. '/servers/Public?sortOrder=Asc&limit=100&cursor=' .. foundAnything))
-    end
-    local ID = ""
-    if Site.nextPageCursor and Site.nextPageCursor ~= "null" and Site.nextPageCursor ~= nil then
-        foundAnything = Site.nextPageCursor
-    end
-    local num = 0;
-    for i,v in pairs(Site.data) do
-        local Possible = true
-        ID = tostring(v.id)
-        if tonumber(v.maxPlayers) > tonumber(v.playing) then
-            for _,Existing in pairs(AllIDs) do
-                if num ~= 0 then
-                    if ID == tostring(Existing) then
-                        Possible = false
-                    end
-                else
-                    if tonumber(actualHour) ~= tonumber(Existing) then
-                        local delFile = pcall(function()
-                            delfile("NotSameServers.json")
-                            AllIDs = {}
-                            table.insert(AllIDs, actualHour)
-                        end)
-                    end
-                end
-                num = num + 1
+    local requestCount = 0
+    local maxRequests = 4  -- 4 requests = 400 servers (100 per request)
+    local minPlayers = tonumber(config.ServerHopMinPlayers) or 3
+    
+    while requestCount < maxRequests do
+        local Site;
+        pcall(function()
+            if foundAnything == "" then
+                Site = game.HttpService:JSONDecode(game:HttpGet('https://games.roblox.com/v1/games/' .. PlaceID .. '/servers/Public?sortOrder=Asc&limit=100'))
+            else
+                Site = game.HttpService:JSONDecode(game:HttpGet('https://games.roblox.com/v1/games/' .. PlaceID .. '/servers/Public?sortOrder=Asc&limit=100&cursor=' .. foundAnything))
             end
-            if Possible == true then
-                table.insert(AllIDs, ID)
-                wait()
-                pcall(function()
-                    writefile("NotSameServers.json", game:GetService('HttpService'):JSONEncode(AllIDs))
+        end)
+        
+        if not Site or not Site.data then break end
+        
+        requestCount = requestCount + 1
+        
+        local ID = ""
+        if Site.nextPageCursor and Site.nextPageCursor ~= "null" and Site.nextPageCursor ~= nil then
+            foundAnything = Site.nextPageCursor
+        end
+        
+        local num = 0;
+        for i,v in pairs(Site.data) do
+            local Possible = true
+            ID = tostring(v.id)
+            local currentPlayers = tonumber(v.playing)
+            local maxPlayers = tonumber(v.maxPlayers)
+            local hasSlots = maxPlayers > currentPlayers
+            
+            -- Check: has slots AND minimum player count
+            if hasSlots and currentPlayers >= minPlayers then
+                for _,Existing in pairs(AllIDs) do
+                    if num ~= 0 then
+                        if ID == tostring(Existing) then
+                            Possible = false
+                        end
+                    else
+                        if tonumber(actualHour) ~= tonumber(Existing) then
+                            local delFile = pcall(function()
+                                delfile("NotSameServers.json")
+                                AllIDs = {}
+                                table.insert(AllIDs, actualHour)
+                            end)
+                        end
+                    end
+                    num = num + 1
+                end
+                if Possible == true then
+                    table.insert(AllIDs, ID)
                     wait()
-                    game:GetService("TeleportService"):TeleportToPlaceInstance(PlaceID, ID, LocalPlayer)
-                end)
-                wait(4)
+                    pcall(function()
+                        writefile("NotSameServers.json", game:GetService('HttpService'):JSONEncode(AllIDs))
+                        wait()
+                        game:GetService("TeleportService"):TeleportToPlaceInstance(PlaceID, ID, LocalPlayer)
+                    end)
+                    wait(4)
+                    return
+                end
             end
         end
     end
@@ -110,7 +130,7 @@ local function startServerHop()
                     TPReturner()
                 end
             end)
-            wait()
+            wait(1)  -- 1 second cycle
         end
     end)
 end
@@ -162,6 +182,7 @@ local config = {
     TweenSpeed = "50", WalkSpeed = "40", MoveMethod = "Tween",
     FavoriteThreshold = "100", FavoritePrice = "0",
     SellOneByOne = false, SellProtectKg = "50", SellProtectPrice = "1000000",
+    ServerHopMinPlayers = "3",
     SelectedSeeds = {}, SelectedGears = {}, SelectedPets = {}, SelectedPlantSeeds = {},
     SelectedHarvests = {}, SelectedFavSeeds = {}, SelectedShovels = {},
     SeedLimits = {}, SeedImportantNumbers = {}, 
@@ -861,6 +882,7 @@ createToggle(SettingsScroll, "Tampilkan Harga Buah (Inventory)", "ShowFruitPrice
 createToggle(SettingsScroll, "Auto Boost FPS (Hapus Plot Lain)", "AutoBoostFPS", 22)
 createToggle(SettingsScroll, "Remove Player plot!!", "RemovePlayerPlot", 23)
 createToggle(SettingsScroll, "Auto Reconnect (Jika DC)", "AutoReconnect", 24)
+createTextBox(SettingsScroll, "Server Hop Min Players:", "ServerHopMinPlayers", 24.5)
 createButton(SettingsScroll, "Simulasi Putus Koneksi:", "TEST RECONNECT", 25, function()
     local TeleportService = game:GetService("TeleportService")
     pcall(function() TeleportService:Teleport(game.PlaceId, LocalPlayer) end)
@@ -1905,3 +1927,9 @@ task.spawn(function()
         end
     end)
 end)
+
+-- ==========================================
+-- SERVER HOP AUTO-START (OPTIONAL)
+-- ==========================================
+-- Uncomment line below to auto-start server hop on script load
+-- startServerHop()
