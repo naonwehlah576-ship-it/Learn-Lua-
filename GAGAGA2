@@ -972,7 +972,7 @@ local function scanForRare()
     local bestTarget = nil
     local minDistance = math.huge
     for _, obj in pairs(workspace:GetDescendants()) do
-        if obj:IsA("ProximityPrompt") and obj.Enabled and obj.ActionText == "CLAIM" and (obj.ObjectText == "Gold Seed" or obj.ObjectText == "Rainbow Seed") then
+        if obj:IsA("ProximityPrompt") and obj.Enabled and obj.ActionText == "CLAIM" and (obj.ObjectText == "Gold Seed" or obj.ObjectText == "Rainbow Seed" or obj.ObjectText == "Mega Seed") then
             local tPos, _ = getPromptLocation(obj)
             if tPos then 
                 local effDist, _ = getBestRoute(tPos)
