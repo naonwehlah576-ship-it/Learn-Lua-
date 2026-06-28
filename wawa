@@ -115,8 +115,8 @@ end
 function TPReturnerMinPlayers()
     local requestCount = 0
     local maxRequests = 4  -- 4 requests = 400 servers (100 per request)
-    local minPlayers = tonumber(config.ServerHopMinPlayers) or 3
-    local maxPlayers = tonumber(config.ServerHopMaxPlayers) or 7
+    local minPlayers = (config and tonumber(config.ServerHopMinPlayers)) or 3
+    local maxPlayers = (config and tonumber(config.ServerHopMaxPlayers)) or 7
     local serversChecked = 0
     local serversValid = 0
     
