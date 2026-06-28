@@ -1742,93 +1742,108 @@ local function ServerHop(minPlayers, maxPlayers)
     local HttpService = game:GetService("HttpService")
     
     print("╔════════════════════════════════════════╗")
-    print("║  SERVER HOP ACTIVE                     ║")
+    print("║  SERVER HOP ACTIVE - LOOPING           ║")
     print("║  MIN PLAYERS: " .. minPlayers .. " | MAX: " .. maxPlayers .. "          ║")
-    print("║  Searching through servers...          ║")
+    print("║  Will keep searching until found...    ║")
     print("╚════════════════════════════════════════╝")
     
-    local serversChecked = 0
-    local serversValid = 0
-    local foundServer = false
-    
-    -- Fetch dari API dengan multiple requests
-    for requestNum = 1, 4 do
-        if foundServer then break end
+    while isHopping do
+        local serversChecked = 0
+        local serversValid = 0
+        local foundServer = false
         
-        local Site
-        pcall(function()
-            if HopData.foundAnything == "" then
-                Site = HttpService:JSONDecode(game:HttpGet('https://games.roblox.com/v1/games/' .. PlaceID .. '/servers/Public?sortOrder=Asc&limit=100'))
-            else
-                Site = HttpService:JSONDecode(game:HttpGet('https://games.roblox.com/v1/games/' .. PlaceID .. '/servers/Public?sortOrder=Asc&limit=100&cursor=' .. HopData.foundAnything))
+        -- Reset cursor untuk cycle baru
+        HopData.foundAnything = ""
+        
+        -- Fetch dari API dengan multiple requests (400 servers per cycle)
+        for requestNum = 1, 4 do
+            if not isHopping then break end
+            if foundServer then break end
+            
+            local Site
+            pcall(function()
+                if HopData.foundAnything == "" then
+                    Site = HttpService:JSONDecode(game:HttpGet('https://games.roblox.com/v1/games/' .. PlaceID .. '/servers/Public?sortOrder=Asc&limit=100'))
+                else
+                    Site = HttpService:JSONDecode(game:HttpGet('https://games.roblox.com/v1/games/' .. PlaceID .. '/servers/Public?sortOrder=Asc&limit=100&cursor=' .. HopData.foundAnything))
+                end
+            end)
+            
+            if not Site or not Site.data then 
+                print("[ERROR] Failed to fetch servers on request " .. requestNum)
+                break 
             end
-        end)
-        
-        if not Site or not Site.data then 
-            print("[ERROR] Failed to fetch servers on request " .. requestNum)
-            break 
-        end
-        
-        if Site.nextPageCursor and Site.nextPageCursor ~= "null" and Site.nextPageCursor ~= nil then
-            HopData.foundAnything = Site.nextPageCursor
-        end
-        
-        print("[REQUEST " .. requestNum .. "] Checking " .. #Site.data .. " servers...")
-        
-        for i, v in pairs(Site.data) do
-            local ID = tostring(v.id)
-            local currentPlayers = tonumber(v.playing)
-            local maxPlayersInServer = tonumber(v.maxPlayers)
-            local hasSlots = maxPlayersInServer > currentPlayers
             
-            serversChecked = serversChecked + 1
+            if Site.nextPageCursor and Site.nextPageCursor ~= "null" and Site.nextPageCursor ~= nil then
+                HopData.foundAnything = Site.nextPageCursor
+            end
             
-            -- Check: has slots AND within player range
-            if hasSlots and currentPlayers >= minPlayers and currentPlayers <= maxPlayers then
-                local isNew = true
-                for _, existingID in pairs(HopData.AllIDs) do
-                    if ID == tostring(existingID) then
-                        isNew = false
-                        break
+            print("[REQUEST " .. requestNum .. "] Checking " .. #Site.data .. " servers...")
+            
+            for i, v in pairs(Site.data) do
+                if not isHopping then break end
+                
+                local ID = tostring(v.id)
+                local currentPlayers = tonumber(v.playing)
+                local maxPlayersInServer = tonumber(v.maxPlayers)
+                local hasSlots = maxPlayersInServer > currentPlayers
+                
+                serversChecked = serversChecked + 1
+                
+                -- Check: has slots AND within player range
+                if hasSlots and currentPlayers >= minPlayers and currentPlayers <= maxPlayers then
+                    local isNew = true
+                    for _, existingID in pairs(HopData.AllIDs) do
+                        if ID == tostring(existingID) then
+                            isNew = false
+                            break
+                        end
+                    end
+                    
+                    if isNew then
+                        serversValid = serversValid + 1
+                        table.insert(HopData.AllIDs, ID)
+                        print("✓ [FOUND] Server: " .. ID .. " | Players: " .. currentPlayers .. "/" .. maxPlayersInServer)
+                        StatusLabel.Text = "Status: Hopping to Server " .. ID .. "..."
+                        StatusLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
+                        
+                        task.wait(1)
+                        pcall(function()
+                            TeleportService:TeleportToPlaceInstance(PlaceID, ID, LocalPlayer)
+                        end)
+                        foundServer = true
+                        isHopping = false
+                        return
                     end
                 end
-                
-                if isNew then
-                    serversValid = serversValid + 1
-                    table.insert(HopData.AllIDs, ID)
-                    print("✓ [FOUND] Server: " .. ID .. " | Players: " .. currentPlayers .. "/" .. maxPlayersInServer)
-                    StatusLabel.Text = "Status: Hopping to Server " .. ID .. "..."
-                    StatusLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
-                    
-                    task.wait(1)
-                    pcall(function()
-                        TeleportService:TeleportToPlaceInstance(PlaceID, ID, LocalPlayer)
-                    end)
-                    foundServer = true
-                    break
-                end
             end
+            
+            task.wait(0.3)
         end
         
-        task.wait(0.5)
+        print("[CYCLE] Checked " .. serversChecked .. " servers | Valid: " .. serversValid .. " | Retrying in 1 second...")
+        
+        if not isHopping then break end
+        task.wait(1)
     end
     
-    if not foundServer then
-        print("[RESULT] No suitable server found. Checked: " .. serversChecked .. " | Valid: " .. serversValid)
-        StatusLabel.Text = "Status: No server found (checked " .. serversChecked .. ")"
-        StatusLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
-    end
-    
+    print("[STOPPED] Server hop cancelled by user")
+    StatusLabel.Text = "Status: Stopped"
+    StatusLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
     isHopping = false
 end
 
 StartHopBtn.MouseButton1Click:Connect(function()
     if isHopping then
-        print("[WARNING] Server hop already in progress!")
+        print("[STOPPED] Server hop cancelled!")
+        isHopping = false
+        StatusLabel.Text = "Status: Stopped by user"
+        StatusLabel.TextColor3 = Color3.fromRGB(200, 100, 100)
         return
     end
+    
     isHopping = true
-    StatusLabel.Text = "Status: Hopping... (this may take a moment)"
+    StatusLabel.Text = "Status: Hopping... (searching)"
     StatusLabel.TextColor3 = Color3.fromRGB(255, 200, 100)
     
     task.spawn(function()
