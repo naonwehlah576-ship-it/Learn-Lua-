@@ -58,7 +58,7 @@ local PetOrder = {"Frog", "Bunny", "Owl", "Deer", "Robin", "Bee", "Monkey", "Bea
 local MasterPlantList = {
     "Acorn", "Apple", "Bamboo", "Banana", "Blueberry", "Cactus", "Carrot", "Cherry",
     "Coconut", "Corn", "Dragon Fruit", "Dragon's Breath", "Ghost Pepper", "Gold Seed", "Grape",
-    "Green Bean", "Mango", "Mega Seed", "Moon Bloom", "Mushroom", "Pineapple", "Poison Apple", "Pomegranate",
+    "Green Bean", "Hypno Bloom", "Mango", "Mega Seed", "Moon Bloom", "Mushroom", "Pineapple", "Poison Apple", "Pomegranate",
     "Rainbow Seed", "Strawberry", "Sunflower", "Tomato", "Tulip", "Venom Spitter", "Venus Fly Trap"
 }
 
