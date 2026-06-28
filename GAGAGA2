@@ -39,234 +39,6 @@ pcall(function()
     Networking = require(ReplicatedStorage:WaitForChild("SharedModules"):WaitForChild("Networking"))
 end)
 
--- 1.5 SERVER HOP & PLAYER DODGE SETUP
-local PlaceID = game.PlaceId
-local AllIDs = {}
-local foundAnything = ""
-local actualHour = os.date("!*t").hour
-local ServerHopEnabled = false
-local ServerHopMinEnabled = false
-
--- Players to dodge
-local DodgePlayerList = {
-    "kkikokdff",
-    "fahrulzxxz",
-    "kiccka117",
-    "BangZoiii",
-    "gg212xzx"
-}
-
-local File = pcall(function()
-    AllIDs = game:GetService('HttpService'):JSONDecode(readfile("NotSameServers.json"))
-end)
-if not File then
-    table.insert(AllIDs, actualHour)
-    writefile("NotSameServers.json", game:GetService('HttpService'):JSONEncode(AllIDs))
-end
-
--- INSTANT HOP FUNCTION
-function TPReturnerInstant()
-    local Site;
-    if foundAnything == "" then
-        Site = game.HttpService:JSONDecode(game:HttpGet('https://games.roblox.com/v1/games/' .. PlaceID .. '/servers/Public?sortOrder=Asc&limit=100'))
-    else
-        Site = game.HttpService:JSONDecode(game:HttpGet('https://games.roblox.com/v1/games/' .. PlaceID .. '/servers/Public?sortOrder=Asc&limit=100&cursor=' .. foundAnything))
-    end
-    local ID = ""
-    if Site.nextPageCursor and Site.nextPageCursor ~= "null" and Site.nextPageCursor ~= nil then
-        foundAnything = Site.nextPageCursor
-    end
-    local num = 0;
-    for i,v in pairs(Site.data) do
-        local Possible = true
-        ID = tostring(v.id)
-        if tonumber(v.maxPlayers) > tonumber(v.playing) then
-            for _,Existing in pairs(AllIDs) do
-                if num ~= 0 then
-                    if ID == tostring(Existing) then
-                        Possible = false
-                    end
-                else
-                    if tonumber(actualHour) ~= tonumber(Existing) then
-                        local delFile = pcall(function()
-                            delfile("NotSameServers.json")
-                            AllIDs = {}
-                            table.insert(AllIDs, actualHour)
-                        end)
-                    end
-                end
-                num = num + 1
-            end
-            if Possible == true then
-                table.insert(AllIDs, ID)
-                wait()
-                pcall(function()
-                    writefile("NotSameServers.json", game:GetService('HttpService'):JSONEncode(AllIDs))
-                    wait()
-                    game:GetService("TeleportService"):TeleportToPlaceInstance(PlaceID, ID, LocalPlayer)
-                end)
-                wait(4)
-            end
-        end
-    end
-end
-
--- MIN PLAYERS HOP FUNCTION (CLEAN VERSION - APPROACH 400HOP)
-function TPReturnerMinPlayers()
-    local requestCount = 0
-    local maxRequests = 4
-    local minPlayers = tonumber(config.ServerHopMinPlayers) or 3
-    local serversChecked = 0
-    local serversFound = 0
-    
-    print("[MIN PLAYERS HOP] Starting search for servers with min " .. minPlayers .. " players...")
-    
-    while requestCount < maxRequests do
-        local Site;
-        pcall(function()
-            if foundAnything == "" then
-                Site = game.HttpService:JSONDecode(game:HttpGet('https://games.roblox.com/v1/games/' .. PlaceID .. '/servers/Public?sortOrder=Asc&limit=100'))
-            else
-                Site = game.HttpService:JSONDecode(game:HttpGet('https://games.roblox.com/v1/games/' .. PlaceID .. '/servers/Public?sortOrder=Asc&limit=100&cursor=' .. foundAnything))
-            end
-        end)
-        
-        if not Site or not Site.data then 
-            print("[ERROR] Failed to fetch servers on request " .. (requestCount + 1))
-            break 
-        end
-        
-        requestCount = requestCount + 1
-        print("[REQUEST " .. requestCount .. "] Scanning " .. #Site.data .. " servers...")
-        
-        local ID = ""
-        if Site.nextPageCursor and Site.nextPageCursor ~= "null" and Site.nextPageCursor ~= nil then
-            foundAnything = Site.nextPageCursor
-        end
-        
-        local num = 0;
-        for i,v in pairs(Site.data) do
-            local Possible = true
-            ID = tostring(v.id)
-            local currentPlayers = tonumber(v.playing)
-            local maxPlayers = tonumber(v.maxPlayers)
-            local hasSlots = maxPlayers > currentPlayers
-            
-            serversChecked = serversChecked + 1
-            
-            if hasSlots and currentPlayers >= minPlayers then
-                for _,Existing in pairs(AllIDs) do
-                    if num ~= 0 then
-                        if ID == tostring(Existing) then
-                            Possible = false
-                        end
-                    else
-                        if tonumber(actualHour) ~= tonumber(Existing) then
-                            local delFile = pcall(function()
-                                delfile("NotSameServers.json")
-                                AllIDs = {}
-                                table.insert(AllIDs, actualHour)
-                            end)
-                        end
-                    end
-                    num = num + 1
-                end
-                if Possible == true then
-                    serversFound = serversFound + 1
-                    table.insert(AllIDs, ID)
-                    print("[FOUND] Server: " .. ID .. " | Players: " .. currentPlayers .. "/" .. maxPlayers)
-                    
-                    pcall(function()
-                        writefile("NotSameServers.json", game:GetService('HttpService'):JSONEncode(AllIDs))
-                        wait()
-                        print("[HOP] Teleporting to server...")
-                        game:GetService("TeleportService"):TeleportToPlaceInstance(PlaceID, ID, LocalPlayer)
-                    end)
-                    wait(4)
-                    return
-                end
-            end
-        end
-    end
-    
-    print("[CYCLE] Checked " .. serversChecked .. " servers | Found: " .. serversFound)
-    print("[DONE] No suitable servers found")
-end
-
--- START INSTANT HOP
-local function startInstantHop()
-    ServerHopEnabled = true
-    task.spawn(function()
-        while ServerHopEnabled do
-            pcall(function()
-                TPReturnerInstant()
-                if foundAnything ~= "" then
-                    TPReturnerInstant()
-                end
-            end)
-            wait()
-        end
-    end)
-end
-
--- START MIN PLAYERS HOP (CLEAN VERSION)
-local function startMinPlayersHop()
-    print("[START] Min Players Hop initialized")
-    print("[CONFIG] Min Players: " .. (tonumber(config.ServerHopMinPlayers) or 3))
-    ServerHopMinEnabled = true
-    task.spawn(function()
-        while ServerHopMinEnabled do
-            pcall(function()
-                print("\n[LOOP] Starting new cycle...")
-                TPReturnerMinPlayers()
-                if foundAnything ~= "" then
-                    print("[LOOP] Continue scanning next page...")
-                    TPReturnerMinPlayers()
-                end
-            end)
-            wait(1)
-        end
-    end)
-end
-
--- STOP INSTANT HOP
-local function stopInstantHop()
-    ServerHopEnabled = false
-end
-
--- STOP MIN PLAYERS HOP (CLEAN VERSION)
-local function stopMinPlayersHop()
-    print("[STOP] Min Players Hop stopped")
-    ServerHopMinEnabled = false
-end
-
--- CHECK DODGE PLAYERS
-local function checkDodgePlayers()
-    if not config.AutoDodgePlayers then return false end
-    
-    local players = game:GetService("Players"):GetPlayers()
-    for _, player in pairs(players) do
-        for _, dodgeName in pairs(DodgePlayerList) do
-            if player.Name == dodgeName then
-                return true
-            end
-        end
-    end
-    return false
-end
-
--- AUTO TRIGGER MIN PLAYERS HOP IF DODGE PLAYER FOUND
-task.spawn(function()
-    while true do
-        task.wait(1)
-        if config.AutoDodgePlayers and checkDodgePlayers() then
-            if not ServerHopMinEnabled then
-                startMinPlayersHop()
-            end
-        end
-    end
-end)
-
 -- 2. DATA, CONFIG & MASTER LISTS
 local PetData = {
     ["Frog"] = { PriceStr = "¢10,000", PriceNum = 10000 },
@@ -303,14 +75,13 @@ local MasterGearList = {
 local FILE_NAME = "GAG2_Automation_Config_v14.json"
 local config = {
     AutoHarvest = false, AutoSell = false, AutoBuySeed = false,
-    AutoBuyGear = false, AutoClaimRare = false, AutoClaimMega = false, AutoBuyPet = false, AutoPlant = false,
+    AutoBuyGear = false, AutoClaimRare = false, AutoBuyPet = false, AutoPlant = false,
     AutoFavorite = false, AutoBoostFPS = false, RemovePlayerPlot = false, AntiAFK = false, ForceMutation = true,
     AntiNightThief = true, ShowFruitPrice = false, AutoReconnect = false,
     AutoShovel = false, ShovelInterval = "0.5",
     TweenSpeed = "50", WalkSpeed = "40", MoveMethod = "Tween",
     FavoriteThreshold = "100", FavoritePrice = "0",
     SellOneByOne = false, SellProtectKg = "50", SellProtectPrice = "1000000",
-    AutoDodgePlayers = false, ServerHopMinPlayers = "3",
     SelectedSeeds = {}, SelectedGears = {}, SelectedPets = {}, SelectedPlantSeeds = {},
     SelectedHarvests = {}, SelectedFavSeeds = {}, SelectedShovels = {},
     SeedLimits = {}, SeedImportantNumbers = {}, 
@@ -459,6 +230,7 @@ local TabFarming = createTabButton("🌾 FARMING")
 local TabFavorite = createTabButton("⭐ AUTO FAV")
 local TabShop = createTabButton("🛒 SHOP")
 local TabShovel = createTabButton("⛏️ SHOVEL")
+local TabHop = createTabButton("🚀 HOP")
 
 local ContentContainer = Instance.new("Frame")
 ContentContainer.Size = UDim2.new(1, -20, 1, -85)
@@ -491,6 +263,7 @@ local SeedPanel = createPanel(280, 1)
 local GearPanel = createPanel(280, 2)
 local PetPanel = createPanel(280, 3)
 local ShovelPanel = createPanel(280, 1)
+local HopPanel = createPanel(600, 1)
 
 local function switchTab(tabName)
     TabSettings.BackgroundColor3 = (tabName == "Settings") and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(45, 45, 45)
@@ -498,6 +271,7 @@ local function switchTab(tabName)
     TabFavorite.BackgroundColor3 = (tabName == "Favorite") and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(45, 45, 45)
     TabShop.BackgroundColor3 = (tabName == "Shop") and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(45, 45, 45)
     TabShovel.BackgroundColor3 = (tabName == "Shovel") and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(45, 45, 45)
+    TabHop.BackgroundColor3 = (tabName == "Hop") and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(45, 45, 45)
 
     LeftPanel.Visible = (tabName == "Settings")
     PlantPanel.Visible = (tabName == "Farming")
@@ -507,6 +281,7 @@ local function switchTab(tabName)
     GearPanel.Visible = (tabName == "Shop")
     PetPanel.Visible = (tabName == "Shop")
     ShovelPanel.Visible = (tabName == "Shovel")
+    HopPanel.Visible = (tabName == "Hop")
 end
 
 TabSettings.MouseButton1Click:Connect(function() switchTab("Settings") end)
@@ -514,6 +289,7 @@ TabFarming.MouseButton1Click:Connect(function() switchTab("Farming") end)
 TabFavorite.MouseButton1Click:Connect(function() switchTab("Favorite") end)
 TabShop.MouseButton1Click:Connect(function() switchTab("Shop") end)
 TabShovel.MouseButton1Click:Connect(function() switchTab("Shovel") end)
+TabHop.MouseButton1Click:Connect(function() switchTab("Hop") end)
 switchTab("Settings")
 
 local function createScrollList(parent, titleText)
@@ -550,6 +326,111 @@ local PlantScroll = createScrollList(PlantPanel, "PLANT: SEEDS")
 local HarvestScroll = createScrollList(HarvestPanel, "HARVEST: TARGETS")
 local FavListScroll = createScrollList(FavListPanel, "⭐ AUTO FAVORITE LIST TARGETS")
 local ShovelScroll = createScrollList(ShovelPanel, "⛏️ SHOVEL: TARGETS")
+
+-- ===== SERVER HOP UI =====
+local HopThreshold = 3
+local HopMaxPlayers = 7
+local isHopping = false
+
+local HopTitle = Instance.new("TextLabel")
+HopTitle.Size = UDim2.new(1, 0, 0, 30)
+HopTitle.BackgroundTransparency = 1
+HopTitle.Text = "⚙️ SERVER HOP CONFIGURATION"
+HopTitle.TextColor3 = Color3.fromRGB(180, 180, 180)
+HopTitle.Font = Enum.Font.GothamBold
+HopTitle.TextSize = 13
+HopTitle.Parent = HopPanel
+
+local ConfigFrame = Instance.new("Frame")
+ConfigFrame.Size = UDim2.new(1, -20, 0, 100)
+ConfigFrame.Position = UDim2.new(0, 10, 0, 40)
+ConfigFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+ConfigFrame.BorderSizePixel = 0
+ConfigFrame.Parent = HopPanel
+Instance.new("UICorner", ConfigFrame).CornerRadius = UDim.new(0, 6)
+
+-- Min Players Label
+local MinLabel = Instance.new("TextLabel")
+MinLabel.Size = UDim2.new(0, 120, 0, 20)
+MinLabel.Position = UDim2.new(0, 10, 0, 10)
+MinLabel.BackgroundTransparency = 1
+MinLabel.Text = "MIN PLAYERS:"
+MinLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+MinLabel.Font = Enum.Font.Gotham
+MinLabel.TextSize = 11
+MinLabel.TextXAlignment = Enum.TextXAlignment.Left
+MinLabel.Parent = ConfigFrame
+
+-- Min Players Input
+local MinInput = Instance.new("TextBox")
+MinInput.Size = UDim2.new(0, 60, 0, 25)
+MinInput.Position = UDim2.new(0, 130, 0, 8)
+MinInput.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+MinInput.BorderSizePixel = 0
+MinInput.Text = "3"
+MinInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+MinInput.Font = Enum.Font.Gotham
+MinInput.TextSize = 12
+MinInput.Parent = ConfigFrame
+Instance.new("UICorner", MinInput).CornerRadius = UDim.new(0, 4)
+MinInput.FocusLost:Connect(function()
+    local val = tonumber(MinInput.Text)
+    if val then HopThreshold = val else MinInput.Text = tostring(HopThreshold) end
+end)
+
+-- Max Players Label
+local MaxLabel = Instance.new("TextLabel")
+MaxLabel.Size = UDim2.new(0, 120, 0, 20)
+MaxLabel.Position = UDim2.new(0, 210, 0, 10)
+MaxLabel.BackgroundTransparency = 1
+MaxLabel.Text = "MAX PLAYERS:"
+MaxLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+MaxLabel.Font = Enum.Font.Gotham
+MaxLabel.TextSize = 11
+MaxLabel.TextXAlignment = Enum.TextXAlignment.Left
+MaxLabel.Parent = ConfigFrame
+
+-- Max Players Input
+local MaxInput = Instance.new("TextBox")
+MaxInput.Size = UDim2.new(0, 60, 0, 25)
+MaxInput.Position = UDim2.new(0, 330, 0, 8)
+MaxInput.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+MaxInput.BorderSizePixel = 0
+MaxInput.Text = "7"
+MaxInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+MaxInput.Font = Enum.Font.Gotham
+MaxInput.TextSize = 12
+MaxInput.Parent = ConfigFrame
+Instance.new("UICorner", MaxInput).CornerRadius = UDim.new(0, 4)
+MaxInput.FocusLost:Connect(function()
+    local val = tonumber(MaxInput.Text)
+    if val then HopMaxPlayers = val else MaxInput.Text = tostring(HopMaxPlayers) end
+end)
+
+-- Start Hop Button
+local StartHopBtn = Instance.new("TextButton")
+StartHopBtn.Size = UDim2.new(0, 100, 0, 30)
+StartHopBtn.Position = UDim2.new(0, 410, 0, 8)
+StartHopBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
+StartHopBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+StartHopBtn.Font = Enum.Font.GothamBold
+StartHopBtn.TextSize = 12
+StartHopBtn.Text = "START HOP"
+StartHopBtn.BorderSizePixel = 0
+StartHopBtn.Parent = ConfigFrame
+Instance.new("UICorner", StartHopBtn).CornerRadius = UDim.new(0, 4)
+
+-- Status Label
+local StatusLabel = Instance.new("TextLabel")
+StatusLabel.Size = UDim2.new(1, -20, 0, 20)
+StatusLabel.Position = UDim2.new(0, 10, 0, 50)
+StatusLabel.BackgroundTransparency = 1
+StatusLabel.Text = "Status: Ready | Threshold: 3-7 players"
+StatusLabel.TextColor3 = Color3.fromRGB(150, 200, 255)
+StatusLabel.Font = Enum.Font.Gotham
+StatusLabel.TextSize = 11
+StatusLabel.TextXAlignment = Enum.TextXAlignment.Left
+StatusLabel.Parent = ConfigFrame
 
 local function createToggle(parent, text, configKey, yPos)
     local frame = Instance.new("Frame")
@@ -948,8 +829,43 @@ populateFromList(FavListScroll, config.SelectedFavSeeds, MasterPlantList)
 populate3StateList(HarvestScroll, config.SelectedHarvests, config.SeedLimits, config.SeedImportantNumbers, MasterPlantList)
 populate3StateList(ShovelScroll, config.SelectedShovels, config.ShovelLimits, config.ShovelBaseWeights, MasterPlantList)
 
+-- SERVER HOP FUNCTION (Fungsi Khusus Lompat Server)
+local function performServerHop()
+    local TeleportService = game:GetService("TeleportService")
+    local placeId = game.PlaceId
+    local currentJobId = game.JobId
+    local url = "https://games.roblox.com/v1/games/" .. placeId .. "/servers/Public?sortOrder=Desc&limit=100"
+
+    print("Mencari server kosong...")
+    local success, result = pcall(function()
+        return game:HttpGet(url)
+    end)
+
+    if success and result then
+        local data = HttpService:JSONDecode(result)
+        if data and data.data then
+            local availableServers = {}
+            for _, server in ipairs(data.data) do
+                -- Pastikan server bukan server saat ini, dan pemain belum penuh
+                if server.id ~= currentJobId and server.playing < server.maxPlayers then
+                    table.insert(availableServers, server.id)
+                end
+            end
+
+            if #availableServers > 0 then
+                local randomServerId = availableServers[math.random(1, #availableServers)]
+                print("Server ditemukan! Teleporting ke ID: " .. randomServerId)
+                TeleportService:TeleportToPlaceInstance(placeId, randomServerId, LocalPlayer)
+            else
+                print("Waduh, nggak nemu server publik lain yang kosong nih.")
+            end
+        end
+    else
+        print("Gagal ngambil data server dari Roblox API.")
+    end
+end
+
 -- POPULATE SETTINGS TAB
-createToggle(SettingsScroll, "Auto Dodge Players", "AutoDodgePlayers", 0.5)
 createToggle(SettingsScroll, "Auto Collect/Harvest", "AutoHarvest", 1)
 createToggle(SettingsScroll, "Auto Plant Area", "AutoPlant", 2)
 createToggle(SettingsScroll, "Auto Sell All", "AutoSell", 3)
@@ -957,7 +873,6 @@ createToggle(SettingsScroll, "Auto Buy Seed", "AutoBuySeed", 4)
 createToggle(SettingsScroll, "Auto Buy Gear", "AutoBuyGear", 5)
 createToggle(SettingsScroll, "Auto Buy Pet", "AutoBuyPet", 6)
 createToggle(SettingsScroll, "Auto Claim Rare Seed", "AutoClaimRare", 7)
-createToggle(SettingsScroll, "Auto Claim Mega Seed", "AutoClaimMega", 7.5)
 createToggle(SettingsScroll, "Force Harvest Mutation [!]", "ForceMutation", 8)
 createToggle(SettingsScroll, "Anti-Night Thief (Auto Hide)", "AntiNightThief", 9)
 createToggle(SettingsScroll, "Auto Shovel", "AutoShovel", 10)
@@ -979,23 +894,9 @@ createButton(SettingsScroll, "Simulasi Putus Koneksi:", "TEST RECONNECT", 25, fu
     local TeleportService = game:GetService("TeleportService")
     pcall(function() TeleportService:Teleport(game.PlaceId, LocalPlayer) end)
 end)
-createButton(SettingsScroll, "Instant Hop (No Filter):", "⚡ INSTANT HOP", 26, function()
-    if ServerHopEnabled then
-        stopInstantHop()
-    else
-        startInstantHop()
-    end
+createButton(SettingsScroll, "Pindah Random Server (Hop):", "SERVER HOP", 26, function()
+    performServerHop()
 end)
-createButton(SettingsScroll, "Hop Min Players:", "🎯 HOP MIN PLAYERS", 27, function()
-    if ServerHopMinEnabled then
-        print("[BUTTON] Min Players Hop is ACTIVE - Stopping...")
-        stopMinPlayersHop()
-    else
-        print("[BUTTON] Min Players Hop is INACTIVE - Starting...")
-        startMinPlayersHop()
-    end
-end)
-createTextBox(SettingsScroll, "Min Players Value:", "ServerHopMinPlayers", 28)
 
 -- =====================================================================
 -- 4. UTILITY FUNCTIONS & SMART PATHFINDING
@@ -1156,17 +1057,10 @@ local function startLinearFlight(targetObj)
 end
 
 local rareEventActive = false
-local megaEventActive = false
-local function isRareEventName(name) return name == "Goldmoon" or name == "RainbowMoon" end
-local function isMegaEventName(name) return name == "MegaSeed" or string.find(name, "Mega") ~= nil end
-local function recheckRareEvent() rareEventActive = (workspace:FindFirstChild("Goldmoon") ~= nil) or (workspace:FindFirstChild("RainbowMoon") ~= nil) end
-local function recheckMegaEvent() megaEventActive = (workspace:FindFirstChild("MegaSeed") ~= nil) or (workspace:FindFirstChild("Mega") ~= nil) end
+local function isRareEventName(name) return name == "Goldmoon" or name == "RainbowMoon" or name == "MegaSeed" or string.find(name, "Mega") ~= nil end
+local function recheckRareEvent() rareEventActive = (workspace:FindFirstChild("Goldmoon") ~= nil) or (workspace:FindFirstChild("RainbowMoon") ~= nil) or (workspace:FindFirstChild("MegaSeed") ~= nil) end
 recheckRareEvent()
-recheckMegaEvent()
-workspace.ChildAdded:Connect(function(child) 
-    if isRareEventName(child.Name) then rareEventActive = true end
-    if isMegaEventName(child.Name) then megaEventActive = true end
-end)
+workspace.ChildAdded:Connect(function(child) if isRareEventName(child.Name) then rareEventActive = true end end)
 workspace.ChildRemoved:Connect(function(child)
     if isRareEventName(child.Name) then
         recheckRareEvent()
@@ -1182,42 +1076,13 @@ workspace.ChildRemoved:Connect(function(child)
             end
         end)
     end 
-    if isMegaEventName(child.Name) then
-        recheckMegaEvent()
-        task.spawn(function()
-            task.wait(5)
-            if Networking and Networking.TeleportButton and Networking.TeleportButton.Request then
-                Networking.TeleportButton.Request:Fire("Garden")
-                task.wait(0.3)
-                local spawnPt = getGardenSpawnPoint()
-                if spawnPt and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-                    LocalPlayer.Character.HumanoidRootPart.CFrame = spawnPt.CFrame + Vector3.new(0, 3, 0)
-                end
-            end
-        end)
-    end
 end)
 
 local function scanForRare()
     local bestTarget = nil
     local minDistance = math.huge
     for _, obj in pairs(workspace:GetDescendants()) do
-        if obj:IsA("ProximityPrompt") and obj.Enabled and obj.ActionText == "CLAIM" and (obj.ObjectText == "Gold Seed" or obj.ObjectText == "Rainbow Seed") then
-            local tPos, _ = getPromptLocation(obj)
-            if tPos then 
-                local effDist, _ = getBestRoute(tPos)
-                if effDist < minDistance then minDistance = effDist; bestTarget = obj end 
-            end
-        end
-    end
-    return bestTarget
-end
-
-local function scanForMega()
-    local bestTarget = nil
-    local minDistance = math.huge
-    for _, obj in pairs(workspace:GetDescendants()) do
-        if obj:IsA("ProximityPrompt") and obj.Enabled and obj.ActionText == "CLAIM" and obj.ObjectText == "Mega Seed" then
+        if obj:IsA("ProximityPrompt") and obj.Enabled and obj.ActionText == "CLAIM" and (obj.ObjectText == "Gold Seed" or obj.ObjectText == "Rainbow Seed" or obj.ObjectText == "Mega Seed") then
             local tPos, _ = getPromptLocation(obj)
             if tPos then 
                 local effDist, _ = getBestRoute(tPos)
@@ -1256,7 +1121,7 @@ end
 -- =====================================================================
 task.spawn(function()
     while task.wait(0.2) do
-        if not config.AutoBuyPet and not config.AutoClaimRare and not config.AutoClaimMega then 
+        if not config.AutoBuyPet and not config.AutoClaimRare then 
             if Hunt.State ~= "IDLE" then Hunt.State = "IDLE"; Hunt.Target = nil; stopMovement() end 
             continue 
         end
@@ -1275,23 +1140,6 @@ task.spawn(function()
                         end
                     end
                     Hunt.State = "FLYING"; Hunt.Target = rareTarget; Hunt.Type = "RARE"
-                    continue
-                end
-            end
-            
-            if config.AutoClaimMega and megaEventActive then
-                local megaTarget = scanForMega()
-                if megaTarget then
-                    local tPos, _ = getPromptLocation(megaTarget)
-                    if tPos then 
-                        if config.MoveMethod ~= "Walk" then
-                            local _, route = getBestRoute(tPos)
-                            if route and Networking and Networking.TeleportButton and Networking.TeleportButton.Request then 
-                                Networking.TeleportButton.Request:Fire(route); task.wait(0.3) 
-                            end 
-                        end
-                    end
-                    Hunt.State = "FLYING"; Hunt.Target = megaTarget; Hunt.Type = "MEGA"
                     continue
                 end
             end
@@ -1372,7 +1220,7 @@ task.spawn(function()
                 elseif os.clock() > Hunt.GraceTimer then 
                     Hunt.State = "IDLE"; Hunt.Target = nil; stopMovement() 
                 end
-            elseif Hunt.Type == "RARE" or Hunt.Type == "MEGA" then
+            elseif Hunt.Type == "RARE" then
                 if not Hunt.Target or not Hunt.Target.Parent or not Hunt.Target:IsDescendantOf(workspace) then 
                     Hunt.State = "IDLE"; Hunt.Target = nil; stopMovement()
                 elseif os.clock() > Hunt.GraceTimer then 
@@ -1390,11 +1238,10 @@ task.spawn(function()
     while task.wait(0.5) do
         if config.AutoHarvest then
             local isHuntingRare = config.AutoClaimRare and rareEventActive
-            local isHuntingMega = config.AutoClaimMega and megaEventActive
             local isMalamHari = config.AntiNightThief and workspace:FindFirstChild("ActiveNight")
             
             local spawnPt = getGardenSpawnPoint()
-            if Hunt.State == "IDLE" and not isHuntingRare and not isHuntingMega and not isMalamHari then
+            if Hunt.State == "IDLE" and not isHuntingRare and not isMalamHari then
                 if spawnPt and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
                     local hrp = LocalPlayer.Character.HumanoidRootPart
                     if (hrp.Position - spawnPt.Position).Magnitude > 60 then 
@@ -1883,6 +1730,110 @@ task.spawn(function()
             end
         end
     end
+end)
+
+-- ==========================================
+-- SERVER HOP FUNCTION
+-- ==========================================
+local HopData = { AllIDs = {}, foundAnything = "" }
+local function ServerHop(minPlayers, maxPlayers)
+    local PlaceID = game.PlaceId
+    local TeleportService = game:GetService("TeleportService")
+    local HttpService = game:GetService("HttpService")
+    
+    print("╔════════════════════════════════════════╗")
+    print("║  SERVER HOP ACTIVE                     ║")
+    print("║  MIN PLAYERS: " .. minPlayers .. " | MAX: " .. maxPlayers .. "          ║")
+    print("║  Searching through servers...          ║")
+    print("╚════════════════════════════════════════╝")
+    
+    local serversChecked = 0
+    local serversValid = 0
+    local foundServer = false
+    
+    -- Fetch dari API dengan multiple requests
+    for requestNum = 1, 4 do
+        if foundServer then break end
+        
+        local Site
+        pcall(function()
+            if HopData.foundAnything == "" then
+                Site = HttpService:JSONDecode(game:HttpGet('https://games.roblox.com/v1/games/' .. PlaceID .. '/servers/Public?sortOrder=Asc&limit=100'))
+            else
+                Site = HttpService:JSONDecode(game:HttpGet('https://games.roblox.com/v1/games/' .. PlaceID .. '/servers/Public?sortOrder=Asc&limit=100&cursor=' .. HopData.foundAnything))
+            end
+        end)
+        
+        if not Site or not Site.data then 
+            print("[ERROR] Failed to fetch servers on request " .. requestNum)
+            break 
+        end
+        
+        if Site.nextPageCursor and Site.nextPageCursor ~= "null" and Site.nextPageCursor ~= nil then
+            HopData.foundAnything = Site.nextPageCursor
+        end
+        
+        print("[REQUEST " .. requestNum .. "] Checking " .. #Site.data .. " servers...")
+        
+        for i, v in pairs(Site.data) do
+            local ID = tostring(v.id)
+            local currentPlayers = tonumber(v.playing)
+            local maxPlayersInServer = tonumber(v.maxPlayers)
+            local hasSlots = maxPlayersInServer > currentPlayers
+            
+            serversChecked = serversChecked + 1
+            
+            -- Check: has slots AND within player range
+            if hasSlots and currentPlayers >= minPlayers and currentPlayers <= maxPlayers then
+                local isNew = true
+                for _, existingID in pairs(HopData.AllIDs) do
+                    if ID == tostring(existingID) then
+                        isNew = false
+                        break
+                    end
+                end
+                
+                if isNew then
+                    serversValid = serversValid + 1
+                    table.insert(HopData.AllIDs, ID)
+                    print("✓ [FOUND] Server: " .. ID .. " | Players: " .. currentPlayers .. "/" .. maxPlayersInServer)
+                    StatusLabel.Text = "Status: Hopping to Server " .. ID .. "..."
+                    StatusLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
+                    
+                    task.wait(1)
+                    pcall(function()
+                        TeleportService:TeleportToPlaceInstance(PlaceID, ID, LocalPlayer)
+                    end)
+                    foundServer = true
+                    break
+                end
+            end
+        end
+        
+        task.wait(0.5)
+    end
+    
+    if not foundServer then
+        print("[RESULT] No suitable server found. Checked: " .. serversChecked .. " | Valid: " .. serversValid)
+        StatusLabel.Text = "Status: No server found (checked " .. serversChecked .. ")"
+        StatusLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
+    end
+    
+    isHopping = false
+end
+
+StartHopBtn.MouseButton1Click:Connect(function()
+    if isHopping then
+        print("[WARNING] Server hop already in progress!")
+        return
+    end
+    isHopping = true
+    StatusLabel.Text = "Status: Hopping... (this may take a moment)"
+    StatusLabel.TextColor3 = Color3.fromRGB(255, 200, 100)
+    
+    task.spawn(function()
+        ServerHop(HopThreshold, HopMaxPlayers)
+    end)
 end)
 
 -- ==========================================
