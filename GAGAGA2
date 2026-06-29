@@ -1038,21 +1038,19 @@ local function scanForPet()
 end
 
 -- =====================================================================
--- AUTO DODGE (Trigger HOP MIN PLAYERS - 1x saja, lalu STOP)
+-- AUTO DODGE (Trigger HOP MIN PLAYERS - trigger 1x, scan lagi after hop)
 -- =====================================================================
-local autoDodgeTriggered = false  -- ← Flag: sudah trigger atau belum
+local autoDodgeTriggered = false
 
 task.spawn(function()
     while task.wait(3) do
-        if config.AutoDodge and not autoDodgeTriggered then  -- ← Hanya jalan jika BELUM trigger
+        if config.AutoDodge and not autoDodgeTriggered then
             -- Scan semua player di server (KECUALI LocalPlayer sendiri)
             local foundDodgePlayer = false
             
             for _, player in pairs(Players:GetPlayers()) do
-                -- ✓ SKIP LocalPlayer
                 if player == LocalPlayer then continue end
                 
-                -- ✓ Cek apakah player ini ada di DodgeList
                 if table.find(DodgeList, player.Name) then
                     print("⚠️ AUTO DODGE: Terdeteksi '" .. player.Name .. "'! HOP dalam 5 detik...")
                     foundDodgePlayer = true
@@ -1061,15 +1059,34 @@ task.spawn(function()
             end
             
             if foundDodgePlayer then
-                autoDodgeTriggered = true  -- ← SET TRUE - tidak akan scan lagi
+                autoDodgeTriggered = true
                 task.wait(5)
                 
-                -- Trigger HOP (hanya 1x saja selamanya)
-                print("🚀 TRIGGER HOP MIN PLAYERS (FINAL - tidak akan diulang lagi)")
+                print("🚀 TRIGGER HOP MIN PLAYERS")
                 TriggerHopMinPlayers()
                 
-                print("✅ HOP triggered, Auto Dodge di-pause sampai server baru")
-                -- Auto Dodge tidak akan jalan lagi sampai config di-toggle atau respawn
+                print("⏳ Tunggu hop selesai, scan lagi after 10 detik...")
+                task.wait(10)  -- ← Wait untuk hop selesai
+                
+                -- Scan lagi untuk cek apakah player masih ada
+                print("🔍 Scan ulang apakah player di DodgeList masih ada...")
+                local playerStillThere = false
+                
+                for _, player in pairs(Players:GetPlayers()) do
+                    if player == LocalPlayer then continue end
+                    
+                    if table.find(DodgeList, player.Name) then
+                        print("⚠️ Player masih ada! Reset scan, siap dodge lagi...")
+                        autoDodgeTriggered = false  -- ← RESET, bisa scan lagi
+                        playerStillThere = true
+                        break
+                    end
+                end
+                
+                if not playerStillThere then
+                    print("✅ Player sudah tidak ada (sudah hop/keluar). Auto Dodge STOP scan.")
+                    -- autoDodgeTriggered tetap TRUE - tidak akan scan lagi
+                end
             end
         end
     end
