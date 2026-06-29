@@ -758,8 +758,10 @@ createButton(SettingsScroll, "Simulasi Putus Koneksi:", "TEST RECONNECT", 26, fu
     local TeleportService = game:GetService("TeleportService")
     pcall(function() TeleportService:Teleport(game.PlaceId, LocalPlayer) end)
 end)
-createTextBox(SettingsScroll, "Hop Min Players:", "HopMinPlayers", 27)
-createButton(SettingsScroll, "Hop ke Server:", "HOP MIN PLAYERS", 28, function()
+-- =====================================================================
+-- FUNCTION: TRIGGER HOP MIN PLAYERS (Reusable untuk Button & Auto Dodge)
+-- =====================================================================
+local function TriggerHopMinPlayers()
     local TeleportService = game:GetService("TeleportService")
     local HttpService = game:GetService("HttpService")
     
@@ -777,7 +779,7 @@ createButton(SettingsScroll, "Hop ke Server:", "HOP MIN PLAYERS", 28, function()
             return decoded
         else
             print("❌ HTTP Error (likely 429), waiting before retry...")
-            wait(3)
+            task.wait(3)
             return nil
         end
     end
@@ -793,7 +795,7 @@ createButton(SettingsScroll, "Hop ke Server:", "HOP MIN PLAYERS", 28, function()
             print("✓ Found: " .. Server.playing .. "/" .. Server.maxPlayers .. " players | ID: " .. Server.id)
         else
             print("⏳ No data received, retrying...")
-            wait(2)
+            task.wait(2)
         end
         
     until Server and Server.playing >= minPlayers and Server.playing < Server.maxPlayers and Server.id ~= game.JobId
@@ -804,6 +806,11 @@ createButton(SettingsScroll, "Hop ke Server:", "HOP MIN PLAYERS", 28, function()
     TeleportService:TeleportToPlaceInstance(game.PlaceId, Server.id, LocalPlayer)
     
     print("✈️ Teleport sent!")
+end
+
+createTextBox(SettingsScroll, "Hop Min Players:", "HopMinPlayers", 27)
+createButton(SettingsScroll, "Hop ke Server:", "HOP MIN PLAYERS", 28, function()
+    TriggerHopMinPlayers()
 end)
 createButton(SettingsScroll, "Buka Console:", "F9", 29, function()
     local VirtualInputManager = game:GetService("VirtualInputManager")
@@ -1031,72 +1038,25 @@ local function scanForPet()
 end
 
 -- =====================================================================
--- HOP SERVER FUNCTION (untuk Auto Dodge)
--- =====================================================================
-local function HopServer()
-    local TeleportService = game:GetService("TeleportService")
-    local HttpService = game:GetService("HttpService")
-    
-    local Servers = "https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Asc&limit=100"
-    local Server, Next = nil, nil
-    local minPlayers = tonumber(config.HopMinPlayers) or 3
-    
-    local function ListServers(cursor)
-        local success, Raw = pcall(function()
-            return game:HttpGet(Servers .. ((cursor and "&cursor=" .. cursor) or ""))
-        end)
-        
-        if success then
-            local decoded = HttpService:JSONDecode(Raw)
-            return decoded
-        else
-            print("❌ HTTP Error (likely 429), waiting before retry...")
-            wait(3)
-            return nil
-        end
-    end
-    
-    print("🔍 Mulai cari server...")
-    repeat
-        local ServerList = ListServers(Next)
-        
-        if ServerList and ServerList.data and #ServerList.data > 0 then
-            Server = ServerList.data[math.random(1, math.ceil(#ServerList.data / 3))]
-            Next = ServerList.nextPageCursor
-            
-            print("✓ Found: " .. Server.playing .. "/" .. Server.maxPlayers .. " players | ID: " .. Server.id)
-        else
-            print("⏳ No data received, retrying...")
-            wait(2)
-        end
-        
-    until Server and Server.playing >= minPlayers and Server.playing < Server.maxPlayers and Server.id ~= game.JobId
-    
-    print("✅ Server cocok! Players: " .. Server.playing .. " | Server ID: " .. Server.id)
-    print("📍 Teleporting...")
-    
-    TeleportService:TeleportToPlaceInstance(game.PlaceId, Server.id, LocalPlayer)
-    
-    print("✈️ Teleport sent!")
-end
-
--- =====================================================================
--- AUTO DODGE (Server Hop ketika ada player di DodgeList)
+-- AUTO DODGE (Trigger HOP MIN PLAYERS jika ada player di DodgeList)
 -- =====================================================================
 task.spawn(function()
     while task.wait(3) do
         if config.AutoDodge then
-            -- Cek apakah LocalPlayer sendiri ada di DodgeList
-            if table.find(DodgeList, LocalPlayer.Name) then
-                continue  -- Skip, karena kita sendiri
-            end
-            
-            -- Scan semua player di server
+            -- Scan semua player di server (KECUALI LocalPlayer sendiri)
             for _, player in pairs(Players:GetPlayers()) do
+                -- ✓ SKIP LocalPlayer
+                if player == LocalPlayer then continue end
+                
+                -- ✓ Cek apakah player ini ada di DodgeList
                 if table.find(DodgeList, player.Name) then
-                    print("⚠️ Auto Dodge: Terdeteksi player '" .. player.Name .. "'! Hop dalam 5 detik...")
+                    print("⚠️ AUTO DODGE: Terdeteksi '" .. player.Name .. "'! HOP dalam 5 detik...")
                     task.wait(5)
-                    HopServer()
+                    
+                    -- Trigger function HOP MIN PLAYERS yang sudah perfect
+                    task.spawn(function()
+                        TriggerHopMinPlayers()
+                    end)
                     break
                 end
             end
