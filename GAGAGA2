@@ -40,6 +40,14 @@ pcall(function()
 end)
 
 -- 2. DATA, CONFIG & MASTER LISTS
+local DodgeList = {
+    "gg212xzx",
+    "BangZoiii",
+    "fahrulzxxz",
+    "kiccka117",
+    "kkikokdff"
+}
+
 local PetData = {
     ["Frog"] = { PriceStr = "¢10,000", PriceNum = 10000 },
     ["Bunny"] = { PriceStr = "¢20,000", PriceNum = 20000 },
@@ -86,7 +94,7 @@ local config = {
     SelectedHarvests = {}, SelectedFavSeeds = {}, SelectedShovels = {},
     SeedLimits = {}, SeedImportantNumbers = {}, 
     ShovelLimits = {}, ShovelBaseWeights = {},
-    HopMinPlayers = "3"
+    HopMinPlayers = "3", AutoDodge = false
 }
 
 local Hunt = { State = "IDLE", Target = nil, Type = nil, GraceTimer = 0, InitialMoney = 0, ExpectedPrice = 0 }
@@ -721,36 +729,37 @@ populate3StateList(HarvestScroll, config.SelectedHarvests, config.SeedLimits, co
 populate3StateList(ShovelScroll, config.SelectedShovels, config.ShovelLimits, config.ShovelBaseWeights, MasterPlantList)
 
 -- POPULATE SETTINGS TAB
-createToggle(SettingsScroll, "Auto Collect/Harvest", "AutoHarvest", 1)
-createToggle(SettingsScroll, "Auto Plant Area", "AutoPlant", 2)
-createToggle(SettingsScroll, "Auto Sell All", "AutoSell", 3)
-createToggle(SettingsScroll, "Auto Buy Seed", "AutoBuySeed", 4)
-createToggle(SettingsScroll, "Auto Buy Gear", "AutoBuyGear", 5)
-createToggle(SettingsScroll, "Auto Buy Pet", "AutoBuyPet", 6)
-createToggle(SettingsScroll, "Auto Claim Rare Seed", "AutoClaimRare", 7)
-createToggle(SettingsScroll, "Force Harvest Mutation [!]", "ForceMutation", 8)
-createToggle(SettingsScroll, "Anti-Night Thief (Auto Hide)", "AntiNightThief", 9)
-createToggle(SettingsScroll, "Auto Shovel", "AutoShovel", 10)
-createTextBox(SettingsScroll, "Shovel Interval (s):", "ShovelInterval", 11)
-createMultiModeButton(SettingsScroll, "Move Method:", "MoveMethod", {"Tween", "SpamTP", "Walk", "TP+Walk"}, 12)
-createTextBox(SettingsScroll, "Bonus Tween Speed:", "TweenSpeed", 13)
-createTextBox(SettingsScroll, "Walk Speed:", "WalkSpeed", 14)
-createToggle(SettingsScroll, "Auto Favorite (Master Switch)", "AutoFavorite", 15)
-createTextBox(SettingsScroll, "Fav Threshold (>kg):", "FavoriteThreshold", 16)
-createTextBox(SettingsScroll, "Fav Price (>¢):", "FavoritePrice", 17)
-createToggle(SettingsScroll, "Sell 1-by-1 (bukan Sell All)", "SellOneByOne", 18)
-createTextBox(SettingsScroll, "Sell Protect (>=kg):", "SellProtectKg", 19)
-createTextBox(SettingsScroll, "Sell Protect (>=¢):", "SellProtectPrice", 20)
-createToggle(SettingsScroll, "Tampilkan Harga Buah (Inventory)", "ShowFruitPrice", 21)
-createToggle(SettingsScroll, "Auto Boost FPS (Hapus Plot Lain)", "AutoBoostFPS", 22)
-createToggle(SettingsScroll, "Remove Player plot!!", "RemovePlayerPlot", 23)
-createToggle(SettingsScroll, "Auto Reconnect (Jika DC)", "AutoReconnect", 24)
-createButton(SettingsScroll, "Simulasi Putus Koneksi:", "TEST RECONNECT", 25, function()
+createToggle(SettingsScroll, "Auto Dodge (Server Hop)", "AutoDodge", 1)
+createToggle(SettingsScroll, "Auto Collect/Harvest", "AutoHarvest", 2)
+createToggle(SettingsScroll, "Auto Plant Area", "AutoPlant", 3)
+createToggle(SettingsScroll, "Auto Sell All", "AutoSell", 4)
+createToggle(SettingsScroll, "Auto Buy Seed", "AutoBuySeed", 5)
+createToggle(SettingsScroll, "Auto Buy Gear", "AutoBuyGear", 6)
+createToggle(SettingsScroll, "Auto Buy Pet", "AutoBuyPet", 7)
+createToggle(SettingsScroll, "Auto Claim Rare Seed", "AutoClaimRare", 8)
+createToggle(SettingsScroll, "Force Harvest Mutation [!]", "ForceMutation", 9)
+createToggle(SettingsScroll, "Anti-Night Thief (Auto Hide)", "AntiNightThief", 10)
+createToggle(SettingsScroll, "Auto Shovel", "AutoShovel", 11)
+createTextBox(SettingsScroll, "Shovel Interval (s):", "ShovelInterval", 12)
+createMultiModeButton(SettingsScroll, "Move Method:", "MoveMethod", {"Tween", "SpamTP", "Walk", "TP+Walk"}, 13)
+createTextBox(SettingsScroll, "Bonus Tween Speed:", "TweenSpeed", 14)
+createTextBox(SettingsScroll, "Walk Speed:", "WalkSpeed", 15)
+createToggle(SettingsScroll, "Auto Favorite (Master Switch)", "AutoFavorite", 16)
+createTextBox(SettingsScroll, "Fav Threshold (>kg):", "FavoriteThreshold", 17)
+createTextBox(SettingsScroll, "Fav Price (>¢):", "FavoritePrice", 18)
+createToggle(SettingsScroll, "Sell 1-by-1 (bukan Sell All)", "SellOneByOne", 19)
+createTextBox(SettingsScroll, "Sell Protect (>=kg):", "SellProtectKg", 20)
+createTextBox(SettingsScroll, "Sell Protect (>=¢):", "SellProtectPrice", 21)
+createToggle(SettingsScroll, "Tampilkan Harga Buah (Inventory)", "ShowFruitPrice", 22)
+createToggle(SettingsScroll, "Auto Boost FPS (Hapus Plot Lain)", "AutoBoostFPS", 23)
+createToggle(SettingsScroll, "Remove Player plot!!", "RemovePlayerPlot", 24)
+createToggle(SettingsScroll, "Auto Reconnect (Jika DC)", "AutoReconnect", 25)
+createButton(SettingsScroll, "Simulasi Putus Koneksi:", "TEST RECONNECT", 26, function()
     local TeleportService = game:GetService("TeleportService")
     pcall(function() TeleportService:Teleport(game.PlaceId, LocalPlayer) end)
 end)
-createTextBox(SettingsScroll, "Hop Min Players:", "HopMinPlayers", 26)
-createButton(SettingsScroll, "Hop ke Server:", "HOP MIN PLAYERS", 27, function()
+createTextBox(SettingsScroll, "Hop Min Players:", "HopMinPlayers", 27)
+createButton(SettingsScroll, "Hop ke Server:", "HOP MIN PLAYERS", 28, function()
     local TeleportService = game:GetService("TeleportService")
     local HttpService = game:GetService("HttpService")
     
@@ -796,7 +805,7 @@ createButton(SettingsScroll, "Hop ke Server:", "HOP MIN PLAYERS", 27, function()
     
     print("✈️ Teleport sent!")
 end)
-createButton(SettingsScroll, "Buka Console:", "F9", 28, function()
+createButton(SettingsScroll, "Buka Console:", "F9", 29, function()
     local VirtualInputManager = game:GetService("VirtualInputManager")
     VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.F9, false, game)
     task.wait(0.1)
@@ -1020,6 +1029,80 @@ local function scanForPet()
     end
     return bestTarget, bestPrice
 end
+
+-- =====================================================================
+-- HOP SERVER FUNCTION (untuk Auto Dodge)
+-- =====================================================================
+local function HopServer()
+    local TeleportService = game:GetService("TeleportService")
+    local HttpService = game:GetService("HttpService")
+    
+    local Servers = "https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Asc&limit=100"
+    local Server, Next = nil, nil
+    local minPlayers = tonumber(config.HopMinPlayers) or 3
+    
+    local function ListServers(cursor)
+        local success, Raw = pcall(function()
+            return game:HttpGet(Servers .. ((cursor and "&cursor=" .. cursor) or ""))
+        end)
+        
+        if success then
+            local decoded = HttpService:JSONDecode(Raw)
+            return decoded
+        else
+            print("❌ HTTP Error (likely 429), waiting before retry...")
+            wait(3)
+            return nil
+        end
+    end
+    
+    print("🔍 Mulai cari server...")
+    repeat
+        local ServerList = ListServers(Next)
+        
+        if ServerList and ServerList.data and #ServerList.data > 0 then
+            Server = ServerList.data[math.random(1, math.ceil(#ServerList.data / 3))]
+            Next = ServerList.nextPageCursor
+            
+            print("✓ Found: " .. Server.playing .. "/" .. Server.maxPlayers .. " players | ID: " .. Server.id)
+        else
+            print("⏳ No data received, retrying...")
+            wait(2)
+        end
+        
+    until Server and Server.playing >= minPlayers and Server.playing < Server.maxPlayers and Server.id ~= game.JobId
+    
+    print("✅ Server cocok! Players: " .. Server.playing .. " | Server ID: " .. Server.id)
+    print("📍 Teleporting...")
+    
+    TeleportService:TeleportToPlaceInstance(game.PlaceId, Server.id, LocalPlayer)
+    
+    print("✈️ Teleport sent!")
+end
+
+-- =====================================================================
+-- AUTO DODGE (Server Hop ketika ada player di DodgeList)
+-- =====================================================================
+task.spawn(function()
+    while task.wait(3) do
+        if config.AutoDodge then
+            -- Cek apakah LocalPlayer sendiri ada di DodgeList
+            if table.find(DodgeList, LocalPlayer.Name) then
+                continue  -- Skip, karena kita sendiri
+            end
+            
+            -- Scan semua player di server
+            for _, player in pairs(Players:GetPlayers()) do
+                if table.find(DodgeList, player.Name) then
+                    print("⚠️ Auto Dodge: Terdeteksi player '" .. player.Name .. "'! Hop dalam 5 detik...")
+                    task.wait(5)
+                    HopServer()
+                    break
+                end
+            end
+        end
+    end
+end)
 
 -- =====================================================================
 -- 5. THE UNIFIED HUNT ENGINE
