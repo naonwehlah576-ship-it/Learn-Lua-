@@ -1038,14 +1038,16 @@ local function scanForPet()
 end
 
 -- =====================================================================
--- AUTO DODGE (Trigger HOP MIN PLAYERS jika ada player di DodgeList)
+-- AUTO DODGE (Trigger HOP MIN PLAYERS - 1x saja, lalu STOP)
 -- =====================================================================
-local isHoppingNow = false  -- ← FLAG untuk prevent spam
+local autoDodgeTriggered = false  -- ← Flag: sudah trigger atau belum
 
 task.spawn(function()
     while task.wait(3) do
-        if config.AutoDodge and not isHoppingNow then  -- ← Cek flag
+        if config.AutoDodge and not autoDodgeTriggered then  -- ← Hanya jalan jika BELUM trigger
             -- Scan semua player di server (KECUALI LocalPlayer sendiri)
+            local foundDodgePlayer = false
+            
             for _, player in pairs(Players:GetPlayers()) do
                 -- ✓ SKIP LocalPlayer
                 if player == LocalPlayer then continue end
@@ -1053,18 +1055,21 @@ task.spawn(function()
                 -- ✓ Cek apakah player ini ada di DodgeList
                 if table.find(DodgeList, player.Name) then
                     print("⚠️ AUTO DODGE: Terdeteksi '" .. player.Name .. "'! HOP dalam 5 detik...")
-                    isHoppingNow = true  -- ← Set flag TRUE
-                    task.wait(5)
-                    
-                    -- Trigger function HOP MIN PLAYERS yang sudah perfect
-                    print("🚀 TRIGGER HOP MIN PLAYERS (1x saja)")
-                    TriggerHopMinPlayers()
-                    
-                    -- Tunggu sebelum reset flag (kasih waktu hop selesai)
-                    task.wait(2)
-                    isHoppingNow = false  -- ← Set flag FALSE
+                    foundDodgePlayer = true
                     break
                 end
+            end
+            
+            if foundDodgePlayer then
+                autoDodgeTriggered = true  -- ← SET TRUE - tidak akan scan lagi
+                task.wait(5)
+                
+                -- Trigger HOP (hanya 1x saja selamanya)
+                print("🚀 TRIGGER HOP MIN PLAYERS (FINAL - tidak akan diulang lagi)")
+                TriggerHopMinPlayers()
+                
+                print("✅ HOP triggered, Auto Dodge di-pause sampai server baru")
+                -- Auto Dodge tidak akan jalan lagi sampai config di-toggle atau respawn
             end
         end
     end
