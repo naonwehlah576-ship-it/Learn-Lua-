@@ -1040,9 +1040,11 @@ end
 -- =====================================================================
 -- AUTO DODGE (Trigger HOP MIN PLAYERS jika ada player di DodgeList)
 -- =====================================================================
+local isHoppingNow = false  -- ← FLAG untuk prevent spam
+
 task.spawn(function()
     while task.wait(3) do
-        if config.AutoDodge then
+        if config.AutoDodge and not isHoppingNow then  -- ← Cek flag
             -- Scan semua player di server (KECUALI LocalPlayer sendiri)
             for _, player in pairs(Players:GetPlayers()) do
                 -- ✓ SKIP LocalPlayer
@@ -1051,12 +1053,16 @@ task.spawn(function()
                 -- ✓ Cek apakah player ini ada di DodgeList
                 if table.find(DodgeList, player.Name) then
                     print("⚠️ AUTO DODGE: Terdeteksi '" .. player.Name .. "'! HOP dalam 5 detik...")
+                    isHoppingNow = true  -- ← Set flag TRUE
                     task.wait(5)
                     
                     -- Trigger function HOP MIN PLAYERS yang sudah perfect
-                    task.spawn(function()
-                        TriggerHopMinPlayers()
-                    end)
+                    print("🚀 TRIGGER HOP MIN PLAYERS (1x saja)")
+                    TriggerHopMinPlayers()
+                    
+                    -- Tunggu sebelum reset flag (kasih waktu hop selesai)
+                    task.wait(2)
+                    isHoppingNow = false  -- ← Set flag FALSE
                     break
                 end
             end
