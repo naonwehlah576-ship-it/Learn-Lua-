@@ -1795,6 +1795,7 @@ end)
 -- ==========================================
 task.spawn(function()
     local function eksekusiGusur()
+        -- 1. FITUR LAMA: Gusur Plot Orang Lain
         local myPlotId = LocalPlayer:GetAttribute("PlotId")
         local gardensFolder = workspace:FindFirstChild("Gardens")
         if gardensFolder and myPlotId then
@@ -1809,7 +1810,40 @@ task.spawn(function()
                 end 
             end
         end
+
+        -- 2. FITUR BARU: Mode Nuklir Tekstur (Botak Polos)
+        if config.AutoBoostFPS then
+            local Lighting = game:GetService("Lighting")
+            
+            -- Hapus efek Lighting (Sky, Atmosphere, dll)
+            for _, v in pairs(Lighting:GetDescendants()) do
+                if v:IsA("PostEffect") or v:IsA("Sky") or v:IsA("Atmosphere") or v:IsA("SunRaysEffect") then
+                    v:Destroy()
+                end
+            end
+            
+            -- Hapus tekstur dan ratakan material di Workspace
+            for _, obj in pairs(workspace:GetDescendants()) do
+                if obj:IsA("Decal") or obj:IsA("Texture") or obj:IsA("SurfaceAppearance") then
+                    obj:Destroy()
+                    
+                elseif obj:IsA("SpecialMesh") then
+                    if obj.TextureId ~= "" then
+                        obj.TextureId = ""
+                    end
+                    
+                elseif obj:IsA("BasePart") then
+                    -- Cek dulu, kalau udah SmoothPlastic gak usah di-set ulang biar hemat CPU
+                    if obj.Material ~= Enum.Material.SmoothPlastic then
+                        obj.Material = Enum.Material.SmoothPlastic
+                        obj.Reflectance = 0
+                        obj.CastShadow = false
+                    end
+                end
+            end
+        end
     end
+    
     task.wait(2)
     eksekusiGusur()
     while task.wait(30) do eksekusiGusur() end
