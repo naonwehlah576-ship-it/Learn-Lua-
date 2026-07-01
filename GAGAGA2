@@ -186,10 +186,55 @@ MinBtn.TextColor3 = Color3.fromRGB(150, 150, 150)
 MinBtn.Font = Enum.Font.GothamBold
 MinBtn.TextSize = 16
 MinBtn.Parent = Topbar
-local isMinimized = false
+
+-- 1. Bikin Ikon Kotak (Teks)
+local OpenIcon = Instance.new("TextButton")
+OpenIcon.Size = UDim2.new(0, 45, 0, 45) 
+OpenIcon.Position = UDim2.new(0, 20, 0, 20) 
+OpenIcon.BackgroundColor3 = Color3.fromRGB(0, 170, 255) -- Warna Biru
+OpenIcon.TextColor3 = Color3.fromRGB(255, 255, 255)
+OpenIcon.Text = "HUB"
+OpenIcon.Font = Enum.Font.GothamBold
+OpenIcon.TextSize = 12
+OpenIcon.BorderSizePixel = 0
+OpenIcon.Visible = false -- Disembunyikan awal execute
+OpenIcon.Parent = ScreenGui 
+Instance.new("UICorner", OpenIcon).CornerRadius = UDim.new(0, 8) -- Sudut melengkung
+
+-- 2. Fungsi saat pencet "—" (Minimize)
 MinBtn.MouseButton1Click:Connect(function() 
-    isMinimized = not isMinimized 
-    TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quint), {Size = isMinimized and UDim2.new(0, 920, 0, 35) or UDim2.new(0, 920, 0, 550)}):Play() 
+    MainFrame.Visible = false 
+    OpenIcon.Visible = true   
+end)
+
+-- 3. Fungsi saat pencet "HUB" (Buka lagi)
+OpenIcon.MouseButton1Click:Connect(function()
+    OpenIcon.Visible = false  
+    MainFrame.Visible = true  
+end)
+
+-- 4. Bikin tombol "HUB" bisa digeser (Drag)
+local dragIcon, dragIconInput, dragIconStart, startIconPos
+OpenIcon.InputBegan:Connect(function(input) 
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then 
+        dragIcon = true
+        dragIconStart = input.Position
+        startIconPos = OpenIcon.Position
+        input.Changed:Connect(function() 
+            if input.UserInputState == Enum.UserInputState.End then dragIcon = false end 
+        end) 
+    end 
+end)
+OpenIcon.InputChanged:Connect(function(input) 
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then 
+        dragIconInput = input 
+    end 
+end)
+UserInputService.InputChanged:Connect(function(input) 
+    if input == dragIconInput and dragIcon then 
+        local delta = input.Position - dragIconStart
+        OpenIcon.Position = UDim2.new(startIconPos.X.Scale, startIconPos.X.Offset + delta.X, startIconPos.Y.Scale, startIconPos.Y.Offset + delta.Y) 
+    end 
 end)
 
 local dragging, dragInput, dragStart, startPos
