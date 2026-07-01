@@ -1795,7 +1795,7 @@ end)
 -- ==========================================
 task.spawn(function()
     local function eksekusiGusur()
-        -- 1. FITUR LAMA: Gusur Plot Orang Lain
+        -- 1. Gusur Plot Orang Lain
         local myPlotId = LocalPlayer:GetAttribute("PlotId")
         local gardensFolder = workspace:FindFirstChild("Gardens")
         if gardensFolder and myPlotId then
@@ -1811,34 +1811,37 @@ task.spawn(function()
             end
         end
 
-        -- 2. FITUR BARU: Mode Nuklir Tekstur (Botak Polos)
+        -- 2. Script Nuklir Original (Pasti Work)
         if config.AutoBoostFPS then
+            local Workspace = game:GetService("Workspace")
             local Lighting = game:GetService("Lighting")
-            
-            -- Hapus efek Lighting (Sky, Atmosphere, dll)
+
+            -- Hapus semua efek visual di Lighting
             for _, v in pairs(Lighting:GetDescendants()) do
                 if v:IsA("PostEffect") or v:IsA("Sky") or v:IsA("Atmosphere") or v:IsA("SunRaysEffect") then
                     v:Destroy()
                 end
             end
-            
-            -- Hapus tekstur dan ratakan material di Workspace
-            for _, obj in pairs(workspace:GetDescendants()) do
-                if obj:IsA("Decal") or obj:IsA("Texture") or obj:IsA("SurfaceAppearance") then
+
+            -- "Nuklir" semua objek yang bisa memuat gambar/tekstur
+            for _, obj in pairs(Workspace:GetDescendants()) do
+                -- Hapus Decal dan Texture
+                if obj:IsA("Decal") or obj:IsA("Texture") then
+                    obj:Destroy()
+                
+                -- Hapus SurfaceAppearance
+                elseif obj:IsA("SurfaceAppearance") then
                     obj:Destroy()
                     
+                -- Bersihkan TextureId pada SpecialMesh
                 elseif obj:IsA("SpecialMesh") then
-                    if obj.TextureId ~= "" then
-                        obj.TextureId = ""
-                    end
+                    obj.TextureId = ""
                     
+                -- Ganti material part jadi SmoothPlastic
                 elseif obj:IsA("BasePart") then
-                    -- Cek dulu, kalau udah SmoothPlastic gak usah di-set ulang biar hemat CPU
-                    if obj.Material ~= Enum.Material.SmoothPlastic then
-                        obj.Material = Enum.Material.SmoothPlastic
-                        obj.Reflectance = 0
-                        obj.CastShadow = false
-                    end
+                    obj.Material = Enum.Material.SmoothPlastic
+                    obj.Reflectance = 0
+                    obj.CastShadow = false
                 end
             end
         end
