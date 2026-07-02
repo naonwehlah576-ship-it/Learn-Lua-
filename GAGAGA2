@@ -1256,7 +1256,7 @@ end)
 -- 6. INDEPENDENT HARVEST MATRIX CORE
 -- =====================================================================
 task.spawn(function()
-    while task.wait(0.5) do
+    while task.wait(0.1) do
         if config.AutoHarvest then
             local isHuntingRare = config.AutoClaimRare and rareEventActive
             local isMalamHari = config.AntiNightThief and workspace:FindFirstChild("ActiveNight")
@@ -1328,7 +1328,7 @@ task.spawn(function()
                                 task.wait(obj.HoldDuration + 0.1)
                                 obj:InputHoldEnd()
                             end
-                            task.wait(0.05) 
+                            task.wait(0.01) 
                         end
                     end
                 end
