@@ -18,9 +18,9 @@ task.spawn(function()
 end)
 
 -- =====================================================================
--- GROW A GARDEN 2 - AUTOMATION PREMIUM HUB V25 (AUTO SHOVEL INTEGRATED)
--- Features: Smart Favorite Tab, Condition-Based Auto Sell, Smart Harvest, Auto Shovel
--- Config File: GAG2_Automation_Config_v14.json
+-- GROW A GARDEN 2 - AUTOMATION PREMIUM HUB V26 (AUCTION SNIPER)
+-- Features: Smart Favorite Tab, Condition-Based Auto Sell, Smart Harvest, Auto Shovel, Auto Buy Auction
+-- Config File: GAG2_Automation_Config_v15.json
 -- =====================================================================
 
 local Players = game:GetService("Players")
@@ -80,7 +80,7 @@ local MasterGearList = {
     "Uncommon Sprinkler", "Vine Wrapper", "Wheelbarrow"
 }
 
-local FILE_NAME = "GAG2_Automation_Config_v14.json"
+local FILE_NAME = "GAG2_Automation_Config_v15.json"
 local config = {
     AutoHarvest = false, AutoSell = false, AutoBuySeed = false,
     AutoBuyGear = false, AutoClaimRare = false, AutoBuyPet = false, AutoPlant = false,
@@ -94,7 +94,23 @@ local config = {
     SelectedHarvests = {}, SelectedFavSeeds = {}, SelectedShovels = {},
     SeedLimits = {}, SeedImportantNumbers = {}, 
     ShovelLimits = {}, ShovelBaseWeights = {},
-    HopMinPlayers = "3", AutoDodge = false
+    HopMinPlayers = "3", AutoDodge = false,
+    -- NEW CONFIG FOR AUCTION DUAL SNIPER
+    AutoBuyAuctionPrice = false,
+    AutoBuyAuctionTimer = false,
+    AuctionTimerThreshold = "5",
+    AuctionTargets = {
+        ["Moon Bloom"] = false,
+        ["Dragon's Breath"] = false,
+        ["Hypno Bloom"] = false,
+        ["Super Watering Can"] = false
+    },
+    AuctionPrices = {
+        ["Moon Bloom"] = "50000000",
+        ["Dragon's Breath"] = "50000000",
+        ["Hypno Bloom"] = "50000000",
+        ["Super Watering Can"] = "50000000"
+    }
 }
 
 local Hunt = { State = "IDLE", Target = nil, Type = nil, GraceTimer = 0, InitialMoney = 0, ExpectedPrice = 0 }
@@ -105,7 +121,13 @@ local function loadConfig()
     if readfile and isfile and isfile(FILE_NAME) then
         local success, decoded = pcall(function() return HttpService:JSONDecode(readfile(FILE_NAME)) end)
         if success and type(decoded) == "table" then
-            for k, v in pairs(decoded) do if config[k] ~= nil then config[k] = v end end
+            for k, v in pairs(decoded) do 
+                if type(v) == "table" and type(config[k]) == "table" then
+                    for subK, subV in pairs(v) do config[k][subK] = subV end
+                elseif config[k] ~= nil then 
+                    config[k] = v 
+                end 
+            end
         end
     end
 end
@@ -123,7 +145,7 @@ pcall(function() ScreenGui.Parent = game:GetService("CoreGui") end)
 if not ScreenGui.Parent then ScreenGui.Parent = PlayerGui end
 
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 920, 0, 550)
+MainFrame.Size = UDim2.new(0, 950, 0, 550) 
 MainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
 MainFrame.Position = UDim2.new(0.5, 0, 0.4, 0)
 MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
@@ -136,7 +158,7 @@ local uiScale = Instance.new("UIScale")
 uiScale.Parent = MainFrame
 local function updateScale() 
     local viewport = workspace.CurrentCamera.ViewportSize
-    local scaleX = viewport.X / 960
+    local scaleX = viewport.X / 980
     local scaleY = viewport.Y / 580
     local minScale = math.min(scaleX, scaleY)
     if minScale < 1 then uiScale.Scale = minScale else uiScale.Scale = 1 end 
@@ -145,7 +167,7 @@ updateScale()
 workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(updateScale)
 
 UserInputService.InputBegan:Connect(function(input, gameProcessed) 
-    if not gameProcessed and input.KeyCode == Enum.KeyCode.RightShift then MainFrame.Visible = not MainFrame.Visible end 
+    if not gameProcessed and input.KeyCode == Enum.KeyCode.RightControl then MainFrame.Visible = not MainFrame.Visible end 
 end)
 
 local Topbar = Instance.new("Frame")
@@ -159,7 +181,7 @@ local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(1, -80, 1, 0)
 Title.Position = UDim2.new(0, 12, 0, 0)
 Title.BackgroundTransparency = 1
-Title.Text = "Grow a Garden 2 Hub Dafa Goreng v25 (Auto Shovel)"
+Title.Text = "Grow a Garden 2 Hub Dafa Goreng v26.1 (Auction Dual Sniper)"
 Title.TextColor3 = Color3.fromRGB(240, 240, 240)
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 14
@@ -186,55 +208,10 @@ MinBtn.TextColor3 = Color3.fromRGB(150, 150, 150)
 MinBtn.Font = Enum.Font.GothamBold
 MinBtn.TextSize = 16
 MinBtn.Parent = Topbar
-
--- 1. Bikin Ikon Kotak (Teks)
-local OpenIcon = Instance.new("TextButton")
-OpenIcon.Size = UDim2.new(0, 45, 0, 45) 
-OpenIcon.Position = UDim2.new(0, 20, 0, 20) 
-OpenIcon.BackgroundColor3 = Color3.fromRGB(0, 170, 255) -- Warna Biru
-OpenIcon.TextColor3 = Color3.fromRGB(255, 255, 255)
-OpenIcon.Text = "HUB"
-OpenIcon.Font = Enum.Font.GothamBold
-OpenIcon.TextSize = 12
-OpenIcon.BorderSizePixel = 0
-OpenIcon.Visible = false -- Disembunyikan awal execute
-OpenIcon.Parent = ScreenGui 
-Instance.new("UICorner", OpenIcon).CornerRadius = UDim.new(0, 8) -- Sudut melengkung
-
--- 2. Fungsi saat pencet "—" (Minimize)
+local isMinimized = false
 MinBtn.MouseButton1Click:Connect(function() 
-    MainFrame.Visible = false 
-    OpenIcon.Visible = true   
-end)
-
--- 3. Fungsi saat pencet "HUB" (Buka lagi)
-OpenIcon.MouseButton1Click:Connect(function()
-    OpenIcon.Visible = false  
-    MainFrame.Visible = true  
-end)
-
--- 4. Bikin tombol "HUB" bisa digeser (Drag)
-local dragIcon, dragIconInput, dragIconStart, startIconPos
-OpenIcon.InputBegan:Connect(function(input) 
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then 
-        dragIcon = true
-        dragIconStart = input.Position
-        startIconPos = OpenIcon.Position
-        input.Changed:Connect(function() 
-            if input.UserInputState == Enum.UserInputState.End then dragIcon = false end 
-        end) 
-    end 
-end)
-OpenIcon.InputChanged:Connect(function(input) 
-    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then 
-        dragIconInput = input 
-    end 
-end)
-UserInputService.InputChanged:Connect(function(input) 
-    if input == dragIconInput and dragIcon then 
-        local delta = input.Position - dragIconStart
-        OpenIcon.Position = UDim2.new(startIconPos.X.Scale, startIconPos.X.Offset + delta.X, startIconPos.Y.Scale, startIconPos.Y.Offset + delta.Y) 
-    end 
+    isMinimized = not isMinimized 
+    TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quint), {Size = isMinimized and UDim2.new(0, 950, 0, 35) or UDim2.new(0, 950, 0, 550)}):Play() 
 end)
 
 local dragging, dragInput, dragStart, startPos
@@ -262,12 +239,12 @@ TabContainer.Parent = MainFrame
 local TabLayout = Instance.new("UIListLayout")
 TabLayout.FillDirection = Enum.FillDirection.Horizontal
 TabLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-TabLayout.Padding = UDim.new(0, 10)
+TabLayout.Padding = UDim.new(0, 8)
 TabLayout.Parent = TabContainer
 
 local function createTabButton(text)
     local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(0, 125, 1, 0)
+    btn.Size = UDim2.new(0, 115, 1, 0)
     btn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
     btn.TextColor3 = Color3.fromRGB(200, 200, 200)
     btn.Font = Enum.Font.GothamBold
@@ -284,6 +261,7 @@ local TabFarming = createTabButton("🌾 FARMING")
 local TabFavorite = createTabButton("⭐ AUTO FAV")
 local TabShop = createTabButton("🛒 SHOP")
 local TabShovel = createTabButton("⛏️ SHOVEL")
+local TabAuction = createTabButton("🔨 AUCTION") 
 
 local ContentContainer = Instance.new("Frame")
 ContentContainer.Size = UDim2.new(1, -20, 1, -85)
@@ -316,6 +294,8 @@ local SeedPanel = createPanel(280, 1)
 local GearPanel = createPanel(280, 2)
 local PetPanel = createPanel(280, 3)
 local ShovelPanel = createPanel(280, 1)
+local AuctionSniperPanel = createPanel(360, 1)
+local AuctionMonitorPanel = createPanel(320, 2)
 
 local function switchTab(tabName)
     TabSettings.BackgroundColor3 = (tabName == "Settings") and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(45, 45, 45)
@@ -323,6 +303,7 @@ local function switchTab(tabName)
     TabFavorite.BackgroundColor3 = (tabName == "Favorite") and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(45, 45, 45)
     TabShop.BackgroundColor3 = (tabName == "Shop") and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(45, 45, 45)
     TabShovel.BackgroundColor3 = (tabName == "Shovel") and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(45, 45, 45)
+    TabAuction.BackgroundColor3 = (tabName == "Auction") and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(45, 45, 45)
 
     LeftPanel.Visible = (tabName == "Settings")
     PlantPanel.Visible = (tabName == "Farming")
@@ -332,6 +313,9 @@ local function switchTab(tabName)
     GearPanel.Visible = (tabName == "Shop")
     PetPanel.Visible = (tabName == "Shop")
     ShovelPanel.Visible = (tabName == "Shovel")
+    
+    AuctionSniperPanel.Visible = (tabName == "Auction")
+    AuctionMonitorPanel.Visible = (tabName == "Auction")
 end
 
 TabSettings.MouseButton1Click:Connect(function() switchTab("Settings") end)
@@ -339,6 +323,7 @@ TabFarming.MouseButton1Click:Connect(function() switchTab("Farming") end)
 TabFavorite.MouseButton1Click:Connect(function() switchTab("Favorite") end)
 TabShop.MouseButton1Click:Connect(function() switchTab("Shop") end)
 TabShovel.MouseButton1Click:Connect(function() switchTab("Shovel") end)
+TabAuction.MouseButton1Click:Connect(function() switchTab("Auction") end)
 switchTab("Settings")
 
 local function createScrollList(parent, titleText)
@@ -375,6 +360,9 @@ local PlantScroll = createScrollList(PlantPanel, "PLANT: SEEDS")
 local HarvestScroll = createScrollList(HarvestPanel, "HARVEST: TARGETS")
 local FavListScroll = createScrollList(FavListPanel, "⭐ AUTO FAVORITE LIST TARGETS")
 local ShovelScroll = createScrollList(ShovelPanel, "⛏️ SHOVEL: TARGETS")
+
+local AuctionSniperScroll = createScrollList(AuctionSniperPanel, "🔨 AUCTION: SNIPER TARGETS")
+local AuctionMonitorScroll = createScrollList(AuctionMonitorPanel, "📡 LIVE MARKET MONITOR")
 
 local function createToggle(parent, text, configKey, yPos)
     local frame = Instance.new("Frame")
@@ -763,15 +751,91 @@ local function populate3StateList(scrollFrame, targetConfigTable, limitDict, bas
     end
 end
 
+-- =====================================================================
+-- POPULATE AUCTION LIST CUSTOM BUILDER
+-- =====================================================================
+local function populateAuctionList(scrollFrame)
+    createToggle(scrollFrame, "Master Auto Buy Auction by Price [ON/OFF]", "AutoBuyAuctionPrice", 0)
+    createToggle(scrollFrame, "Master Auto Buy by Timer [ON/OFF]", "AutoBuyAuctionTimer", 1)
+    createTextBox(scrollFrame, "Timer Trigger (s):", "AuctionTimerThreshold", 2)
+    
+    local auctionItemsList = {"Moon Bloom", "Dragon's Breath", "Hypno Bloom", "Super Watering Can"}
+    
+    for i, itemName in ipairs(auctionItemsList) do
+        local row = Instance.new("Frame")
+        row.Name = itemName
+        row.Size = UDim2.new(1, -6, 0, 30)
+        row.BackgroundTransparency = 1
+        row.LayoutOrder = i + 2
+        row.Parent = scrollFrame
+        
+        local chk = Instance.new("TextButton")
+        chk.Size = UDim2.new(0, 20, 0, 20)
+        chk.Position = UDim2.new(0, 2, 0, 5)
+        chk.BorderSizePixel = 0
+        chk.TextColor3 = Color3.fromRGB(255, 255, 255)
+        chk.Font = Enum.Font.GothamBold
+        chk.TextSize = 12
+        chk.BackgroundColor3 = config.AuctionTargets[itemName] and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(45, 45, 45)
+        chk.Text = config.AuctionTargets[itemName] and "✓" or ""
+        chk.Parent = row
+        Instance.new("UICorner", chk).CornerRadius = UDim.new(0, 4)
+        
+        local txt = Instance.new("TextLabel")
+        txt.Size = UDim2.new(1, -125, 1, 0)
+        txt.Position = UDim2.new(0, 30, 0, 0)
+        txt.BackgroundTransparency = 1
+        txt.Text = itemName
+        txt.TextColor3 = Color3.fromRGB(190, 190, 190)
+        txt.Font = Enum.Font.Gotham
+        txt.TextSize = 12
+        txt.TextXAlignment = Enum.TextXAlignment.Left
+        txt.Parent = row
+        
+        local boxLimit = Instance.new("TextBox")
+        boxLimit.Name = "BoxLimit"
+        boxLimit.Size = UDim2.new(0, 90, 0, 20)
+        boxLimit.Position = UDim2.new(1, -95, 0, 5) 
+        boxLimit.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+        boxLimit.TextColor3 = Color3.fromRGB(200, 255, 100)
+        boxLimit.Font = Enum.Font.Gotham
+        boxLimit.TextSize = 11
+        boxLimit.PlaceholderText = "< Max Harga"
+        boxLimit.Text = tostring(config.AuctionPrices[itemName])
+        boxLimit.Parent = row
+        Instance.new("UICorner", boxLimit).CornerRadius = UDim.new(0, 4)
+
+        chk.MouseButton1Click:Connect(function() 
+            config.AuctionTargets[itemName] = not config.AuctionTargets[itemName]
+            chk.BackgroundColor3 = config.AuctionTargets[itemName] and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(45, 45, 45)
+            chk.Text = config.AuctionTargets[itemName] and "✓" or ""
+            saveConfig() 
+        end)
+
+        boxLimit.FocusLost:Connect(function() 
+            local extracted = string.match(boxLimit.Text, "%d+")
+            local num = extracted and tonumber(extracted)
+            if num then
+                config.AuctionPrices[itemName] = tostring(num)
+                boxLimit.Text = tostring(num)
+            else
+                boxLimit.Text = config.AuctionPrices[itemName]
+            end
+            saveConfig() 
+        end)
+    end
+end
+
 -- POPULATE LISTS
 populateFromList(SeedScroll, config.SelectedSeeds, MasterPlantList)
 populateFromList(GearScroll, config.SelectedGears, MasterGearList)
 populateFromList(PetScroll, config.SelectedPets, PetOrder)
 populateFromList(PlantScroll, config.SelectedPlantSeeds, MasterPlantList)
 populateFromList(FavListScroll, config.SelectedFavSeeds, MasterPlantList)
-
 populate3StateList(HarvestScroll, config.SelectedHarvests, config.SeedLimits, config.SeedImportantNumbers, MasterPlantList)
 populate3StateList(ShovelScroll, config.SelectedShovels, config.ShovelLimits, config.ShovelBaseWeights, MasterPlantList)
+
+populateAuctionList(AuctionSniperScroll)
 
 -- POPULATE SETTINGS TAB
 createToggle(SettingsScroll, "Auto Dodge (Server Hop)", "AutoDodge", 1)
@@ -799,10 +863,7 @@ createToggle(SettingsScroll, "Tampilkan Harga Buah (Inventory)", "ShowFruitPrice
 createToggle(SettingsScroll, "Auto Boost FPS (Hapus Plot Lain)", "AutoBoostFPS", 23)
 createToggle(SettingsScroll, "Remove Player plot!!", "RemovePlayerPlot", 24)
 createToggle(SettingsScroll, "Auto Reconnect (Jika DC)", "AutoReconnect", 25)
-createButton(SettingsScroll, "Simulasi Putus Koneksi:", "TEST RECONNECT", 26, function()
-    local TeleportService = game:GetService("TeleportService")
-    pcall(function() TeleportService:Teleport(game.PlaceId, LocalPlayer) end)
-end)
+
 -- =====================================================================
 -- FUNCTION: TRIGGER HOP MIN PLAYERS (Reusable untuk Button & Auto Dodge)
 -- =====================================================================
@@ -853,11 +914,11 @@ local function TriggerHopMinPlayers()
     print("✈️ Teleport sent!")
 end
 
-createTextBox(SettingsScroll, "Hop Min Players:", "HopMinPlayers", 27)
-createButton(SettingsScroll, "Hop ke Server:", "HOP MIN PLAYERS", 28, function()
+createTextBox(SettingsScroll, "Hop Min Players:", "HopMinPlayers", 26)
+createButton(SettingsScroll, "Hop ke Server:", "HOP MIN PLAYERS", 27, function()
     TriggerHopMinPlayers()
 end)
-createButton(SettingsScroll, "Buka Console:", "F9", 29, function()
+createButton(SettingsScroll, "Buka Console:", "F9", 28, function()
     local VirtualInputManager = game:GetService("VirtualInputManager")
     VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.F9, false, game)
     task.wait(0.1)
@@ -1090,47 +1151,26 @@ local autoDodgeTriggered = false
 task.spawn(function()
     while task.wait(3) do
         if config.AutoDodge and not autoDodgeTriggered then
-            -- Scan semua player di server (KECUALI LocalPlayer sendiri)
             local foundDodgePlayer = false
-            
             for _, player in pairs(Players:GetPlayers()) do
                 if player == LocalPlayer then continue end
-                
-                if table.find(DodgeList, player.Name) then
-                    print("⚠️ AUTO DODGE: Terdeteksi '" .. player.Name .. "'! HOP dalam 5 detik...")
-                    foundDodgePlayer = true
-                    break
-                end
+                if table.find(DodgeList, player.Name) then foundDodgePlayer = true; break end
             end
             
             if foundDodgePlayer then
                 autoDodgeTriggered = true
                 task.wait(5)
-                
-                print("🚀 TRIGGER HOP MIN PLAYERS")
                 TriggerHopMinPlayers()
+                task.wait(10)
                 
-                print("⏳ Tunggu hop selesai, scan lagi after 10 detik...")
-                task.wait(10)  -- ← Wait untuk hop selesai
-                
-                -- Scan lagi untuk cek apakah player masih ada
-                print("🔍 Scan ulang apakah player di DodgeList masih ada...")
                 local playerStillThere = false
-                
                 for _, player in pairs(Players:GetPlayers()) do
                     if player == LocalPlayer then continue end
-                    
                     if table.find(DodgeList, player.Name) then
-                        print("⚠️ Player masih ada! Reset scan, siap dodge lagi...")
-                        autoDodgeTriggered = false  -- ← RESET, bisa scan lagi
+                        autoDodgeTriggered = false 
                         playerStillThere = true
                         break
                     end
-                end
-                
-                if not playerStillThere then
-                    print("✅ Player sudah tidak ada (sudah hop/keluar). Auto Dodge STOP scan.")
-                    -- autoDodgeTriggered tetap TRUE - tidak akan scan lagi
                 end
             end
         end
@@ -1198,11 +1238,7 @@ task.spawn(function()
                     if dist > 5 then 
                         char.Humanoid.WalkSpeed = tonumber(config.WalkSpeed) or 40
                         char.Humanoid:MoveTo(targetPos)
-                        
-                        -- Anti-stuck biar nggak nyangkut tembok pas jalan kaki
-                        if char.HumanoidRootPart.Velocity.Magnitude < 2 then
-                            char.Humanoid.Jump = true
-                        end
+                        if char.HumanoidRootPart.Velocity.Magnitude < 2 then char.Humanoid.Jump = true end
                     else 
                         stopMovement()
                         if Hunt.Type == "PET" then Hunt.InitialMoney = getCurrentMoney() end
@@ -1217,14 +1253,9 @@ task.spawn(function()
         elseif Hunt.State == "BUYING" then
             if (config.MoveMethod == "Walk" or config.MoveMethod == "TP+Walk") and Hunt.Target and Hunt.Target:IsDescendantOf(workspace) and Hunt.Target.Enabled then 
                 if fireproximityprompt then 
-                    -- SPAM BRUTAL 0.01 DETIK KHUSUS MODE WALK/TP+WALK
                     task.spawn(function()
                         for i = 1, 20 do
-                            if Hunt.Target and Hunt.Target.Enabled then
-                                fireproximityprompt(Hunt.Target, 1, true)
-                            else
-                                break
-                            end
+                            if Hunt.Target and Hunt.Target.Enabled then fireproximityprompt(Hunt.Target, 1, true) else break end
                             task.wait(0.01)
                         end
                     end)
@@ -1256,7 +1287,7 @@ end)
 -- 6. INDEPENDENT HARVEST MATRIX CORE
 -- =====================================================================
 task.spawn(function()
-    while task.wait(0.1) do
+    while task.wait(0.5) do
         if config.AutoHarvest then
             local isHuntingRare = config.AutoClaimRare and rareEventActive
             local isMalamHari = config.AntiNightThief and workspace:FindFirstChild("ActiveNight")
@@ -1317,7 +1348,7 @@ task.spawn(function()
                                 if currentWeight > 0 and currentWeight < limitTarget then 
                                     shouldHarvest = true 
                                 end
-                        end
+                            end
                         end
 
                         if shouldHarvest then
@@ -1328,7 +1359,7 @@ task.spawn(function()
                                 task.wait(obj.HoldDuration + 0.1)
                                 obj:InputHoldEnd()
                             end
-                            task.wait(0.01) 
+                            task.wait(0.05) 
                         end
                     end
                 end
@@ -1840,7 +1871,6 @@ end)
 -- ==========================================
 task.spawn(function()
     local function eksekusiGusur()
-        -- 1. Gusur Plot Orang Lain
         local myPlotId = LocalPlayer:GetAttribute("PlotId")
         local gardensFolder = workspace:FindFirstChild("Gardens")
         if gardensFolder and myPlotId then
@@ -1856,33 +1886,21 @@ task.spawn(function()
             end
         end
 
-        -- 2. Script Nuklir Original (Pasti Work)
         if config.AutoBoostFPS then
             local Workspace = game:GetService("Workspace")
             local Lighting = game:GetService("Lighting")
 
-            -- Hapus semua efek visual di Lighting
             for _, v in pairs(Lighting:GetDescendants()) do
                 if v:IsA("PostEffect") or v:IsA("Sky") or v:IsA("Atmosphere") or v:IsA("SunRaysEffect") then
                     v:Destroy()
                 end
             end
 
-            -- "Nuklir" semua objek yang bisa memuat gambar/tekstur
             for _, obj in pairs(Workspace:GetDescendants()) do
-                -- Hapus Decal dan Texture
-                if obj:IsA("Decal") or obj:IsA("Texture") then
+                if obj:IsA("Decal") or obj:IsA("Texture") or obj:IsA("SurfaceAppearance") then
                     obj:Destroy()
-                
-                -- Hapus SurfaceAppearance
-                elseif obj:IsA("SurfaceAppearance") then
-                    obj:Destroy()
-                    
-                -- Bersihkan TextureId pada SpecialMesh
                 elseif obj:IsA("SpecialMesh") then
                     obj.TextureId = ""
-                    
-                -- Ganti material part jadi SmoothPlastic
                 elseif obj:IsA("BasePart") then
                     obj.Material = Enum.Material.SmoothPlastic
                     obj.Reflectance = 0
@@ -1927,4 +1945,136 @@ task.spawn(function()
             pcall(function() TeleportService:Teleport(game.PlaceId, LocalPlayer) end)
         end
     end)
+end)
+
+-- =====================================================================
+-- 9. AUCTION ENGINE: DUAL SNIPER BRUTAL (PRICE & TIMER) [V4]
+-- =====================================================================
+task.spawn(function()
+    local lastMonitorUpdate = 0
+    
+    local function parsePriceSuffix(priceStr)
+        local cleanStr = string.gsub(priceStr, "¢", "")
+        cleanStr = string.gsub(cleanStr, ",", "")
+        local multiplier = 1
+        if string.find(cleanStr, "K") then 
+            multiplier = 1000
+            cleanStr = string.gsub(cleanStr, "K", "")
+        elseif string.find(cleanStr, "M") then 
+            multiplier = 1000000
+            cleanStr = string.gsub(cleanStr, "M", "")
+        elseif string.find(cleanStr, "B") then 
+            multiplier = 1000000000
+            cleanStr = string.gsub(cleanStr, "B", "")
+        end
+        local num = tonumber(cleanStr) or 0
+        return num * multiplier
+    end
+
+    local function parseTimer(timerStr)
+        local m = string.match(timerStr, "(%d+)m")
+        local s = string.match(timerStr, "(%d+)s")
+        local mins = tonumber(m) or 0
+        local secs = tonumber(s) or 0
+        return (mins * 60) + secs
+    end
+    
+    while task.wait(0.1) do
+        if not (config.AutoBuyAuctionPrice or config.AutoBuyAuctionTimer) then continue end
+        
+        local AuctionGui = PlayerGui:FindFirstChild("Auction")
+        if not AuctionGui then continue end
+        
+        local Frame = AuctionGui:FindFirstChild("Frame")
+        local ScrollingFrame = Frame and Frame:FindFirstChild("ScrollingFrame")
+        if not ScrollingFrame then continue end
+
+        local liveData = {}
+        
+        for _, item in pairs(ScrollingFrame:GetChildren()) do
+            if item:IsA("Frame") and string.sub(item.Name, 1, 4) == "Lot_" then
+                local lotId = string.sub(item.Name, 5)
+                local mainFrame = item:FindFirstChild("Frame") and item.Frame:FindFirstChild("Main_Frame")
+                
+                if mainFrame then
+                    local itemName = "Unknown"
+                    local nameLabel = mainFrame:FindFirstChild("ItemName")
+                    if nameLabel and nameLabel:IsA("TextLabel") then itemName = nameLabel.Text end
+                    
+                    local isSoldOut = false
+                    local outOfStockImg = mainFrame:FindFirstChild("OUT_OF_STOCK")
+                    local stockText = mainFrame:FindFirstChild("Stock_Text")
+                    if outOfStockImg and outOfStockImg.Visible == true then isSoldOut = true
+                    elseif stockText and stockText:IsA("TextLabel") and stockText.Text == "Sold out" then isSoldOut = true end
+                    
+                    local currentPriceDisplay = "Membaca..."
+                    local currentPriceNum = 0
+                    local currentTimeDisplay = "0m 00s"
+                    local currentTimeSecs = 999
+
+                    local buyButton = mainFrame:FindFirstChild("BuyButton")
+                    if buyButton then
+                        for _, child in pairs(buyButton:GetDescendants()) do
+                            if (child:IsA("TextLabel") or child:IsA("TextButton")) and child.Text ~= "" then
+                                if string.match(child.Text, "%d+m %d+s") then
+                                    currentTimeDisplay = child.Text
+                                    currentTimeSecs = parseTimer(child.Text)
+                                elseif string.match(child.Text, "%d") and string.match(child.Text, "¢") and not string.find(child.Text, "99,950") then
+                                    currentPriceDisplay = child.Text
+                                    currentPriceNum = parsePriceSuffix(child.Text)
+                                end
+                            end
+                        end
+                    end
+                    
+                    table.insert(liveData, {name = itemName, lotId = lotId, sold = isSoldOut, price = currentPriceDisplay, timer = currentTimeDisplay})
+                    
+                    if not isSoldOut and config.AuctionTargets[itemName] then
+                        local targetPriceLimit = tonumber(config.AuctionPrices[itemName]) or 0
+                        local targetTimerLimit = tonumber(config.AuctionTimerThreshold) or 5
+                        local shouldBuy = false
+                        
+                        -- 1. Prioritaskan Harga (Sniper Harga)
+                        if config.AutoBuyAuctionPrice and targetPriceLimit > 0 and currentPriceNum > 0 and currentPriceNum <= targetPriceLimit then
+                            shouldBuy = true
+                        -- 2. Backup dengan Waktu (Sniper Waktu)
+                        elseif config.AutoBuyAuctionTimer and currentTimeSecs <= targetTimerLimit then
+                            shouldBuy = true
+                        end
+
+                        if shouldBuy and Networking then
+                            pcall(function()
+                                Networking.Auctioneer.PurchaseLot:Fire(lotId, currentPriceNum)
+                            end)
+                        end
+                    end
+                end
+            end
+        end
+        
+        -- UPDATE TAMPILAN MONITOR
+        if os.clock() - lastMonitorUpdate > 1 then
+            lastMonitorUpdate = os.clock()
+            
+            for _, child in pairs(AuctionMonitorScroll:GetChildren()) do
+                if child:IsA("TextLabel") then child:Destroy() end
+            end
+            
+            for idx, data in ipairs(liveData) do
+                local lbl = Instance.new("TextLabel")
+                lbl.Size = UDim2.new(1, 0, 0, 22)
+                lbl.BackgroundTransparency = 1
+                
+                local statusIcon = data.sold and "[🔴]" or "[🟢]"
+                lbl.Text = string.format("%s %s | %s | %s", statusIcon, data.name, data.price, data.timer)
+                lbl.TextColor3 = data.sold and Color3.fromRGB(200, 50, 50) or Color3.fromRGB(200, 255, 100)
+                
+                lbl.Font = Enum.Font.Gotham
+                lbl.TextSize = 10
+                lbl.TextXAlignment = Enum.TextXAlignment.Left
+                lbl.LayoutOrder = idx
+                lbl.Parent = AuctionMonitorScroll
+            end
+        end
+    end
 end)
