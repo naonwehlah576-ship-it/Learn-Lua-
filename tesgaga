@@ -18,9 +18,7 @@ task.spawn(function()
 end)
 
 -- =====================================================================
--- GROW A GARDEN 2 - AUTOMATION PREMIUM HUB V25 (AUTO SHOVEL INTEGRATED)
--- Features: Smart Favorite Tab, Condition-Based Auto Sell, Smart Harvest, Auto Shovel
--- Config File: GAG2_Automation_Config_v15.json
+-- GROW A GARDEN 2 - AUTOMATION PREMIUM HUB V26 (PREDICTOR INTEGRATED)
 -- =====================================================================
 
 local Players = game:GetService("Players")
@@ -39,7 +37,32 @@ pcall(function()
     Networking = require(ReplicatedStorage:WaitForChild("SharedModules"):WaitForChild("Networking"))
 end)
 
--- 2. DATA, CONFIG & MASTER LISTS
+-- =====================================================================
+-- 2. PREDICTOR DATABASE (Isi string panjang di sini!)
+-- =====================================================================
+local PREDICTOR_DB = {
+    ANCHOR = 1782645000,
+    PERIOD = 300, -- 5 menit untuk Shop
+    WEATHER_PERIOD = 600, -- 10 menit untuk Cuaca (1 Siklus Siang-Malam)
+    
+    -- Format Cuaca: M=Moon, G=Goldmoon, R=Rainbow, B=Bloodmoon, E=Mega
+    WEATHER_SEQ = "-- PASTE STRING CUACA DISINI --", 
+    
+    -- Format Stok: "0000100300..." (sesuai jumlah restock)
+    SEEDS = {
+        ["Dragon's Breath"] = "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+        ["Hypno Bloom"] = "-- PASTE STRING HYPNO BLOOM DISINI --",
+        ["Moon Bloom"] = "-- PASTE STRING MOON BLOOM DISINI --"
+    },
+    
+    GEARS = {
+        ["Super Watering Can"] = "-- PASTE STRING SUPER WATERING CAN DISINI --"
+    }
+}
+
+-- 3. DATA, CONFIG & MASTER LISTS
+local DodgeList = { "gg212xzx", "BangZoiii", "fahrulzxxz", "kiccka117", "kkikokdff" }
+
 local PetData = {
     ["Frog"] = { PriceStr = "¢10,000", PriceNum = 10000 },
     ["Bunny"] = { PriceStr = "¢20,000", PriceNum = 20000 },
@@ -58,7 +81,7 @@ local PetOrder = {"Frog", "Bunny", "Owl", "Deer", "Robin", "Bee", "Monkey", "Bea
 local MasterPlantList = {
     "Acorn", "Apple", "Bamboo", "Banana", "Blueberry", "Cactus", "Carrot", "Cherry",
     "Coconut", "Corn", "Dragon Fruit", "Dragon's Breath", "Ghost Pepper", "Gold Seed", "Grape",
-    "Green Bean", "Mango", "Moon Bloom", "Mushroom", "Pineapple", "Poison Apple", "Pomegranate",
+    "Green Bean", "Hypno Bloom", "Mango", "Mega Seed", "Moon Bloom", "Mushroom", "Pineapple", "Poison Apple", "Pomegranate",
     "Rainbow Seed", "Strawberry", "Sunflower", "Tomato", "Tulip", "Venom Spitter", "Venus Fly Trap"
 }
 
@@ -76,7 +99,7 @@ local FILE_NAME = "GAG2_Automation_Config_v14.json"
 local config = {
     AutoHarvest = false, AutoSell = false, AutoBuySeed = false,
     AutoBuyGear = false, AutoClaimRare = false, AutoBuyPet = false, AutoPlant = false,
-    AutoFavorite = false, AutoBoostFPS = false, AntiAFK = false, ForceMutation = true,
+    AutoFavorite = false, AutoBoostFPS = false, RemovePlayerPlot = false, AntiAFK = false, ForceMutation = true,
     AntiNightThief = true, ShowFruitPrice = false, AutoReconnect = false,
     AutoShovel = false, ShovelInterval = "0.5",
     TweenSpeed = "50", WalkSpeed = "40", MoveMethod = "Tween",
@@ -85,7 +108,8 @@ local config = {
     SelectedSeeds = {}, SelectedGears = {}, SelectedPets = {}, SelectedPlantSeeds = {},
     SelectedHarvests = {}, SelectedFavSeeds = {}, SelectedShovels = {},
     SeedLimits = {}, SeedImportantNumbers = {}, 
-    ShovelLimits = {}, ShovelBaseWeights = {}
+    ShovelLimits = {}, ShovelBaseWeights = {},
+    HopMinPlayers = "3", AutoDodge = false
 }
 
 local Hunt = { State = "IDLE", Target = nil, Type = nil, GraceTimer = 0, InitialMoney = 0, ExpectedPrice = 0 }
@@ -102,7 +126,7 @@ local function loadConfig()
 end
 loadConfig()
 
--- 3. GUI CREATION (TAB SYSTEM)
+-- 4. GUI CREATION
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "GAG2_Automation_Hub"
 ScreenGui.ResetOnSpawn = false
@@ -116,7 +140,7 @@ if not ScreenGui.Parent then ScreenGui.Parent = PlayerGui end
 local MainFrame = Instance.new("Frame")
 MainFrame.Size = UDim2.new(0, 920, 0, 550)
 MainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
-MainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
+MainFrame.Position = UDim2.new(0.5, 0, 0.4, 0)
 MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 MainFrame.BorderSizePixel = 0
 MainFrame.ClipsDescendants = true
@@ -150,7 +174,7 @@ local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(1, -80, 1, 0)
 Title.Position = UDim2.new(0, 12, 0, 0)
 Title.BackgroundTransparency = 1
-Title.Text = "Grow a Garden 2 Hub Dafa Goreng v25 (Auto Shovel)"
+Title.Text = "Grow a Garden 2 Hub Dafa Goreng v26 (Predictor Added)"
 Title.TextColor3 = Color3.fromRGB(240, 240, 240)
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 14
@@ -200,36 +224,48 @@ UserInputService.InputChanged:Connect(function(input)
     end 
 end)
 
-local TabContainer = Instance.new("Frame")
-TabContainer.Size = UDim2.new(1, -20, 0, 30)
+-- =====================================================================
+-- SCROLLABLE TAB CONTAINER
+-- =====================================================================
+local TabContainer = Instance.new("ScrollingFrame")
+TabContainer.Size = UDim2.new(1, -20, 0, 35)
 TabContainer.Position = UDim2.new(0, 10, 0, 40)
 TabContainer.BackgroundTransparency = 1
+TabContainer.BorderSizePixel = 0
+TabContainer.ScrollBarThickness = 2
+TabContainer.ScrollBarImageColor3 = Color3.fromRGB(80, 80, 80)
+TabContainer.CanvasSize = UDim2.new(0, 0, 0, 0)
+TabContainer.AutomaticCanvasSize = Enum.AutomaticSize.X
 TabContainer.Parent = MainFrame
+
 local TabLayout = Instance.new("UIListLayout")
 TabLayout.FillDirection = Enum.FillDirection.Horizontal
-TabLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-TabLayout.Padding = UDim.new(0, 10)
+TabLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left
+TabLayout.SortOrder = Enum.SortOrder.LayoutOrder
+TabLayout.Padding = UDim.new(0, 8)
 TabLayout.Parent = TabContainer
 
-local function createTabButton(text)
+local function createTabButton(text, order)
     local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(0, 125, 1, 0)
+    btn.Size = UDim2.new(0, 125, 0, 30)
     btn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
     btn.TextColor3 = Color3.fromRGB(200, 200, 200)
     btn.Font = Enum.Font.GothamBold
     btn.TextSize = 11
     btn.Text = text
     btn.BorderSizePixel = 0
+    btn.LayoutOrder = order
     btn.Parent = TabContainer
     Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
     return btn
 end
 
-local TabSettings = createTabButton("⚙️ SETTINGS")
-local TabFarming = createTabButton("🌾 FARMING")
-local TabFavorite = createTabButton("⭐ AUTO FAV")
-local TabShop = createTabButton("🛒 SHOP")
-local TabShovel = createTabButton("⛏️ SHOVEL")
+local TabSettings = createTabButton("⚙️ SETTINGS", 1)
+local TabFarming = createTabButton("🌾 FARMING", 2)
+local TabFavorite = createTabButton("⭐ AUTO FAV", 3)
+local TabShop = createTabButton("🛒 SHOP", 4)
+local TabShovel = createTabButton("⛏️ SHOVEL", 5)
+local TabPredictor = createTabButton("🔮 PREDICTOR", 6)
 
 local ContentContainer = Instance.new("Frame")
 ContentContainer.Size = UDim2.new(1, -20, 1, -85)
@@ -262,6 +298,7 @@ local SeedPanel = createPanel(280, 1)
 local GearPanel = createPanel(280, 2)
 local PetPanel = createPanel(280, 3)
 local ShovelPanel = createPanel(280, 1)
+local PredictorPanel = createPanel(500, 1) -- Panel Predictor Lebih Lebar
 
 local function switchTab(tabName)
     TabSettings.BackgroundColor3 = (tabName == "Settings") and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(45, 45, 45)
@@ -269,6 +306,7 @@ local function switchTab(tabName)
     TabFavorite.BackgroundColor3 = (tabName == "Favorite") and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(45, 45, 45)
     TabShop.BackgroundColor3 = (tabName == "Shop") and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(45, 45, 45)
     TabShovel.BackgroundColor3 = (tabName == "Shovel") and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(45, 45, 45)
+    TabPredictor.BackgroundColor3 = (tabName == "Predictor") and Color3.fromRGB(170, 0, 255) or Color3.fromRGB(45, 45, 45)
 
     LeftPanel.Visible = (tabName == "Settings")
     PlantPanel.Visible = (tabName == "Farming")
@@ -278,6 +316,7 @@ local function switchTab(tabName)
     GearPanel.Visible = (tabName == "Shop")
     PetPanel.Visible = (tabName == "Shop")
     ShovelPanel.Visible = (tabName == "Shovel")
+    PredictorPanel.Visible = (tabName == "Predictor")
 end
 
 TabSettings.MouseButton1Click:Connect(function() switchTab("Settings") end)
@@ -285,6 +324,7 @@ TabFarming.MouseButton1Click:Connect(function() switchTab("Farming") end)
 TabFavorite.MouseButton1Click:Connect(function() switchTab("Favorite") end)
 TabShop.MouseButton1Click:Connect(function() switchTab("Shop") end)
 TabShovel.MouseButton1Click:Connect(function() switchTab("Shovel") end)
+TabPredictor.MouseButton1Click:Connect(function() switchTab("Predictor") end)
 switchTab("Settings")
 
 local function createScrollList(parent, titleText)
@@ -321,6 +361,7 @@ local PlantScroll = createScrollList(PlantPanel, "PLANT: SEEDS")
 local HarvestScroll = createScrollList(HarvestPanel, "HARVEST: TARGETS")
 local FavListScroll = createScrollList(FavListPanel, "⭐ AUTO FAVORITE LIST TARGETS")
 local ShovelScroll = createScrollList(ShovelPanel, "⛏️ SHOVEL: TARGETS")
+local PredictorScroll = createScrollList(PredictorPanel, "🔮 LIVE PREDICTOR TARGETS")
 
 local function createToggle(parent, text, configKey, yPos)
     local frame = Instance.new("Frame")
@@ -547,9 +588,6 @@ local function populateFromList(scrollFrame, targetConfigTable, dataList)
     end
 end
 
--- =====================================================================
--- MASTER 3-STATE LIST POPULATOR (For Harvest & Shovel)
--- =====================================================================
 local function populate3StateList(scrollFrame, targetConfigTable, limitDict, baseDict, dataList)
     local masterState = 0
     local function applyUIState(btn, state)
@@ -709,7 +747,6 @@ local function populate3StateList(scrollFrame, targetConfigTable, limitDict, bas
     end
 end
 
--- POPULATE LISTS
 populateFromList(SeedScroll, config.SelectedSeeds, MasterPlantList)
 populateFromList(GearScroll, config.SelectedGears, MasterGearList)
 populateFromList(PetScroll, config.SelectedPets, PetOrder)
@@ -719,37 +756,181 @@ populateFromList(FavListScroll, config.SelectedFavSeeds, MasterPlantList)
 populate3StateList(HarvestScroll, config.SelectedHarvests, config.SeedLimits, config.SeedImportantNumbers, MasterPlantList)
 populate3StateList(ShovelScroll, config.SelectedShovels, config.ShovelLimits, config.ShovelBaseWeights, MasterPlantList)
 
--- POPULATE SETTINGS TAB
-createToggle(SettingsScroll, "Auto Collect/Harvest", "AutoHarvest", 1)
-createToggle(SettingsScroll, "Auto Plant Area", "AutoPlant", 2)
-createToggle(SettingsScroll, "Auto Sell All", "AutoSell", 3)
-createToggle(SettingsScroll, "Auto Buy Seed", "AutoBuySeed", 4)
-createToggle(SettingsScroll, "Auto Buy Gear", "AutoBuyGear", 5)
-createToggle(SettingsScroll, "Auto Buy Pet", "AutoBuyPet", 6)
-createToggle(SettingsScroll, "Auto Claim Rare Seed", "AutoClaimRare", 7)
-createToggle(SettingsScroll, "Force Harvest Mutation [!]", "ForceMutation", 8)
-createToggle(SettingsScroll, "Anti-Night Thief (Auto Hide)", "AntiNightThief", 9)
-createToggle(SettingsScroll, "Auto Shovel", "AutoShovel", 10)
-createTextBox(SettingsScroll, "Shovel Interval (s):", "ShovelInterval", 11)
-createMultiModeButton(SettingsScroll, "Move Method:", "MoveMethod", {"Tween", "SpamTP", "Walk"}, 12)
-createTextBox(SettingsScroll, "Bonus Tween Speed:", "TweenSpeed", 13)
-createTextBox(SettingsScroll, "Walk Speed:", "WalkSpeed", 14)
-createToggle(SettingsScroll, "Auto Favorite (Master Switch)", "AutoFavorite", 15)
-createTextBox(SettingsScroll, "Fav Threshold (>kg):", "FavoriteThreshold", 16)
-createTextBox(SettingsScroll, "Fav Price (>¢):", "FavoritePrice", 17)
-createToggle(SettingsScroll, "Sell 1-by-1 (bukan Sell All)", "SellOneByOne", 18)
-createTextBox(SettingsScroll, "Sell Protect (>=kg):", "SellProtectKg", 19)
-createTextBox(SettingsScroll, "Sell Protect (>=¢):", "SellProtectPrice", 20)
-createToggle(SettingsScroll, "Tampilkan Harga Buah (Inventory)", "ShowFruitPrice", 21)
-createToggle(SettingsScroll, "Auto Boost FPS (Hapus Plot Lain)", "AutoBoostFPS", 22)
-createToggle(SettingsScroll, "Auto Reconnect (Jika DC)", "AutoReconnect", 23)
-createButton(SettingsScroll, "Simulasi Putus Koneksi:", "TEST RECONNECT", 24, function()
+createToggle(SettingsScroll, "Auto Dodge (Server Hop)", "AutoDodge", 1)
+createToggle(SettingsScroll, "Auto Collect/Harvest", "AutoHarvest", 2)
+createToggle(SettingsScroll, "Auto Plant Area", "AutoPlant", 3)
+createToggle(SettingsScroll, "Auto Sell All", "AutoSell", 4)
+createToggle(SettingsScroll, "Auto Buy Seed", "AutoBuySeed", 5)
+createToggle(SettingsScroll, "Auto Buy Gear", "AutoBuyGear", 6)
+createToggle(SettingsScroll, "Auto Buy Pet", "AutoBuyPet", 7)
+createToggle(SettingsScroll, "Auto Claim Rare Seed", "AutoClaimRare", 8)
+createToggle(SettingsScroll, "Force Harvest Mutation [!]", "ForceMutation", 9)
+createToggle(SettingsScroll, "Anti-Night Thief (Auto Hide)", "AntiNightThief", 10)
+createToggle(SettingsScroll, "Auto Shovel", "AutoShovel", 11)
+createTextBox(SettingsScroll, "Shovel Interval (s):", "ShovelInterval", 12)
+createMultiModeButton(SettingsScroll, "Move Method:", "MoveMethod", {"Tween", "SpamTP", "Walk", "TP+Walk"}, 13)
+createTextBox(SettingsScroll, "Bonus Tween Speed:", "TweenSpeed", 14)
+createTextBox(SettingsScroll, "Walk Speed:", "WalkSpeed", 15)
+createToggle(SettingsScroll, "Auto Favorite (Master Switch)", "AutoFavorite", 16)
+createTextBox(SettingsScroll, "Fav Threshold (>kg):", "FavoriteThreshold", 17)
+createTextBox(SettingsScroll, "Fav Price (>¢):", "FavoritePrice", 18)
+createToggle(SettingsScroll, "Sell 1-by-1 (bukan Sell All)", "SellOneByOne", 19)
+createTextBox(SettingsScroll, "Sell Protect (>=kg):", "SellProtectKg", 20)
+createTextBox(SettingsScroll, "Sell Protect (>=¢):", "SellProtectPrice", 21)
+createToggle(SettingsScroll, "Tampilkan Harga Buah (Inventory)", "ShowFruitPrice", 22)
+createToggle(SettingsScroll, "Auto Boost FPS (Hapus Plot Lain)", "AutoBoostFPS", 23)
+createToggle(SettingsScroll, "Remove Player plot!!", "RemovePlayerPlot", 24)
+createToggle(SettingsScroll, "Auto Reconnect (Jika DC)", "AutoReconnect", 25)
+
+local function TriggerHopMinPlayers()
     local TeleportService = game:GetService("TeleportService")
-    pcall(function() TeleportService:Teleport(game.PlaceId, LocalPlayer) end)
+    local HttpService = game:GetService("HttpService")
+    local Servers = "https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Asc&limit=100"
+    local Server, Next = nil, nil
+    local minPlayers = tonumber(config.HopMinPlayers) or 3
+    local function ListServers(cursor)
+        local success, Raw = pcall(function() return game:HttpGet(Servers .. ((cursor and "&cursor=" .. cursor) or "")) end)
+        if success then return HttpService:JSONDecode(Raw) else task.wait(3); return nil end
+    end
+    repeat
+        local ServerList = ListServers(Next)
+        if ServerList and ServerList.data and #ServerList.data > 0 then
+            Server = ServerList.data[math.random(1, math.ceil(#ServerList.data / 3))]
+            Next = ServerList.nextPageCursor
+        else task.wait(2) end
+    until Server and Server.playing >= minPlayers and Server.playing < Server.maxPlayers and Server.id ~= game.JobId
+    TeleportService:TeleportToPlaceInstance(game.PlaceId, Server.id, LocalPlayer)
+end
+
+createTextBox(SettingsScroll, "Hop Min Players:", "HopMinPlayers", 27)
+createButton(SettingsScroll, "Hop ke Server:", "HOP MIN PLAYERS", 28, function() TriggerHopMinPlayers() end)
+createButton(SettingsScroll, "Buka Console:", "F9", 29, function()
+    local VirtualInputManager = game:GetService("VirtualInputManager")
+    VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.F9, false, game)
+    task.wait(0.1)
+    VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.F9, false, game)
 end)
 
 -- =====================================================================
--- 4. UTILITY FUNCTIONS & SMART PATHFINDING
+-- PREDICTOR UI COMPONENT
+-- =====================================================================
+local PredictorLabels = {}
+local function createPredictorRow(parent, itemName, iconEmoji, order)
+    local row = Instance.new("Frame")
+    row.Size = UDim2.new(1, -6, 0, 30)
+    row.BackgroundTransparency = 1
+    row.LayoutOrder = order
+    row.Parent = parent
+    
+    local txtName = Instance.new("TextLabel")
+    txtName.Size = UDim2.new(0, 180, 1, 0)
+    txtName.Position = UDim2.new(0, 10, 0, 0)
+    txtName.BackgroundTransparency = 1
+    txtName.Text = iconEmoji .. " " .. itemName
+    txtName.TextColor3 = Color3.fromRGB(220, 220, 220)
+    txtName.Font = Enum.Font.GothamBold
+    txtName.TextSize = 12
+    txtName.TextXAlignment = Enum.TextXAlignment.Left
+    txtName.Parent = row
+    
+    local txtTime = Instance.new("TextLabel")
+    txtTime.Size = UDim2.new(1, -190, 1, 0)
+    txtTime.Position = UDim2.new(0, 180, 0, 0)
+    txtTime.BackgroundTransparency = 1
+    txtTime.Text = "Menghitung..."
+    txtTime.TextColor3 = Color3.fromRGB(255, 210, 50)
+    txtTime.Font = Enum.Font.Gotham
+    txtTime.TextSize = 12
+    txtTime.TextXAlignment = Enum.TextXAlignment.Right
+    txtTime.Parent = row
+    
+    PredictorLabels[itemName] = txtTime
+end
+
+createPredictorRow(PredictorScroll, "Goldmoon", "🌕", 1)
+createPredictorRow(PredictorScroll, "Rainbow Moon", "🌈", 2)
+createPredictorRow(PredictorScroll, "Bloodmoon", "🩸", 3)
+createPredictorRow(PredictorScroll, "Mega Moon", "🌟", 4)
+createPredictorRow(PredictorScroll, "Dragon's Breath", "🔥", 5)
+createPredictorRow(PredictorScroll, "Hypno Bloom", "🌀", 6)
+createPredictorRow(PredictorScroll, "Moon Bloom", "🌙", 7)
+createPredictorRow(PredictorScroll, "Super Watering Can", "💦", 8)
+
+local function formatTime(seconds)
+    if seconds <= 0 then return "SEKARANG" end
+    local h = math.floor(seconds / 3600)
+    local m = math.floor((seconds % 3600) / 60)
+    local s = seconds % 60
+    if h > 0 then return string.format("%dh %dm", h, m) end
+    return string.format("%dm %ds", m, s)
+end
+
+-- =====================================================================
+-- PREDICTOR ENGINE LOOP
+-- =====================================================================
+task.spawn(function()
+    while task.wait(1) do
+        if PredictorPanel.Visible and PREDICTOR_DB.WEATHER_SEQ ~= "-- PASTE STRING CUACA DISINI --" then
+            local t = os.time()
+            
+            -- 1. Kalkulasi Item Shop (Seeds & Gears)
+            local function updateItemShop(itemName, itemString)
+                if itemString == "-- PASTE STRING " .. string.upper(itemName) .. " DISINI --" or itemString == nil then return end
+                local cycleIdx = math.floor((t - PREDICTOR_DB.ANCHOR) / PREDICTOR_DB.PERIOD)
+                local currentLuaIdx = cycleIdx + 1
+                local len = string.len(itemString)
+                
+                if currentLuaIdx >= 1 and currentLuaIdx <= len then
+                    local currentStock = tonumber(string.sub(itemString, currentLuaIdx, currentLuaIdx))
+                    if currentStock and currentStock > 0 then
+                        PredictorLabels[itemName].Text = "TERSEDIA (x" .. currentStock .. ")"
+                        PredictorLabels[itemName].TextColor3 = Color3.fromRGB(50, 255, 50)
+                        return
+                    end
+                end
+                
+                -- Cari next
+                for k = math.max(cycleIdx + 1, 0), len - 1 do
+                    local nextLuaIdx = k + 1
+                    local stock = tonumber(string.sub(itemString, nextLuaIdx, nextLuaIdx))
+                    if stock and stock > 0 then
+                        local targetTime = PREDICTOR_DB.ANCHOR + (k * PREDICTOR_DB.PERIOD)
+                        PredictorLabels[itemName].Text = formatTime(targetTime - t) .. " (x" .. stock .. ")"
+                        PredictorLabels[itemName].TextColor3 = Color3.fromRGB(255, 210, 50)
+                        break
+                    end
+                end
+            end
+            
+            for itemName, str in pairs(PREDICTOR_DB.SEEDS) do updateItemShop(itemName, str) end
+            for itemName, str in pairs(PREDICTOR_DB.GEARS) do updateItemShop(itemName, str) end
+            
+            -- 2. Kalkulasi Cuaca / Bulan Langka
+            local weatherIdx = math.floor(t / PREDICTOR_DB.WEATHER_PERIOD)
+            local seqLen = string.len(PREDICTOR_DB.WEATHER_SEQ)
+            
+            local function updateMoon(moonName, moonChar)
+                for k = math.max(weatherIdx + 1, 0), weatherIdx + seqLen do
+                    local searchIdx = (k % seqLen) + 1
+                    if string.sub(PREDICTOR_DB.WEATHER_SEQ, searchIdx, searchIdx) == moonChar then
+                        local targetTime = (k * PREDICTOR_DB.WEATHER_PERIOD)
+                        PredictorLabels[moonName].Text = formatTime(targetTime - t)
+                        PredictorLabels[moonName].TextColor3 = Color3.fromRGB(170, 150, 255)
+                        break
+                    end
+                end
+            end
+            
+            updateMoon("Goldmoon", "G")
+            updateMoon("Rainbow Moon", "R")
+            updateMoon("Bloodmoon", "B")
+            updateMoon("Mega Moon", "E")
+        end
+    end
+end)
+
+-- =====================================================================
+-- SMART PATHFINDING & HUNT ENGINE (EXISTING)
 -- =====================================================================
 local function getGardenSpawnPoint()
     local plotId = LocalPlayer:GetAttribute("PlotId")
@@ -852,7 +1033,6 @@ local function startSpamTP(targetObj)
         if not targetObj or not targetObj.Parent or not targetObj:IsDescendantOf(workspace) or not targetObj.Enabled then 
             stopMovement(); Hunt.State = "IDLE"; Hunt.Target = nil; return 
         end
-        
         local targetPos, targetCFrame = getPromptLocation(targetObj)
         if not targetCFrame then stopMovement(); return end
         char:PivotTo(targetCFrame)
@@ -882,8 +1062,7 @@ local function startLinearFlight(targetObj)
         local targetPos, _ = getPromptLocation(targetObj)
         if not targetPos then stopMovement(); return end
         
-        local baseWalkSpeed = 16 
-        if humanoid then baseWalkSpeed = humanoid.WalkSpeed end
+        local baseWalkSpeed = humanoid and humanoid.WalkSpeed or 16
         local bonusSpeed = tonumber(config.TweenSpeed) or 0 
         local finalApproachSpeed = baseWalkSpeed + bonusSpeed
         local currentPos = hrp.Position
@@ -907,8 +1086,8 @@ local function startLinearFlight(targetObj)
 end
 
 local rareEventActive = false
-local function isRareEventName(name) return name == "Goldmoon" or name == "RainbowMoon" end
-local function recheckRareEvent() rareEventActive = (workspace:FindFirstChild("Goldmoon") ~= nil) or (workspace:FindFirstChild("RainbowMoon") ~= nil) end
+local function isRareEventName(name) return name == "Goldmoon" or name == "RainbowMoon" or name == "MegaSeed" or string.find(name, "Mega") ~= nil end
+local function recheckRareEvent() rareEventActive = (workspace:FindFirstChild("Goldmoon") ~= nil) or (workspace:FindFirstChild("RainbowMoon") ~= nil) or (workspace:FindFirstChild("MegaSeed") ~= nil) end
 recheckRareEvent()
 workspace.ChildAdded:Connect(function(child) if isRareEventName(child.Name) then rareEventActive = true end end)
 workspace.ChildRemoved:Connect(function(child)
@@ -932,7 +1111,7 @@ local function scanForRare()
     local bestTarget = nil
     local minDistance = math.huge
     for _, obj in pairs(workspace:GetDescendants()) do
-        if obj:IsA("ProximityPrompt") and obj.Enabled and obj.ActionText == "CLAIM" and (obj.ObjectText == "Gold Seed" or obj.ObjectText == "Rainbow Seed") then
+        if obj:IsA("ProximityPrompt") and obj.Enabled and obj.ActionText == "CLAIM" and (obj.ObjectText == "Gold Seed" or obj.ObjectText == "Rainbow Seed" or obj.ObjectText == "Mega Seed") then
             local tPos, _ = getPromptLocation(obj)
             if tPos then 
                 local effDist, _ = getBestRoute(tPos)
@@ -966,9 +1145,37 @@ local function scanForPet()
     return bestTarget, bestPrice
 end
 
--- =====================================================================
--- 5. THE UNIFIED HUNT ENGINE
--- =====================================================================
+local autoDodgeTriggered = false
+task.spawn(function()
+    while task.wait(3) do
+        if config.AutoDodge and not autoDodgeTriggered then
+            local foundDodgePlayer = false
+            for _, player in pairs(Players:GetPlayers()) do
+                if player == LocalPlayer then continue end
+                if table.find(DodgeList, player.Name) then
+                    foundDodgePlayer = true
+                    break
+                end
+            end
+            if foundDodgePlayer then
+                autoDodgeTriggered = true
+                task.wait(5)
+                TriggerHopMinPlayers()
+                task.wait(10)
+                local playerStillThere = false
+                for _, player in pairs(Players:GetPlayers()) do
+                    if player == LocalPlayer then continue end
+                    if table.find(DodgeList, player.Name) then
+                        autoDodgeTriggered = false
+                        playerStillThere = true
+                        break
+                    end
+                end
+            end
+        end
+    end
+end)
+
 task.spawn(function()
     while task.wait(0.2) do
         if not config.AutoBuyPet and not config.AutoClaimRare then 
@@ -981,7 +1188,7 @@ task.spawn(function()
                 local rareTarget = scanForRare()
                 if rareTarget then
                     local tPos, _ = getPromptLocation(rareTarget)
-                    if tPos then 
+                    if tPos and config.MoveMethod ~= "Walk" then
                         local _, route = getBestRoute(tPos)
                         if route and Networking and Networking.TeleportButton and Networking.TeleportButton.Request then 
                             Networking.TeleportButton.Request:Fire(route); task.wait(0.3) 
@@ -996,7 +1203,7 @@ task.spawn(function()
                 local petTarget, priceNum = scanForPet()
                 if petTarget then
                     local tPos, _ = getPromptLocation(petTarget)
-                    if tPos then 
+                    if tPos and config.MoveMethod ~= "Walk" then
                         local _, route = getBestRoute(tPos)
                         if route and Networking and Networking.TeleportButton and Networking.TeleportButton.Request then 
                             Networking.TeleportButton.Request:Fire(route); task.wait(0.3) 
@@ -1014,7 +1221,7 @@ task.spawn(function()
             
             if config.MoveMethod == "SpamTP" then 
                 startSpamTP(Hunt.Target)
-            elseif config.MoveMethod == "Walk" then
+            elseif config.MoveMethod == "Walk" or config.MoveMethod == "TP+Walk" then
                 local targetPos, _ = getPromptLocation(Hunt.Target)
                 if not targetPos then Hunt.State = "IDLE"; Hunt.Target = nil; stopMovement(); continue end
                 local char = LocalPlayer.Character
@@ -1023,11 +1230,11 @@ task.spawn(function()
                     if dist > 5 then 
                         char.Humanoid.WalkSpeed = tonumber(config.WalkSpeed) or 40
                         char.Humanoid:MoveTo(targetPos)
+                        if char.HumanoidRootPart.Velocity.Magnitude < 2 then char.Humanoid.Jump = true end
                     else 
                         stopMovement()
                         if Hunt.Type == "PET" then Hunt.InitialMoney = getCurrentMoney() end
-                        Hunt.State = "BUYING"
-                        Hunt.GraceTimer = os.clock() + 5 
+                        Hunt.State = "BUYING"; Hunt.GraceTimer = os.clock() + 5 
                     end
                 end
             else 
@@ -1035,8 +1242,15 @@ task.spawn(function()
             end
 
         elseif Hunt.State == "BUYING" then
-            if config.MoveMethod == "Walk" and Hunt.Target and Hunt.Target:IsDescendantOf(workspace) and Hunt.Target.Enabled then 
-                if fireproximityprompt then fireproximityprompt(Hunt.Target, 1, true) end 
+            if (config.MoveMethod == "Walk" or config.MoveMethod == "TP+Walk") and Hunt.Target and Hunt.Target:IsDescendantOf(workspace) and Hunt.Target.Enabled then 
+                if fireproximityprompt then 
+                    task.spawn(function()
+                        for i = 1, 20 do
+                            if Hunt.Target and Hunt.Target.Enabled then fireproximityprompt(Hunt.Target, 1, true) else break end
+                            task.wait(0.01)
+                        end
+                    end)
+                end 
             end
             if Hunt.Target and not Hunt.Target.Enabled then 
                 Hunt.State = "IDLE"; Hunt.Target = nil; stopMovement(); continue 
@@ -1044,15 +1258,11 @@ task.spawn(function()
             
             if Hunt.Type == "PET" then
                 local currentMoney = getCurrentMoney()
-                if currentMoney <= (Hunt.InitialMoney - Hunt.ExpectedPrice) then 
+                if currentMoney <= (Hunt.InitialMoney - Hunt.ExpectedPrice) or os.clock() > Hunt.GraceTimer then 
                     Hunt.State = "IDLE"; Hunt.Target = nil; stopMovement()
-                elseif os.clock() > Hunt.GraceTimer then 
-                    Hunt.State = "IDLE"; Hunt.Target = nil; stopMovement() 
                 end
             elseif Hunt.Type == "RARE" then
-                if not Hunt.Target or not Hunt.Target.Parent or not Hunt.Target:IsDescendantOf(workspace) then 
-                    Hunt.State = "IDLE"; Hunt.Target = nil; stopMovement()
-                elseif os.clock() > Hunt.GraceTimer then 
+                if not Hunt.Target or not Hunt.Target.Parent or not Hunt.Target:IsDescendantOf(workspace) or os.clock() > Hunt.GraceTimer then 
                     Hunt.State = "IDLE"; Hunt.Target = nil; stopMovement() 
                 end
             end
@@ -1060,23 +1270,16 @@ task.spawn(function()
     end
 end)
 
--- =====================================================================
--- 6. INDEPENDENT HARVEST MATRIX CORE
--- =====================================================================
 task.spawn(function()
     while task.wait(0.5) do
         if config.AutoHarvest then
             local isHuntingRare = config.AutoClaimRare and rareEventActive
             local isMalamHari = config.AntiNightThief and workspace:FindFirstChild("ActiveNight")
-            
             local spawnPt = getGardenSpawnPoint()
             if Hunt.State == "IDLE" and not isHuntingRare and not isMalamHari then
                 if spawnPt and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
                     local hrp = LocalPlayer.Character.HumanoidRootPart
-                    if (hrp.Position - spawnPt.Position).Magnitude > 60 then 
-                        hrp.CFrame = spawnPt.CFrame + Vector3.new(0, 3, 0)
-                        task.wait(0.1) 
-                    end
+                    if (hrp.Position - spawnPt.Position).Magnitude > 60 then hrp.CFrame = spawnPt.CFrame + Vector3.new(0, 3, 0); task.wait(0.1) end
                 end
             end
 
@@ -1087,7 +1290,6 @@ task.spawn(function()
             if myPlotFolder then
                 for _, obj in pairs(myPlotFolder:GetDescendants()) do
                     if obj:IsA("ProximityPrompt") and obj.Enabled and (obj.ActionText == "Harvest" or string.find(string.lower(obj.Name), "harvest")) then
-                        
                         local harvestPart = obj:FindFirstAncestor("HarvestPart") or obj.Parent
                         local fruitModel = harvestPart and harvestPart.Parent
                         if not fruitModel then continue end
@@ -1100,15 +1302,12 @@ task.spawn(function()
                             end
                         end
                         local finalPlantName = (objectTextName ~= "") and objectTextName or coreName
-                        
                         local state = config.SelectedHarvests[finalPlantName] or 0
                         local shouldHarvest = false
                         
                         if config.ForceMutation then
                             local mut = fruitModel:GetAttribute("Mutation")
-                            if mut and type(mut) == "string" and mut ~= "" and mut ~= "None" then
-                                shouldHarvest = true
-                            end
+                            if mut and type(mut) == "string" and mut ~= "" and mut ~= "None" then shouldHarvest = true end
                         end
                         
                         if not shouldHarvest then
@@ -1122,20 +1321,13 @@ task.spawn(function()
                                     local sizeMulti = fruitModel:GetAttribute("SizeMulti") or 1
                                     currentWeight = sizeMulti * baseWeight
                                 end
-                                if currentWeight > 0 and currentWeight < limitTarget then 
-                                    shouldHarvest = true 
-                                end
-                        end
+                                if currentWeight > 0 and currentWeight < limitTarget then shouldHarvest = true end
+                            end
                         end
 
                         if shouldHarvest then
-                            if fireproximityprompt then
-                                fireproximityprompt(obj, 1, true)
-                            else
-                                obj:InputHoldBegin()
-                                task.wait(obj.HoldDuration + 0.1)
-                                obj:InputHoldEnd()
-                            end
+                            if fireproximityprompt then fireproximityprompt(obj, 1, true)
+                            else obj:InputHoldBegin(); task.wait(obj.HoldDuration + 0.1); obj:InputHoldEnd() end
                             task.wait(0.05) 
                         end
                     end
@@ -1145,9 +1337,6 @@ task.spawn(function()
     end
 end)
 
--- =====================================================================
--- 6.5 AUTO SHOVEL CORE ENGINE
--- =====================================================================
 local function getShovelTool()
     local backpack = LocalPlayer:FindFirstChild("Backpack")
     local char = LocalPlayer.Character
@@ -1156,41 +1345,29 @@ local function getShovelTool()
     return nil
 end
 
-local function getHumanoid()
-    local char = LocalPlayer.Character
-    return char and char:FindFirstChildOfClass("Humanoid")
-end
-
 local function equipShovel()
     local tool = getShovelTool()
-    local hum = getHumanoid()
-    if tool and hum then
-        hum:EquipTool(tool)
-        task.wait(0.3)
-        return LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Shovel")
-    end
+    local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+    if tool and hum then hum:EquipTool(tool); task.wait(0.3); return LocalPlayer.Character:FindFirstChild("Shovel") end
     return nil
 end
 
 local function unequipShovel()
-    local hum = getHumanoid()
+    local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
     if hum then hum:UnequipTools() end
 end
 
 local wasAutoShovelActive = false
-
 task.spawn(function()
     while task.wait(0.5) do
         if config.AutoShovel then
             wasAutoShovelActive = true
             local interval = tonumber(config.ShovelInterval) or 0.5
-            
             local plotId = LocalPlayer:GetAttribute("PlotId")
             if not plotId then continue end
             local gardens = workspace:FindFirstChild("Gardens")
             local myPlot = gardens and gardens:FindFirstChild("Plot" .. tostring(plotId))
             local plantsFolder = myPlot and myPlot:FindFirstChild("Plants")
-            
             if not plantsFolder then continue end
 
             local char = LocalPlayer.Character
@@ -1205,7 +1382,6 @@ task.spawn(function()
 
             for _, plant in pairs(plantsFolder:GetChildren()) do
                 if not config.AutoShovel then break end
-                
                 local plantId = plant:GetAttribute("PlantId")
                 local seedName = plant:GetAttribute("SeedName")
                 if not plantId or not seedName then continue end
@@ -1218,68 +1394,51 @@ task.spawn(function()
                 
                 for _, fruit in pairs(fruitsFolder:GetChildren()) do
                     if not config.AutoShovel then break end
-                    
                     local fruitId = fruit:GetAttribute("FruitId")
                     if not fruitId then continue end
                     
                     local shouldShovel = false
-                    if state == 1 then
-                        shouldShovel = true
+                    if state == 1 then shouldShovel = true
                     elseif state == 2 then
                         local limit = tonumber(config.ShovelLimits[seedName]) or 0
                         local baseW = tonumber(config.ShovelBaseWeights[seedName]) or 0
                         local sizeMulti = fruit:GetAttribute("SizeMulti") or 1
-                        
                         local weight = sizeMulti * baseW
-                        if baseW > 0 and weight > 0 and weight < limit then
-                            shouldShovel = true
-                        end
+                        if baseW > 0 and weight > 0 and weight < limit then shouldShovel = true end
                     end
                     
                     if shouldShovel then
-                        pcall(function()
-                            Networking.Shovel.UseShovel:Fire(plantId, fruitId, shovelAttr, equippedShovel)
-                        end)
+                        pcall(function() Networking.Shovel.UseShovel:Fire(plantId, fruitId, shovelAttr, equippedShovel) end)
                         task.wait(interval)
                     end
                 end
             end
             task.wait(interval)
-        else
-            if wasAutoShovelActive then
-                wasAutoShovelActive = false
-                unequipShovel()
-            end
+        elseif wasAutoShovelActive then
+            wasAutoShovelActive = false
+            unequipShovel()
         end
     end
 end)
 
--- =====================================================================
--- 7. TURBO AUTO FAVORITE
--- =====================================================================
 local pendingFavoriteChecks = 0
 local lastFavoriteActionTime = 0
-
 task.spawn(function()
     local backpack = LocalPlayer:WaitForChild("Backpack")
-    
     local function scanAndFavoriteItem(item)
         if not item:IsA("Tool") then return end
         pendingFavoriteChecks += 1
         lastItemAddedTime = os.clock()
 
-        local ok, errMsg = pcall(function()
+        pcall(function()
             task.wait(0.2) 
             if not config.AutoFavorite then return end
-
-            local isFruit = item:GetAttribute("HarvestedFruit") == true or item:GetAttribute("Fruit") ~= nil
-            if not isFruit then return end
+            if item:GetAttribute("HarvestedFruit") ~= true and item:GetAttribute("Fruit") == nil then return end
 
             local targetKg = tonumber(config.FavoriteThreshold) or 100
             local targetPrice = tonumber(config.FavoritePrice) or 0
             local rawName = item:GetAttribute("Fruit") or item.Name
-            local fruitName = string.gsub(rawName, "%s*%[%d+%.?%d*k?g?%]", "")
-            fruitName = string.match(fruitName, "^%s*(.-)%s*$") 
+            local fruitName = string.match(string.gsub(rawName, "%s*%[%d+%.?%d*k?g?%]", ""), "^%s*(.-)%s*$") 
 
             local weight = item:GetAttribute("Weight") or 0
             local isNameMatch = config.SelectedFavSeeds[fruitName] == true
@@ -1290,11 +1449,8 @@ task.spawn(function()
             if not isNameMatch and not isHeavy and targetPrice > 0 then
                 local fruitIdForBid = item:GetAttribute("Id")
                 if fruitIdForBid and Networking and Networking.NPCS and Networking.NPCS.GetFruitBid then
-                    local success, bidData = pcall(function() return Networking.NPCS.GetFruitBid:Fire(fruitIdForBid) end)
-                    if success and type(bidData) == "table" and bidData.CurrentSellValue then
-                        price = tonumber(bidData.CurrentSellValue) or price 
-                        isPricy = price >= targetPrice
-                    end
+                    local ok, bidData = pcall(function() return Networking.NPCS.GetFruitBid:Fire(fruitIdForBid) end)
+                    if ok and type(bidData) == "table" and bidData.CurrentSellValue then price = tonumber(bidData.CurrentSellValue) or price; isPricy = price >= targetPrice end
                 end
             end
 
@@ -1302,9 +1458,7 @@ task.spawn(function()
                 local fruitId = item:GetAttribute("Id")
                 if fruitId then
                     pcall(function()
-                        if Networking and Networking.Backpack and Networking.Backpack.SetFruitFavorite then
-                            Networking.Backpack.SetFruitFavorite:Fire(fruitId, true)
-                        end
+                        if Networking.Backpack and Networking.Backpack.SetFruitFavorite then Networking.Backpack.SetFruitFavorite:Fire(fruitId, true) end
                         item:SetAttribute("IsFavorite", true)
                     end)
                     lastFavoriteActionTime = os.clock()
@@ -1318,9 +1472,6 @@ task.spawn(function()
     backpack.ChildAdded:Connect(function(item) task.spawn(scanAndFavoriteItem, item) end)
 end)
 
--- =====================================================================
--- 8. SMART SATPAM AUTO SELL
--- =====================================================================
 task.spawn(function()
     while task.wait(0.5) do
         if (config.AutoSell or config.SellOneByOne) and Networking then
@@ -1329,65 +1480,38 @@ task.spawn(function()
             local totalItems = 0
             
             if backpack then totalItems = totalItems + #backpack:GetChildren() end
-            if character then
-                for _, tool in pairs(character:GetChildren()) do if tool:IsA("Tool") then totalItems = totalItems + 1 end end
-            end
+            if character then for _, tool in pairs(character:GetChildren()) do if tool:IsA("Tool") then totalItems = totalItems + 1 end end end
 
-            local noPendingChecks = (pendingFavoriteChecks == 0)
-            local waktuHeningCukup = (os.clock() - lastItemAddedTime > 1.0)
-            local clearOfFavoriteAction = (os.clock() - lastFavoriteActionTime > 1.0)
-            local tasNyarisPenuh = (totalItems >= 85)
-            
-            if (waktuHeningCukup and noPendingChecks and clearOfFavoriteAction) or tasNyarisPenuh then
-                if config.SellOneByOne then
-                    if backpack then
-                        local foundAny = false
-                        for _, item in pairs(backpack:GetChildren()) do
-                            local isFruit = item:GetAttribute("HarvestedFruit") == true or item:GetAttribute("Fruit") ~= nil or string.find(item.Name, "%[.-kg%]") ~= nil
-                            if isFruit then
-                                foundAny = true
-                                local fruitId = item:GetAttribute("Id")
-                                local itemNameDbg = item:GetAttribute("Fruit") or item.Name
-                                local timeout = 0
-                                while not fruitId and timeout < 10 do
-                                    task.wait(0.2)
-                                    timeout = timeout + 1
-                                    fruitId = item:GetAttribute("Id")
-                                end
+            if (os.clock() - lastItemAddedTime > 1.0 and pendingFavoriteChecks == 0 and os.clock() - lastFavoriteActionTime > 1.0) or (totalItems >= 85) then
+                if config.SellOneByOne and backpack then
+                    for _, item in pairs(backpack:GetChildren()) do
+                        if item:GetAttribute("HarvestedFruit") == true or item:GetAttribute("Fruit") ~= nil or string.find(item.Name, "%[.-kg%]") ~= nil then
+                            local fruitId = item:GetAttribute("Id")
+                            local timeout = 0
+                            while not fruitId and timeout < 10 do task.wait(0.2); timeout = timeout + 1; fruitId = item:GetAttribute("Id") end
 
-                                if fruitId then
-                                    task.spawn(function()
-                                        local weight = item:GetAttribute("Weight") or 0
-                                        local protectKg = tonumber(config.SellProtectKg) or 0
-                                        local protectPrice = tonumber(config.SellProtectPrice) or 0
-                                        
-                                        if protectKg > 0 and weight >= protectKg then return end
+                            if fruitId then
+                                task.spawn(function()
+                                    local weight = item:GetAttribute("Weight") or 0
+                                    if tonumber(config.SellProtectKg) > 0 and weight >= tonumber(config.SellProtectKg) then return end
 
-                                        local currentPrice = item:GetAttribute("BidPrice") or item:GetAttribute("FruitValue") or 0
-                                        if protectPrice > 0 and Networking.NPCS and Networking.NPCS.GetFruitBid then
-                                            local success, bidData = pcall(function() return Networking.NPCS.GetFruitBid:Fire(fruitId) end)
-                                            if success and type(bidData) == "table" and bidData.CurrentSellValue then
-                                                currentPrice = tonumber(bidData.CurrentSellValue) or currentPrice
-                                            end
-                                            if currentPrice >= protectPrice then return end
-                                        end
+                                    local currentPrice = item:GetAttribute("BidPrice") or item:GetAttribute("FruitValue") or 0
+                                    if tonumber(config.SellProtectPrice) > 0 and Networking.NPCS and Networking.NPCS.GetFruitBid then
+                                        local ok, bidData = pcall(function() return Networking.NPCS.GetFruitBid:Fire(fruitId) end)
+                                        if ok and type(bidData) == "table" and bidData.CurrentSellValue then currentPrice = tonumber(bidData.CurrentSellValue) or currentPrice end
+                                        if currentPrice >= tonumber(config.SellProtectPrice) then return end
+                                    end
 
-                                        pcall(function()
-                                            return Networking.NPCS.SellFruit and Networking.NPCS.SellFruit:Fire(fruitId)
-                                        end)
-                                    end)
-                                end
+                                    pcall(function() Networking.NPCS.SellFruit:Fire(fruitId) end)
+                                end)
                             end
                         end
                     end
-                else
+                elseif not config.SellOneByOne then
                     pcall(function() 
-                        if Networking and Networking.NPCS and Networking.NPCS.SellAll then
-                            if typeof(Networking.NPCS.SellAll) == "table" and Networking.NPCS.SellAll.Fire then 
-                                Networking.NPCS.SellAll:Fire() 
-                            elseif typeof(Networking.NPCS.SellAll) == "function" then 
-                                Networking.NPCS.SellAll() 
-                            end 
+                        if Networking.NPCS and Networking.NPCS.SellAll then
+                            if typeof(Networking.NPCS.SellAll) == "table" and Networking.NPCS.SellAll.Fire then Networking.NPCS.SellAll:Fire() 
+                            elseif typeof(Networking.NPCS.SellAll) == "function" then Networking.NPCS.SellAll() end 
                         end
                     end)
                 end
@@ -1396,30 +1520,11 @@ task.spawn(function()
     end
 end)
 
--- =====================================================================
--- 8.5 SMART FRUIT PRICE DISPLAY
--- =====================================================================
 local function formatPrice(n)
     if n >= 1e9 then return string.format("%.2fB", n/1e9)
     elseif n >= 1e6 then return string.format("%.2fM", n/1e6)
     elseif n >= 1e3 then return string.format("%.1fK", n/1e3)
     else return tostring(math.floor(n)) end
-end
-
-local function buildLookup()
-    local lookup = {}
-    local bp = LocalPlayer:FindFirstChild("Backpack")
-    if not bp then return lookup end
-    for _, item in ipairs(bp:GetChildren()) do
-        if item.ClassName == "Configuration" then
-            local fn = item:GetAttribute("FruitName")
-            if fn then
-                if not lookup[fn] then lookup[fn] = {} end
-                table.insert(lookup[fn], item)
-            end
-        end
-    end
-    return lookup
 end
 
 local function injectPrices()
@@ -1428,62 +1533,62 @@ local function injectPrices()
     grid = grid:FindFirstChild("UIGridFrame", true)
     if not grid then return end
 
-    local lookup = buildLookup()
+    local lookup = {}
+    local bp = LocalPlayer:FindFirstChild("Backpack")
+    if bp then
+        for _, item in ipairs(bp:GetChildren()) do
+            if item.ClassName == "Configuration" then
+                local fn = item:GetAttribute("FruitName")
+                if fn then
+                    if not lookup[fn] then lookup[fn] = {} end
+                    table.insert(lookup[fn], item)
+                end
+            end
+        end
+    end
+
     local usedLookup = {}
     for k, v in pairs(lookup) do usedLookup[k] = {table.unpack(v)} end
 
     for _, slot in ipairs(grid:GetChildren()) do
         if not (slot:IsA("Frame") or slot:IsA("TextButton") or slot:IsA("ImageButton")) then continue end
         local toolNameLabel = slot:FindFirstChild("ToolName", true)
-        if not toolNameLabel then continue end
-        
-        local fruitName = toolNameLabel.Text
-        if not fruitName or fruitName == "" then continue end
-        if slot:FindFirstChild("_PriceTag") then continue end
+        if not toolNameLabel or toolNameLabel.Text == "" or slot:FindFirstChild("_PriceTag") then continue end
 
-        local configs = usedLookup[fruitName]
         local fruitId = nil
-        if configs and #configs > 0 then
-            fruitId = configs[1]:GetAttribute("Id")
-            table.remove(configs, 1)
+        if usedLookup[toolNameLabel.Text] and #usedLookup[toolNameLabel.Text] > 0 then
+            fruitId = usedLookup[toolNameLabel.Text][1]:GetAttribute("Id")
+            table.remove(usedLookup[toolNameLabel.Text], 1)
         end
 
         local priceText = nil
         if fruitId and Networking and Networking.NPCS and Networking.NPCS.GetFruitBid then
             local ok, result = pcall(function() return Networking.NPCS.GetFruitBid:Fire(fruitId) end)
-            if ok and result then
-                local price = result.CurrentSellValue or result.CurrentOffer or result.BidPrice or 0
-                priceText = formatPrice(price)
-            end
+            if ok and result then priceText = formatPrice(result.CurrentSellValue or result.CurrentOffer or result.BidPrice or 0) end
         end
 
-        if not priceText then continue end
-
-        local tag = Instance.new("TextLabel")
-        tag.Name = "_PriceTag"
-        tag.Size = UDim2.new(1, 0, 0, 14)
-        tag.Position = UDim2.new(0, 0, 1, -14)
-        tag.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-        tag.BackgroundTransparency = 0.3
-        tag.TextColor3 = Color3.fromRGB(100, 255, 100)
-        tag.Text = priceText
-        tag.Font = Enum.Font.GothamBold
-        tag.TextSize = 11
-        tag.ZIndex = (slot.ZIndex or 1) + 1
-        tag.Parent = slot
-        Instance.new("UICorner", tag).CornerRadius = UDim.new(0, 3)
+        if priceText then
+            local tag = Instance.new("TextLabel")
+            tag.Name = "_PriceTag"
+            tag.Size = UDim2.new(1, 0, 0, 14)
+            tag.Position = UDim2.new(0, 0, 1, -14)
+            tag.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+            tag.BackgroundTransparency = 0.3
+            tag.TextColor3 = Color3.fromRGB(100, 255, 100)
+            tag.Text = priceText
+            tag.Font = Enum.Font.GothamBold
+            tag.TextSize = 11
+            tag.ZIndex = (slot.ZIndex or 1) + 1
+            tag.Parent = slot
+            Instance.new("UICorner", tag).CornerRadius = UDim.new(0, 3)
+        end
     end
 end
 
 local function clearPrices()
     local grid = LocalPlayer.PlayerGui:FindFirstChild("BackpackGui", true)
-    if not grid then return end
-    grid = grid:FindFirstChild("UIGridFrame", true)
-    if not grid then return end
-    for _, slot in ipairs(grid:GetChildren()) do
-        local tag = slot:FindFirstChild("_PriceTag")
-        if tag then tag:Destroy() end
-    end
+    if grid then grid = grid:FindFirstChild("UIGridFrame", true) end
+    if grid then for _, slot in ipairs(grid:GetChildren()) do if slot:FindFirstChild("_PriceTag") then slot._PriceTag:Destroy() end end end
 end
 
 local function onInventoryChanged()
@@ -1497,63 +1602,42 @@ task.spawn(function()
     local connections = {}
 
     while task.wait(0.5) do
-        local isOn = config.ShowFruitPrice
-        if isOn and not wasOn then
+        if config.ShowFruitPrice and not wasOn then
             wasOn = true
             injectPrices()
-            
-            local bpAdded = LocalPlayer.Backpack.ChildAdded:Connect(onInventoryChanged)
-            local bpRemoved = LocalPlayer.Backpack.ChildRemoved:Connect(onInventoryChanged)
-            table.insert(connections, bpAdded)
-            table.insert(connections, bpRemoved)
-            
+            table.insert(connections, LocalPlayer.Backpack.ChildAdded:Connect(onInventoryChanged))
+            table.insert(connections, LocalPlayer.Backpack.ChildRemoved:Connect(onInventoryChanged))
             if LocalPlayer.Character then
-                local charAdded = LocalPlayer.Character.ChildAdded:Connect(function(child) if child:IsA("Tool") then onInventoryChanged() end end)
-                local charRemoved = LocalPlayer.Character.ChildRemoved:Connect(function(child) if child:IsA("Tool") then onInventoryChanged() end end)
-                table.insert(connections, charAdded)
-                table.insert(connections, charRemoved)
+                table.insert(connections, LocalPlayer.Character.ChildAdded:Connect(function(child) if child:IsA("Tool") then onInventoryChanged() end end))
+                table.insert(connections, LocalPlayer.Character.ChildRemoved:Connect(function(child) if child:IsA("Tool") then onInventoryChanged() end end))
             end
-            
-        elseif not isOn and wasOn then
+        elseif not config.ShowFruitPrice and wasOn then
             wasOn = false
             clearPrices()
-            for _, conn in ipairs(connections) do
-                if conn.Connected then conn:Disconnect() end
-            end
+            for _, conn in ipairs(connections) do if conn.Connected then conn:Disconnect() end end
             table.clear(connections)
         end
     end
 end)
 
--- ==========================================
--- ANTI-MALING MALAM HARI
--- ==========================================
 task.spawn(function()
     while task.wait(0.5) do
         if config.AntiNightThief then
             local nightModel = workspace:FindFirstChild("ActiveNight")
-            if nightModel then
-                local plotId = LocalPlayer:GetAttribute("PlotId")
-                if plotId then
-                    local gardens = workspace:FindFirstChild("Gardens")
-                    local myPlot = gardens and gardens:FindFirstChild("Plot" .. tostring(plotId))
-                    local targetInsidePos = nil
+            local plotId = LocalPlayer:GetAttribute("PlotId")
+            local gardens = workspace:FindFirstChild("Gardens")
+            local myPlot = gardens and gardens:FindFirstChild("Plot" .. tostring(plotId))
+            if nightModel and myPlot then
+                local targetInsidePos = myPlot:FindFirstChild("Visual") and (myPlot.Visual:FindFirstChild("BedSection1") or myPlot.Visual:FindFirstChildWhichIsA("BasePart"))
+                targetInsidePos = targetInsidePos and targetInsidePos.Position + Vector3.new(0, 3, 0) or myPlot:GetPivot().Position + Vector3.new(0, 3, 0)
 
-                    if myPlot and myPlot:FindFirstChild("Visual") then
-                        local firstBed = myPlot.Visual:FindFirstChild("BedSection1") or myPlot.Visual:FindFirstChildWhichIsA("BasePart")
-                        if firstBed then targetInsidePos = firstBed.Position + Vector3.new(0, 3, 0) end
-                    end
-                    if not targetInsidePos and myPlot then targetInsidePos = myPlot:GetPivot().Position + Vector3.new(0, 3, 0) end
-
-                    local char = LocalPlayer.Character
-                    if targetInsidePos and char and char:FindFirstChild("HumanoidRootPart") then
-                        local hrp = char.HumanoidRootPart
-                        local jarakDariKebun = (hrp.Position - targetInsidePos).Magnitude
-                        if jarakDariKebun > 25 then
-                            stopMovement() 
-                            hrp.CFrame = CFrame.new(targetInsidePos)
-                            hrp.Velocity = Vector3.new(0, 0, 0) 
-                        end
+                local char = LocalPlayer.Character
+                if targetInsidePos and char and char:FindFirstChild("HumanoidRootPart") then
+                    local hrp = char.HumanoidRootPart
+                    if (hrp.Position - targetInsidePos).Magnitude > 25 then
+                        stopMovement() 
+                        hrp.CFrame = CFrame.new(targetInsidePos)
+                        hrp.Velocity = Vector3.new(0, 0, 0) 
                     end
                 end
             end
@@ -1561,33 +1645,23 @@ task.spawn(function()
     end
 end)
 
--- ==========================================
--- AUTO BUY SEED & GEAR
--- ==========================================
 task.spawn(function()
     while task.wait(1) do
         if config.AutoBuySeed and Networking then
             local SeedShopUI = PlayerGui:WaitForChild("SeedShop", 5) and PlayerGui.SeedShop:WaitForChild("Frame", 5) and PlayerGui.SeedShop.Frame:WaitForChild("NormalShop", 5)
             for seedName, isSelected in pairs(config.SelectedSeeds) do 
-                if isSelected and SeedShopUI and SeedShopUI:FindFirstChild(seedName) then 
-                    pcall(function() Networking.SeedShop.PurchaseSeed:Fire(seedName, 1) end) 
-                end 
+                if isSelected and SeedShopUI and SeedShopUI:FindFirstChild(seedName) then pcall(function() Networking.SeedShop.PurchaseSeed:Fire(seedName, 1) end) end 
             end
         end
         if config.AutoBuyGear and Networking then
             local GearShopUI = PlayerGui:WaitForChild("GearShop", 5) and PlayerGui.GearShop:WaitForChild("Frame", 5) and PlayerGui.GearShop.Frame:WaitForChild("ScrollingFrame", 5)
             for gearName, isSelected in pairs(config.SelectedGears) do 
-                if isSelected and GearShopUI and GearShopUI:FindFirstChild(gearName) then 
-                    pcall(function() Networking.GearShop.PurchaseGear:Fire(gearName) end) 
-                end 
+                if isSelected and GearShopUI and GearShopUI:FindFirstChild(gearName) then pcall(function() Networking.GearShop.PurchaseGear:Fire(gearName) end) end 
             end
         end
     end
 end)
 
--- ==========================================
--- AUTO PLANT
--- ==========================================
 task.spawn(function()
     while task.wait(1) do
         if config.AutoPlant then
@@ -1597,13 +1671,9 @@ task.spawn(function()
             for seedName, isSelected in pairs(config.SelectedPlantSeeds) do
                 if isSelected then
                     local seedNameLower = string.lower(seedName)
-                    for _, tool in pairs(char:GetChildren()) do 
-                        if tool:IsA("Tool") and string.find(string.lower(tool.Name), seedNameLower) then seedTool = tool; break end 
-                    end
+                    for _, tool in pairs(char:GetChildren()) do if tool:IsA("Tool") and string.find(string.lower(tool.Name), seedNameLower) then seedTool = tool; break end end
                     if not seedTool and LocalPlayer:FindFirstChild("Backpack") then
-                        for _, tool in pairs(LocalPlayer.Backpack:GetChildren()) do 
-                            if tool:IsA("Tool") and string.find(string.lower(tool.Name), seedNameLower) then seedTool = tool; break end 
-                        end
+                        for _, tool in pairs(LocalPlayer.Backpack:GetChildren()) do if tool:IsA("Tool") and string.find(string.lower(tool.Name), seedNameLower) then seedTool = tool; break end end
                     end
                     if seedTool then break end
                 end
@@ -1613,67 +1683,63 @@ task.spawn(function()
                 local seedValue = seedTool:GetAttribute("SeedTool")
                 if seedTool.Parent ~= char then seedTool.Parent = char; task.wait(0.2) end
                 local plotId = LocalPlayer:GetAttribute("PlotId")
-                if plotId then
-                    local gardens = workspace:FindFirstChild("Gardens")
-                    local myPlot = gardens and gardens:FindFirstChild("Plot" .. tostring(plotId))
-                    if myPlot and myPlot:FindFirstChild("Visual") then
-                        local spacing = 2.5 
-                        for _, bed in pairs(myPlot.Visual:GetChildren()) do
-                            if string.find(bed.Name, "BedSection") then
-                                local bedCFrame, bedSize = bed:GetBoundingBox()
-                                for x = -bedSize.X/2 + spacing, bedSize.X/2 - spacing, spacing do
-                                    for z = -bedSize.Z/2 + spacing, bedSize.Z/2 - spacing, spacing do
-                                        if not config.AutoPlant then break end 
-                                        local targetPos = (bedCFrame * CFrame.new(x, bedSize.Y/2, z)).Position
-                                        if Networking and Networking.Plant and Networking.Plant.PlantSeed then 
-                                            Networking.Plant.PlantSeed:Fire(targetPos, seedValue, seedTool); task.wait(0.05) 
-                                        end
-                                    end
-                                    if not config.AutoPlant then break end
+                local gardens = workspace:FindFirstChild("Gardens")
+                local myPlot = gardens and gardens:FindFirstChild("Plot" .. tostring(plotId))
+                if myPlot and myPlot:FindFirstChild("Visual") then
+                    for _, bed in pairs(myPlot.Visual:GetChildren()) do
+                        if string.find(bed.Name, "BedSection") then
+                            local bedCFrame, bedSize = bed:GetBoundingBox()
+                            for x = -bedSize.X/2 + 2.5, bedSize.X/2 - 2.5, 2.5 do
+                                for z = -bedSize.Z/2 + 2.5, bedSize.Z/2 - 2.5, 2.5 do
+                                    if not config.AutoPlant then break end 
+                                    if Networking and Networking.Plant and Networking.Plant.PlantSeed then Networking.Plant.PlantSeed:Fire((bedCFrame * CFrame.new(x, bedSize.Y/2, z)).Position, seedValue, seedTool); task.wait(0.05) end
                                 end
+                                if not config.AutoPlant then break end
                             end
-                            if not config.AutoPlant then break end
                         end
+                        if not config.AutoPlant then break end
                     end
                 end
-            else
-                task.wait(2) 
-            end
+            else task.wait(2) end
         end
     end
 end)
 
--- ==========================================
--- AUTO BOOST FPS
--- ==========================================
 task.spawn(function()
     local function eksekusiGusur()
+        local myPlotId = LocalPlayer:GetAttribute("PlotId")
+        local gardensFolder = workspace:FindFirstChild("Gardens")
+        if gardensFolder and myPlotId then
+            local myPlotName = "Plot" .. tostring(myPlotId)
+            for _, plot in pairs(gardensFolder:GetChildren()) do 
+                if string.find(plot.Name, "Plot") then
+                    if config.AutoBoostFPS and plot.Name ~= myPlotName then plot:Destroy()
+                    elseif config.RemovePlayerPlot and plot.Name == myPlotName then plot:Destroy() end
+                end 
+            end
+        end
+
         if config.AutoBoostFPS then
-            local myPlotId = LocalPlayer:GetAttribute("PlotId")
-            local gardensFolder = workspace:FindFirstChild("Gardens")
-            if gardensFolder and myPlotId then
-                local myPlotName = "Plot" .. tostring(myPlotId)
-                for _, plot in pairs(gardensFolder:GetChildren()) do 
-                    if string.find(plot.Name, "Plot") and plot.Name ~= myPlotName then plot:Destroy() end 
-                end
+            for _, v in pairs(game:GetService("Lighting"):GetDescendants()) do
+                if v:IsA("PostEffect") or v:IsA("Sky") or v:IsA("Atmosphere") or v:IsA("SunRaysEffect") then v:Destroy() end
+            end
+            for _, obj in pairs(game:GetService("Workspace"):GetDescendants()) do
+                if obj:IsA("Decal") or obj:IsA("Texture") or obj:IsA("SurfaceAppearance") then obj:Destroy()
+                elseif obj:IsA("SpecialMesh") then obj.TextureId = ""
+                elseif obj:IsA("BasePart") then obj.Material = Enum.Material.SmoothPlastic; obj.Reflectance = 0; obj.CastShadow = false end
             end
         end
     end
-    task.wait(2)
-    eksekusiGusur()
+    task.wait(2); eksekusiGusur()
     while task.wait(30) do eksekusiGusur() end
 end)
 
--- ==========================================
--- ANTI AFK
--- ==========================================
 task.spawn(function()
     local VirtualUser = game:GetService("VirtualUser")
     while task.wait(180) do
         if config.AntiAFK then
             pcall(function()
-                VirtualUser:CaptureController()
-                VirtualUser:ClickButton2(Vector2.new())
+                VirtualUser:CaptureController(); VirtualUser:ClickButton2(Vector2.new())
                 local char = LocalPlayer.Character
                 if char and char:FindFirstChild("Humanoid") then char.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping) end
             end)
@@ -1681,17 +1747,8 @@ task.spawn(function()
     end
 end)
 
--- ==========================================
--- AUTO RECONNECT
--- ==========================================
 task.spawn(function()
-    local GuiService = game:GetService("GuiService")
-    local TeleportService = game:GetService("TeleportService")
-
-    GuiService.ErrorMessageChanged:Connect(function(errorMessage)
-        if config.AutoReconnect and errorMessage and errorMessage ~= "" then
-            task.wait(5)
-            pcall(function() TeleportService:Teleport(game.PlaceId, LocalPlayer) end)
-        end
+    game:GetService("GuiService").ErrorMessageChanged:Connect(function(errorMessage)
+        if config.AutoReconnect and errorMessage and errorMessage ~= "" then task.wait(5); pcall(function() game:GetService("TeleportService"):Teleport(game.PlaceId, LocalPlayer) end) end
     end)
 end)
