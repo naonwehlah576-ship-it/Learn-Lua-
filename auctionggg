@@ -25,7 +25,8 @@ local config = {
         ["moon bloom"] = false,
         ["dragon's breath"] = false,
         ["hypno bloom"] = false,
-        ["invisibility mushroom"] = false
+        ["invisibility mushroom"] = false,
+        ["super sprinkler"] = false
     },
     
     TimeMode = false,
@@ -35,7 +36,8 @@ local config = {
         ["moon bloom"] = false,
         ["dragon's breath"] = false,
         ["hypno bloom"] = false,
-        ["invisibility mushroom"] = false
+        ["invisibility mushroom"] = false,
+        ["super sprinkler"] = false
     }
 }
 
@@ -67,7 +69,7 @@ local function SaveConfig()
     end
 end
 
-local itemNames = {"Super Watering Can", "Moon Bloom", "Dragon's Breath", "Hypno Bloom", "Invisibility Mushroom"}
+local itemNames = {"Super Watering Can", "Moon Bloom", "Dragon's Breath", "Hypno Bloom", "Invisibility Mushroom", "Super Sprinkler"}
 
 -- ========================================== --
 --                 FUNGSI UI                  --
@@ -78,8 +80,7 @@ ScreenGui.Parent = pcall(function() return CoreGui.Name end) and CoreGui or Loca
 ScreenGui.ResetOnSpawn = false
 
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 320, 0, 510)
--- AnchorPoint diubah biar proses auto-scale dari tengah
+MainFrame.Size = UDim2.new(0, 320, 0, 480)
 MainFrame.AnchorPoint = Vector2.new(0.5, 0.5) 
 MainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
 MainFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
@@ -96,7 +97,6 @@ uiScale.Parent = MainFrame
 
 local function adjustScale()
     local viewportSize = workspace.CurrentCamera.ViewportSize
-    -- Jika tinggi layar kurang dari 600, scale down UI biar gak kepotong
     if viewportSize.Y < 600 then
         uiScale.Scale = viewportSize.Y / 600
     else
@@ -104,9 +104,8 @@ local function adjustScale()
     end
 end
 
--- Deteksi kalau ukuran layar berubah (misal fullscreen/windowed)
 workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(adjustScale)
-adjustScale() -- Panggil sekali pas awal diload
+adjustScale()
 -- ========================================== --
 
 local UIListLayout = Instance.new("UIListLayout")
@@ -138,11 +137,13 @@ SubTitle.TextSize = 12
 SubTitle.Font = Enum.Font.Gotham
 SubTitle.Parent = MainFrame
 
+-- ========== FUNCTION: Create Section with Scrollable Items ==========
 local function createSection(titleText, modeKey, limitKey, limitPlaceholder, itemsConfig)
-    local SectionFrame = Instance.new("Frame")
-    SectionFrame.Size = UDim2.new(1, 0, 0, 30)
-    SectionFrame.BackgroundTransparency = 1
-    SectionFrame.Parent = MainFrame
+    -- Header Frame (Toggle + Limit Input)
+    local HeaderFrame = Instance.new("Frame")
+    HeaderFrame.Size = UDim2.new(1, 0, 0, 30)
+    HeaderFrame.BackgroundTransparency = 1
+    HeaderFrame.Parent = MainFrame
     
     local MasterToggle = Instance.new("TextButton")
     MasterToggle.Size = UDim2.new(0.6, -5, 1, 0)
@@ -151,7 +152,7 @@ local function createSection(titleText, modeKey, limitKey, limitPlaceholder, ite
     MasterToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
     MasterToggle.Font = Enum.Font.GothamBold
     MasterToggle.TextSize = 14
-    MasterToggle.Parent = SectionFrame
+    MasterToggle.Parent = HeaderFrame
     
     local LimitInput = Instance.new("TextBox")
     LimitInput.Size = UDim2.new(0.4, 0, 1, 0)
@@ -161,7 +162,7 @@ local function createSection(titleText, modeKey, limitKey, limitPlaceholder, ite
     LimitInput.TextColor3 = Color3.fromRGB(255, 255, 255)
     LimitInput.Font = Enum.Font.Gotham
     LimitInput.TextSize = 14
-    LimitInput.Parent = SectionFrame
+    LimitInput.Parent = HeaderFrame
     
     MasterToggle.MouseButton1Click:Connect(function()
         config[modeKey] = not config[modeKey]
@@ -185,6 +186,31 @@ local function createSection(titleText, modeKey, limitKey, limitPlaceholder, ite
         end
     end)
     
+    -- Scrollable Items Container
+    local ScrollContainer = Instance.new("Frame")
+    ScrollContainer.Size = UDim2.new(1, 0, 0, 130) -- 5 items * 25 + sedikit buffer
+    ScrollContainer.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+    ScrollContainer.BorderSizePixel = 0
+    ScrollContainer.Parent = MainFrame
+    
+    local ScrollingFrame = Instance.new("ScrollingFrame")
+    ScrollingFrame.Size = UDim2.new(1, 0, 1, 0)
+    ScrollingFrame.BackgroundTransparency = 1
+    ScrollingFrame.ScrollBarThickness = 8
+    ScrollingFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+    ScrollingFrame.Parent = ScrollContainer
+    
+    local ListLayout = Instance.new("UIListLayout")
+    ListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    ListLayout.Padding = UDim.new(0, 2)
+    ListLayout.Parent = ScrollingFrame
+    
+    local listPadding = Instance.new("UIPadding")
+    listPadding.PaddingTop = UDim.new(0, 5)
+    listPadding.PaddingLeft = UDim.new(0, 5)
+    listPadding.PaddingRight = UDim.new(0, 5)
+    listPadding.Parent = ScrollingFrame
+    
     for _, item in ipairs(itemNames) do
         local key = item:lower()
         local ItemBtn = Instance.new("TextButton")
@@ -195,7 +221,7 @@ local function createSection(titleText, modeKey, limitKey, limitPlaceholder, ite
         ItemBtn.TextColor3 = itemsConfig[key] and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(200, 200, 200)
         ItemBtn.Font = Enum.Font.Gotham
         ItemBtn.TextSize = 13
-        ItemBtn.Parent = MainFrame
+        ItemBtn.Parent = ScrollingFrame
         
         ItemBtn.MouseButton1Click:Connect(function()
             itemsConfig[key] = not itemsConfig[key]
@@ -205,13 +231,26 @@ local function createSection(titleText, modeKey, limitKey, limitPlaceholder, ite
             SaveConfig()
         end)
     end
+    
+    -- Update CanvasSize berdasarkan jumlah items
+    local function updateCanvasSize()
+        local itemCount = #itemNames
+        local itemHeight = 25
+        local padding = 2
+        local totalHeight = (itemCount * itemHeight) + ((itemCount - 1) * padding) + 10
+        ScrollingFrame.CanvasSize = UDim2.new(0, 0, 0, totalHeight)
+    end
+    
+    updateCanvasSize()
 end
 
 createSection("Auto Price", "PriceMode", "PriceLimit", "50M", config.PriceItems)
+
 local Divider = Instance.new("Frame")
 Divider.Size = UDim2.new(1, 0, 0, 2)
 Divider.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
 Divider.Parent = MainFrame
+
 createSection("Auto Time", "TimeMode", "TimeLimit", "10", config.TimeItems)
 
 local Divider2 = Instance.new("Frame")
@@ -380,4 +419,4 @@ task.spawn(function()
     end
 end)
 
-print("✓ Auction Auto-Buy [FIXED & SCALED] loaded!")
+print("✓ Auction Auto-Buy [SCROLLABLE & FIXED] loaded!")
