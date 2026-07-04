@@ -72,6 +72,75 @@ end
 local itemNames = {"Super Watering Can", "Moon Bloom", "Dragon's Breath", "Hypno Bloom", "Invisibility Mushroom", "Super Sprinkler"}
 
 -- ========================================== --
+--         FUNCTION: Open Auction UI          --
+-- ========================================== --
+local function openAuctionUI()
+    pcall(function()
+        local GuiController = require(LocalPlayer.PlayerScripts.Controllers.GuiController)
+        GuiController:Open("Auction", nil, { "HUD" })
+        print("[AutoOpen] Auction UI dibuka ✓")
+    end)
+end
+
+-- ========================================== --
+--    FUNCTION: Check & Keep Auction Open    --
+-- ========================================== --
+local auctionCheckTask = nil
+
+local function getAuctionGui()
+    -- Cek apakah Auction GUI sudah ada di PlayerGui
+    local auctionGui = LocalPlayer.PlayerGui:FindFirstChild("Auction")
+    return auctionGui
+end
+
+local function isAuctionOpen()
+    local auctionGui = getAuctionGui()
+    if not auctionGui then
+        return false -- GUI belum spawn
+    end
+    if not auctionGui:IsA("ScreenGui") then
+        return false -- Bukan ScreenGui
+    end
+    return auctionGui.Enabled == true
+end
+
+local function startAuctionMonitor()
+    -- Stop task lama kalau ada
+    if auctionCheckTask then
+        task.cancel(auctionCheckTask)
+    end
+    
+    auctionCheckTask = task.spawn(function()
+        print("[Monitor] Auction monitor dimulai - cek setiap 3 detik")
+        
+        while config.PriceMode or config.TimeMode do
+            task.wait(3) -- Cek setiap 3 detik
+            
+            if config.PriceMode or config.TimeMode then
+                local isOpen = isAuctionOpen()
+                
+                if not isOpen then
+                    print("[AutoOpen] Auction UI tertutup, membuka kembali...")
+                    openAuctionUI()
+                    task.wait(0.5)
+                else
+                    print("[Monitor] Auction UI masih terbuka ✓")
+                end
+            end
+        end
+        print("[Monitor] Auction monitor dihentikan")
+    end)
+end
+
+local function stopAuctionMonitor()
+    if auctionCheckTask then
+        task.cancel(auctionCheckTask)
+        auctionCheckTask = nil
+        print("[Monitor] Monitor dihentikan")
+    end
+end
+
+-- ========================================== --
 --                 FUNGSI UI                  --
 -- ========================================== --
 local ScreenGui = Instance.new("ScreenGui")
@@ -169,6 +238,20 @@ local function createSection(titleText, modeKey, limitKey, limitPlaceholder, ite
         MasterToggle.BackgroundColor3 = config[modeKey] and Color3.fromRGB(50, 200, 50) or Color3.fromRGB(200, 50, 50)
         MasterToggle.Text = titleText .. (config[modeKey] and " [ON]" or " [OFF]")
         SaveConfig()
+        
+        -- ========== AUTO OPEN AUCTION LOGIC ==========
+        if config[modeKey] then
+            print("[" .. titleText .. "] Mode ENABLED - Opening Auction UI...")
+            openAuctionUI()
+            task.wait(0.5)
+            startAuctionMonitor() -- Mulai monitor
+        else
+            print("[" .. titleText .. "] Mode DISABLED")
+            -- Cek apakah kedua mode OFF
+            if not config.PriceMode and not config.TimeMode then
+                stopAuctionMonitor() -- Stop monitor kalau kedua mode OFF
+            end
+        end
     end)
     
     LimitInput.FocusLost:Connect(function()
@@ -188,7 +271,7 @@ local function createSection(titleText, modeKey, limitKey, limitPlaceholder, ite
     
     -- Scrollable Items Container
     local ScrollContainer = Instance.new("Frame")
-    ScrollContainer.Size = UDim2.new(1, 0, 0, 130) -- 5 items * 25 + sedikit buffer
+    ScrollContainer.Size = UDim2.new(1, 0, 0, 130)
     ScrollContainer.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
     ScrollContainer.BorderSizePixel = 0
     ScrollContainer.Parent = MainFrame
@@ -261,7 +344,7 @@ Divider2.Parent = MainFrame
 local BtnOpenAuction = Instance.new("TextButton")
 BtnOpenAuction.Size = UDim2.new(1, 0, 0, 30)
 BtnOpenAuction.BackgroundColor3 = Color3.fromRGB(0, 150, 255)
-BtnOpenAuction.Text = "🛒 Buka UI Auction"
+BtnOpenAuction.Text = "🛒 Buka UI Auction (Manual)"
 BtnOpenAuction.TextColor3 = Color3.fromRGB(255, 255, 255)
 BtnOpenAuction.Font = Enum.Font.GothamBold
 BtnOpenAuction.TextSize = 14
@@ -277,10 +360,7 @@ BtnOpenMail.TextSize = 14
 BtnOpenMail.Parent = MainFrame
 
 BtnOpenAuction.MouseButton1Click:Connect(function()
-    pcall(function()
-        local GuiController = require(LocalPlayer.PlayerScripts.Controllers.GuiController)
-        GuiController:Open("Auction", nil, { "HUD" })
-    end)
+    openAuctionUI()
 end)
 
 BtnOpenMail.MouseButton1Click:Connect(function()
@@ -419,4 +499,4 @@ task.spawn(function()
     end
 end)
 
-print("✓ Auction Auto-Buy [SCROLLABLE & FIXED] loaded!")
+print("✓ Auction Auto-Buy [AUTO-OPEN + MONITOR] loaded!")
