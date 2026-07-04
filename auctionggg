@@ -499,4 +499,29 @@ task.spawn(function()
     end
 end)
 
-print("✓ Auction Auto-Buy [AUTO-OPEN + MONITOR] loaded!")
+-- ========================================== --
+--    AUTO-LOAD CHECK (Saat Script Pertama Load)  --
+-- ========================================== --
+task.wait(0.5) -- Wait biar UI selesai render
+
+if config.PriceMode or config.TimeMode then
+    print("[Init] Config terdeteksi sudah ON, auto-launching...")
+    task.wait(0.5)
+    
+    if config.PriceMode then
+        print("[Init] Auto Price DETECTED - Opening Auction & Starting Monitor")
+        openAuctionUI()
+    end
+    
+    if config.TimeMode then
+        print("[Init] Auto Time DETECTED - Opening Auction & Starting Monitor")
+        openAuctionUI()
+    end
+    
+    task.wait(1)
+    startAuctionMonitor() -- Start monitor
+else
+    print("[Init] Config semua OFF - Ready for manual trigger")
+end
+
+print("✓ Auction Auto-Buy [AUTO-LOAD + MONITOR] loaded!")
