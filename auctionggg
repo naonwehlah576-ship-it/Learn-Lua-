@@ -1,0 +1,391 @@
+local CoreGui = game:GetService("CoreGui")
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local HttpService = game:GetService("HttpService")
+local UserInputService = game:GetService("UserInputService")
+local LocalPlayer = Players.LocalPlayer
+
+-- ========== REQUIRE NETWORKING ==========
+local Networking = require(ReplicatedStorage.SharedModules.Networking)
+
+-- Hapus GUI lama kalau udah ada
+local oldGui = CoreGui:FindFirstChild("AuctionAutoBuyGUI") or LocalPlayer.PlayerGui:FindFirstChild("AuctionAutoBuyGUI")
+if oldGui then oldGui:Destroy() end
+
+-- ========================================== --
+--          SAVE / LOAD CONFIG DATA           --
+-- ========================================== --
+local configFileName = "AuctionAutoBuy_Config.json"
+
+local config = {
+    PriceMode = false,
+    PriceLimit = 50000000, -- Default 50M
+    PriceItems = {
+        ["super watering can"] = false,
+        ["moon bloom"] = false,
+        ["dragon's breath"] = false,
+        ["hypno bloom"] = false,
+        ["invisibility mushroom"] = false
+    },
+    
+    TimeMode = false,
+    TimeLimit = 10, -- Default 10 detik
+    TimeItems = {
+        ["super watering can"] = false,
+        ["moon bloom"] = false,
+        ["dragon's breath"] = false,
+        ["hypno bloom"] = false,
+        ["invisibility mushroom"] = false
+    }
+}
+
+-- Load Config jika file ada
+if isfile and isfile(configFileName) then
+    local success, result = pcall(function()
+        return HttpService:JSONDecode(readfile(configFileName))
+    end)
+    if success and result then
+        -- Update nilai config dari file yang tersimpan
+        if result.PriceMode ~= nil then config.PriceMode = result.PriceMode end
+        if result.PriceLimit ~= nil then config.PriceLimit = result.PriceLimit end
+        if result.TimeMode ~= nil then config.TimeMode = result.TimeMode end
+        if result.TimeLimit ~= nil then config.TimeLimit = result.TimeLimit end
+        
+        if result.PriceItems then
+            for k, v in pairs(result.PriceItems) do config.PriceItems[k] = v end
+        end
+        if result.TimeItems then
+            for k, v in pairs(result.TimeItems) do config.TimeItems[k] = v end
+        end
+    end
+end
+
+-- Fungsi untuk menyimpan Config (Dipanggil setiap kali ada perubahan di GUI)
+local function SaveConfig()
+    if writefile then
+        pcall(function()
+            writefile(configFileName, HttpService:JSONEncode(config))
+        end)
+    end
+end
+
+local itemNames = {"Super Watering Can", "Moon Bloom", "Dragon's Breath", "Hypno Bloom", "Invisibility Mushroom"}
+
+-- ========================================== --
+--                 FUNGSI UI                  --
+-- ========================================== --
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "AuctionAutoBuyGUI"
+ScreenGui.Parent = pcall(function() return CoreGui.Name end) and CoreGui or LocalPlayer.PlayerGui
+-- Property agar tidak reset saat karakter mati
+ScreenGui.ResetOnSpawn = false
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 320, 0, 510)
+MainFrame.Position = UDim2.new(0.5, -160, 0.5, -210)
+MainFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Draggable = true
+MainFrame.Parent = ScreenGui
+
+local UIListLayout = Instance.new("UIListLayout")
+UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+UIListLayout.Padding = UDim.new(0, 5)
+UIListLayout.Parent = MainFrame
+
+local UIPadding = Instance.new("UIPadding")
+UIPadding.PaddingTop = UDim.new(0, 10)
+UIPadding.PaddingLeft = UDim.new(0, 10)
+UIPadding.PaddingRight = UDim.new(0, 10)
+UIPadding.Parent = MainFrame
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, 0, 0, 25)
+Title.BackgroundTransparency = 1
+Title.Text = "🔨 Auction Auto-Buy [WORKING]"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.TextSize = 18
+Title.Font = Enum.Font.GothamBold
+Title.Parent = MainFrame
+
+-- Sub-judul untuk kasih tahu hotkey
+local SubTitle = Instance.new("TextLabel")
+SubTitle.Size = UDim2.new(1, 0, 0, 15)
+SubTitle.BackgroundTransparency = 1
+SubTitle.Text = "Press 'Right Shift' to Hide/Show"
+SubTitle.TextColor3 = Color3.fromRGB(150, 150, 150)
+SubTitle.TextSize = 12
+SubTitle.Font = Enum.Font.Gotham
+SubTitle.Parent = MainFrame
+
+local function createSection(titleText, modeKey, limitKey, limitPlaceholder, itemsConfig)
+    local SectionFrame = Instance.new("Frame")
+    SectionFrame.Size = UDim2.new(1, 0, 0, 30)
+    SectionFrame.BackgroundTransparency = 1
+    SectionFrame.Parent = MainFrame
+    
+    local MasterToggle = Instance.new("TextButton")
+    MasterToggle.Size = UDim2.new(0.6, -5, 1, 0)
+    MasterToggle.BackgroundColor3 = config[modeKey] and Color3.fromRGB(50, 200, 50) or Color3.fromRGB(200, 50, 50)
+    MasterToggle.Text = titleText .. (config[modeKey] and " [ON]" or " [OFF]")
+    MasterToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+    MasterToggle.Font = Enum.Font.GothamBold
+    MasterToggle.TextSize = 14
+    MasterToggle.Parent = SectionFrame
+    
+    local LimitInput = Instance.new("TextBox")
+    LimitInput.Size = UDim2.new(0.4, 0, 1, 0)
+    LimitInput.Position = UDim2.new(0.6, 5, 0, 0)
+    LimitInput.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    LimitInput.Text = tostring(config[limitKey])
+    LimitInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+    LimitInput.Font = Enum.Font.Gotham
+    LimitInput.TextSize = 14
+    LimitInput.Parent = SectionFrame
+    
+    MasterToggle.MouseButton1Click:Connect(function()
+        config[modeKey] = not config[modeKey]
+        MasterToggle.BackgroundColor3 = config[modeKey] and Color3.fromRGB(50, 200, 50) or Color3.fromRGB(200, 50, 50)
+        MasterToggle.Text = titleText .. (config[modeKey] and " [ON]" or " [OFF]")
+        SaveConfig() -- Save setiap ganti
+    end)
+    
+    LimitInput.FocusLost:Connect(function()
+        local txt = LimitInput.Text:lower():gsub(" ", "")
+        local mult = 1
+        if txt:find("m") then mult = 1000000 txt = txt:gsub("m", "")
+        elseif txt:find("k") then mult = 1000 txt = txt:gsub("k", "") end
+        local val = tonumber(txt)
+        if val then
+            config[limitKey] = val * mult
+            LimitInput.Text = tostring(val * mult)
+            SaveConfig() -- Save setiap ada perubahan angka
+        else
+            -- Kalau input ga valid, kembalikan ke angka di config
+            LimitInput.Text = tostring(config[limitKey])
+        end
+    end)
+    
+    -- Bikin Toggle untuk setiap Item
+    for _, item in ipairs(itemNames) do
+        local key = item:lower()
+        local ItemBtn = Instance.new("TextButton")
+        ItemBtn.Size = UDim2.new(1, 0, 0, 25)
+        ItemBtn.BackgroundColor3 = itemsConfig[key] and Color3.fromRGB(50, 150, 50) or Color3.fromRGB(60, 60, 60)
+        ItemBtn.Text = "  " .. item .. (itemsConfig[key] and " : ON" or " : OFF")
+        ItemBtn.TextXAlignment = Enum.TextXAlignment.Left
+        ItemBtn.TextColor3 = itemsConfig[key] and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(200, 200, 200)
+        ItemBtn.Font = Enum.Font.Gotham
+        ItemBtn.TextSize = 13
+        ItemBtn.Parent = MainFrame
+        
+        ItemBtn.MouseButton1Click:Connect(function()
+            itemsConfig[key] = not itemsConfig[key]
+            ItemBtn.BackgroundColor3 = itemsConfig[key] and Color3.fromRGB(50, 150, 50) or Color3.fromRGB(60, 60, 60)
+            ItemBtn.Text = "  " .. item .. (itemsConfig[key] and " : ON" or " : OFF")
+            ItemBtn.TextColor3 = itemsConfig[key] and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(200, 200, 200)
+            SaveConfig() -- Save setiap klik item
+        end)
+    end
+end
+
+-- Bikin Bagian Harga & Waktu
+createSection("Auto Price", "PriceMode", "PriceLimit", "50M", config.PriceItems)
+local Divider = Instance.new("Frame")
+Divider.Size = UDim2.new(1, 0, 0, 2)
+Divider.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
+Divider.Parent = MainFrame
+createSection("Auto Time", "TimeMode", "TimeLimit", "10", config.TimeItems)
+
+-- ========================================== --
+--          TAMBAHAN 2 TOMBOL BARU            --
+-- ========================================== --
+local Divider2 = Instance.new("Frame")
+Divider2.Size = UDim2.new(1, 0, 0, 2)
+Divider2.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
+Divider2.Parent = MainFrame
+
+local BtnOpenAuction = Instance.new("TextButton")
+BtnOpenAuction.Size = UDim2.new(1, 0, 0, 30)
+BtnOpenAuction.BackgroundColor3 = Color3.fromRGB(0, 150, 255)
+BtnOpenAuction.Text = "🛒 Buka UI Auction"
+BtnOpenAuction.TextColor3 = Color3.fromRGB(255, 255, 255)
+BtnOpenAuction.Font = Enum.Font.GothamBold
+BtnOpenAuction.TextSize = 14
+BtnOpenAuction.Parent = MainFrame
+
+local BtnOpenMail = Instance.new("TextButton")
+BtnOpenMail.Size = UDim2.new(1, 0, 0, 30)
+BtnOpenMail.BackgroundColor3 = Color3.fromRGB(255, 140, 0)
+BtnOpenMail.Text = "✉️ Buka UI Mailbox"
+BtnOpenMail.TextColor3 = Color3.fromRGB(255, 255, 255)
+BtnOpenMail.Font = Enum.Font.GothamBold
+BtnOpenMail.TextSize = 14
+BtnOpenMail.Parent = MainFrame
+
+-- Fungsi Eksekusi Buka Auction
+BtnOpenAuction.MouseButton1Click:Connect(function()
+    pcall(function()
+        local GuiController = require(LocalPlayer.PlayerScripts.Controllers.GuiController)
+        GuiController:Open("Auction", nil, { "HUD" })
+    end)
+end)
+
+-- Fungsi Eksekusi Buka Mailbox
+BtnOpenMail.MouseButton1Click:Connect(function()
+    pcall(function()
+        local GuiController = require(LocalPlayer.PlayerScripts.Controllers.GuiController)
+        GuiController:Open("MailboxUI", nil, { "HUD", "TeleportButtons" })
+    end)
+end)
+
+-- ========================================== --
+--        HIDE/SHOW GUI (RIGHT SHIFT)         --
+-- ========================================== --
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    -- Pastikan user tidak sedang ngetik di TextBox
+    if not gameProcessed then
+        if input.KeyCode == Enum.KeyCode.RightShift then
+            ScreenGui.Enabled = not ScreenGui.Enabled
+        end
+    end
+end)
+
+-- ========================================== --
+--         FUNGSI PARSING                     --
+-- ========================================== --
+local function parseHarga(text)
+    if not text or text == "" then return math.huge end
+    local clean = string.gsub(text, "[^%d%.MKBmkb]", "")
+    clean = string.upper(clean)
+    
+    local m = 1
+    if string.find(clean, "M") then 
+        m = 1000000 
+        clean = string.gsub(clean, "M", "")
+    elseif string.find(clean, "K") then 
+        m = 1000 
+        clean = string.gsub(clean, "K", "")
+    elseif string.find(clean, "B") then 
+        m = 1000000000 
+        clean = string.gsub(clean, "B", "") 
+    end
+    
+    local num = tonumber(clean)
+    return (num and num * m) or math.huge
+end
+
+local function parseWaktu(text)
+    if not text or text == "" then return 999 end
+    local m, s = string.match(text, "(%d+)m%s*(%d+)s")
+    if m and s then return (tonumber(m) * 60) + tonumber(s) end
+    return 999
+end
+
+-- ========================================== --
+--            MAIN LOOP (FIXED)               --
+-- ========================================== --
+task.spawn(function()
+    while task.wait(0.05) do
+        if not (config.PriceMode or config.TimeMode) then continue end
+        
+        local auctionUI = LocalPlayer.PlayerGui:FindFirstChild("Auction")
+        if not auctionUI or not auctionUI.Enabled then continue end
+        
+        local scrollFrame = auctionUI.Frame:FindFirstChild("ScrollingFrame")
+        if not scrollFrame then continue end
+        
+        for _, lot in pairs(scrollFrame:GetChildren()) do
+            if lot:IsA("Frame") and lot.Name:match("^Lot_") then
+                -- ===== EXTRACT LOT ID =====
+                local lotId = lot.Name:match("Lot_(.+)")  -- "auction:1783141200:0"
+                if not lotId then continue end
+                
+                -- ===== GET MAIN_FRAME =====
+                local mainFrame = lot:FindFirstChild("Main_Frame", true)
+                if not mainFrame then continue end
+                
+                -- ===== GET ITEM NAME =====
+                local itemNameObj = mainFrame:FindFirstChild("ItemName", true)
+                if not itemNameObj then continue end
+                
+                -- ItemName -> TextLabel -> .Text
+                local itemNameLabel = itemNameObj:FindFirstChild("TextLabel")
+                if not itemNameLabel then continue end
+                local currentName = itemNameLabel.Text:lower()
+                
+                -- ===== MATCH ITEM =====
+                local matchItem = nil
+                for key, _ in pairs(config.PriceItems) do
+                    if currentName:find(key) then matchItem = key break end
+                end
+                
+                if not matchItem then continue end
+                
+                -- ===== GET PRICE =====
+                local buyBtn = mainFrame:FindFirstChild("BuyButton", true)
+                if not buyBtn then continue end
+                
+                -- BuyButton -> Text -> TextLabel -> .Text
+                local priceObj = buyBtn:FindFirstChild("Text")
+                if not priceObj then continue end
+                
+                local priceLabel = priceObj:FindFirstChild("TextLabel")
+                if not priceLabel then continue end
+                
+                local hrg = parseHarga(priceLabel.Text)
+                
+                -- ===== GET TIME =====
+                -- Cari di Refresh -> Timer
+                local refreshObj = mainFrame:FindFirstChild("Refresh", true)
+                local timerObj = nil
+                if refreshObj then
+                    timerObj = refreshObj:FindFirstChild("Timer")
+                end
+                
+                -- Fallback: cari Timer recursive
+                if not timerObj then
+                    timerObj = mainFrame:FindFirstChild("Timer", true)
+                end
+                
+                local wkt = parseWaktu(timerObj and timerObj.Text)
+                
+                -- ===== CHECK TRIGGER =====
+                local executeBuy = false
+                
+                if config.PriceMode and config.PriceItems[matchItem] and hrg <= config.PriceLimit then
+                    executeBuy = true
+                    print(string.format("[TRIGGER PRICE] %s | Harga: %d <= Target: %d | LotID: %s", currentName, hrg, config.PriceLimit, lotId))
+                end
+                
+                if config.TimeMode and config.TimeItems[matchItem] and wkt <= config.TimeLimit then
+                    executeBuy = true
+                    print(string.format("[TRIGGER TIME] %s | Waktu: %d <= Target: %d | LotID: %s", currentName, wkt, config.TimeLimit, lotId))
+                end
+                
+                -- ===== EXECUTE BUY (FIXED) =====
+                if executeBuy and lotId then
+                    print(string.format(">>> MEMBELI: %s (LotID: %s, Harga: %d) <<<", currentName, lotId, hrg))
+                    
+                    local ok, err = pcall(function()
+                        Networking.Auctioneer.PurchaseLot:Fire(lotId, hrg)
+                    end)
+                    
+                    if ok then
+                        print(string.format("[SUCCESS] PurchaseLot fired! (LotID: %s)", lotId))
+                    else
+                        print(string.format("[ERROR] PurchaseLot failed: %s", tostring(err)))
+                    end
+                    
+                    task.wait(1) -- Delay untuk prevent spam
+                end
+            end
+        end
+    end
+end)
+
+print("✓ Auction Auto-Buy [FIXED] loaded!")
+print("✓ Using Networking.Auctioneer.PurchaseLot:Fire()")
+print("✓ Items: Super Watering Can, Moon Bloom, Dragon's Breath, Hypno Bloom, Invisibility Mushroom")
+print("✓ Save/Load Config Enabled. Hide GUI via RightShift.")
