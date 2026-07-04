@@ -45,7 +45,6 @@ if isfile and isfile(configFileName) then
         return HttpService:JSONDecode(readfile(configFileName))
     end)
     if success and result then
-        -- Update nilai config dari file yang tersimpan
         if result.PriceMode ~= nil then config.PriceMode = result.PriceMode end
         if result.PriceLimit ~= nil then config.PriceLimit = result.PriceLimit end
         if result.TimeMode ~= nil then config.TimeMode = result.TimeMode end
@@ -60,7 +59,6 @@ if isfile and isfile(configFileName) then
     end
 end
 
--- Fungsi untuk menyimpan Config (Dipanggil setiap kali ada perubahan di GUI)
 local function SaveConfig()
     if writefile then
         pcall(function()
@@ -77,17 +75,39 @@ local itemNames = {"Super Watering Can", "Moon Bloom", "Dragon's Breath", "Hypno
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "AuctionAutoBuyGUI"
 ScreenGui.Parent = pcall(function() return CoreGui.Name end) and CoreGui or LocalPlayer.PlayerGui
--- Property agar tidak reset saat karakter mati
 ScreenGui.ResetOnSpawn = false
 
 local MainFrame = Instance.new("Frame")
 MainFrame.Size = UDim2.new(0, 320, 0, 510)
-MainFrame.Position = UDim2.new(0.5, -160, 0.5, -210)
+-- AnchorPoint diubah biar proses auto-scale dari tengah
+MainFrame.AnchorPoint = Vector2.new(0.5, 0.5) 
+MainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
 MainFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
 MainFrame.BorderSizePixel = 0
 MainFrame.Active = true
 MainFrame.Draggable = true
 MainFrame.Parent = ScreenGui
+
+-- ========================================== --
+--            AUTO SCALING FIX                --
+-- ========================================== --
+local uiScale = Instance.new("UIScale")
+uiScale.Parent = MainFrame
+
+local function adjustScale()
+    local viewportSize = workspace.CurrentCamera.ViewportSize
+    -- Jika tinggi layar kurang dari 600, scale down UI biar gak kepotong
+    if viewportSize.Y < 600 then
+        uiScale.Scale = viewportSize.Y / 600
+    else
+        uiScale.Scale = 1
+    end
+end
+
+-- Deteksi kalau ukuran layar berubah (misal fullscreen/windowed)
+workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(adjustScale)
+adjustScale() -- Panggil sekali pas awal diload
+-- ========================================== --
 
 local UIListLayout = Instance.new("UIListLayout")
 UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
@@ -109,7 +129,6 @@ Title.TextSize = 18
 Title.Font = Enum.Font.GothamBold
 Title.Parent = MainFrame
 
--- Sub-judul untuk kasih tahu hotkey
 local SubTitle = Instance.new("TextLabel")
 SubTitle.Size = UDim2.new(1, 0, 0, 15)
 SubTitle.BackgroundTransparency = 1
@@ -148,7 +167,7 @@ local function createSection(titleText, modeKey, limitKey, limitPlaceholder, ite
         config[modeKey] = not config[modeKey]
         MasterToggle.BackgroundColor3 = config[modeKey] and Color3.fromRGB(50, 200, 50) or Color3.fromRGB(200, 50, 50)
         MasterToggle.Text = titleText .. (config[modeKey] and " [ON]" or " [OFF]")
-        SaveConfig() -- Save setiap ganti
+        SaveConfig()
     end)
     
     LimitInput.FocusLost:Connect(function()
@@ -160,14 +179,12 @@ local function createSection(titleText, modeKey, limitKey, limitPlaceholder, ite
         if val then
             config[limitKey] = val * mult
             LimitInput.Text = tostring(val * mult)
-            SaveConfig() -- Save setiap ada perubahan angka
+            SaveConfig()
         else
-            -- Kalau input ga valid, kembalikan ke angka di config
             LimitInput.Text = tostring(config[limitKey])
         end
     end)
     
-    -- Bikin Toggle untuk setiap Item
     for _, item in ipairs(itemNames) do
         local key = item:lower()
         local ItemBtn = Instance.new("TextButton")
@@ -185,12 +202,11 @@ local function createSection(titleText, modeKey, limitKey, limitPlaceholder, ite
             ItemBtn.BackgroundColor3 = itemsConfig[key] and Color3.fromRGB(50, 150, 50) or Color3.fromRGB(60, 60, 60)
             ItemBtn.Text = "  " .. item .. (itemsConfig[key] and " : ON" or " : OFF")
             ItemBtn.TextColor3 = itemsConfig[key] and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(200, 200, 200)
-            SaveConfig() -- Save setiap klik item
+            SaveConfig()
         end)
     end
 end
 
--- Bikin Bagian Harga & Waktu
 createSection("Auto Price", "PriceMode", "PriceLimit", "50M", config.PriceItems)
 local Divider = Instance.new("Frame")
 Divider.Size = UDim2.new(1, 0, 0, 2)
@@ -198,9 +214,6 @@ Divider.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
 Divider.Parent = MainFrame
 createSection("Auto Time", "TimeMode", "TimeLimit", "10", config.TimeItems)
 
--- ========================================== --
---          TAMBAHAN 2 TOMBOL BARU            --
--- ========================================== --
 local Divider2 = Instance.new("Frame")
 Divider2.Size = UDim2.new(1, 0, 0, 2)
 Divider2.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
@@ -224,7 +237,6 @@ BtnOpenMail.Font = Enum.Font.GothamBold
 BtnOpenMail.TextSize = 14
 BtnOpenMail.Parent = MainFrame
 
--- Fungsi Eksekusi Buka Auction
 BtnOpenAuction.MouseButton1Click:Connect(function()
     pcall(function()
         local GuiController = require(LocalPlayer.PlayerScripts.Controllers.GuiController)
@@ -232,7 +244,6 @@ BtnOpenAuction.MouseButton1Click:Connect(function()
     end)
 end)
 
--- Fungsi Eksekusi Buka Mailbox
 BtnOpenMail.MouseButton1Click:Connect(function()
     pcall(function()
         local GuiController = require(LocalPlayer.PlayerScripts.Controllers.GuiController)
@@ -240,11 +251,7 @@ BtnOpenMail.MouseButton1Click:Connect(function()
     end)
 end)
 
--- ========================================== --
---        HIDE/SHOW GUI (RIGHT SHIFT)         --
--- ========================================== --
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    -- Pastikan user tidak sedang ngetik di TextBox
     if not gameProcessed then
         if input.KeyCode == Enum.KeyCode.RightShift then
             ScreenGui.Enabled = not ScreenGui.Enabled
@@ -298,24 +305,19 @@ task.spawn(function()
         
         for _, lot in pairs(scrollFrame:GetChildren()) do
             if lot:IsA("Frame") and lot.Name:match("^Lot_") then
-                -- ===== EXTRACT LOT ID =====
-                local lotId = lot.Name:match("Lot_(.+)")  -- "auction:1783141200:0"
+                local lotId = lot.Name:match("Lot_(.+)")
                 if not lotId then continue end
                 
-                -- ===== GET MAIN_FRAME =====
                 local mainFrame = lot:FindFirstChild("Main_Frame", true)
                 if not mainFrame then continue end
                 
-                -- ===== GET ITEM NAME =====
                 local itemNameObj = mainFrame:FindFirstChild("ItemName", true)
                 if not itemNameObj then continue end
                 
-                -- ItemName -> TextLabel -> .Text
                 local itemNameLabel = itemNameObj:FindFirstChild("TextLabel")
                 if not itemNameLabel then continue end
                 local currentName = itemNameLabel.Text:lower()
                 
-                -- ===== MATCH ITEM =====
                 local matchItem = nil
                 for key, _ in pairs(config.PriceItems) do
                     if currentName:find(key) then matchItem = key break end
@@ -323,11 +325,9 @@ task.spawn(function()
                 
                 if not matchItem then continue end
                 
-                -- ===== GET PRICE =====
                 local buyBtn = mainFrame:FindFirstChild("BuyButton", true)
                 if not buyBtn then continue end
                 
-                -- BuyButton -> Text -> TextLabel -> .Text
                 local priceObj = buyBtn:FindFirstChild("Text")
                 if not priceObj then continue end
                 
@@ -336,22 +336,18 @@ task.spawn(function()
                 
                 local hrg = parseHarga(priceLabel.Text)
                 
-                -- ===== GET TIME =====
-                -- Cari di Refresh -> Timer
                 local refreshObj = mainFrame:FindFirstChild("Refresh", true)
                 local timerObj = nil
                 if refreshObj then
                     timerObj = refreshObj:FindFirstChild("Timer")
                 end
                 
-                -- Fallback: cari Timer recursive
                 if not timerObj then
                     timerObj = mainFrame:FindFirstChild("Timer", true)
                 end
                 
                 local wkt = parseWaktu(timerObj and timerObj.Text)
                 
-                -- ===== CHECK TRIGGER =====
                 local executeBuy = false
                 
                 if config.PriceMode and config.PriceItems[matchItem] and hrg <= config.PriceLimit then
@@ -364,7 +360,6 @@ task.spawn(function()
                     print(string.format("[TRIGGER TIME] %s | Waktu: %d <= Target: %d | LotID: %s", currentName, wkt, config.TimeLimit, lotId))
                 end
                 
-                -- ===== EXECUTE BUY (FIXED) =====
                 if executeBuy and lotId then
                     print(string.format(">>> MEMBELI: %s (LotID: %s, Harga: %d) <<<", currentName, lotId, hrg))
                     
@@ -378,14 +373,11 @@ task.spawn(function()
                         print(string.format("[ERROR] PurchaseLot failed: %s", tostring(err)))
                     end
                     
-                    task.wait(1) -- Delay untuk prevent spam
+                    task.wait(1)
                 end
             end
         end
     end
 end)
 
-print("✓ Auction Auto-Buy [FIXED] loaded!")
-print("✓ Using Networking.Auctioneer.PurchaseLot:Fire()")
-print("✓ Items: Super Watering Can, Moon Bloom, Dragon's Breath, Hypno Bloom, Invisibility Mushroom")
-print("✓ Save/Load Config Enabled. Hide GUI via RightShift.")
+print("✓ Auction Auto-Buy [FIXED & SCALED] loaded!")
