@@ -18,26 +18,44 @@ if oldGui then oldGui:Destroy() end
 local configFileName = "AuctionAutoBuy_Config.json"
 
 local config = {
-    PriceMode = false,
-    PriceLimit = 50000000, -- Default 50M
-    PriceItems = {
-        ["super watering can"] = false,
-        ["moon bloom"] = false,
-        ["dragon's breath"] = false,
-        ["hypno bloom"] = false,
-        ["invisibility mushroom"] = false,
-        ["super sprinkler"] = false
-    },
-    
-    TimeMode = false,
-    TimeLimit = 10, -- Default 10 detik
-    TimeItems = {
-        ["super watering can"] = false,
-        ["moon bloom"] = false,
-        ["dragon's breath"] = false,
-        ["hypno bloom"] = false,
-        ["invisibility mushroom"] = false,
-        ["super sprinkler"] = false
+    -- Per-item settings structure
+    ItemSettings = {
+        ["super watering can"] = {
+            PriceEnabled = false,
+            PriceLimit = 50000000,
+            TimeEnabled = false,
+            TimeLimit = 10
+        },
+        ["moon bloom"] = {
+            PriceEnabled = false,
+            PriceLimit = 50000000,
+            TimeEnabled = false,
+            TimeLimit = 10
+        },
+        ["dragon's breath"] = {
+            PriceEnabled = false,
+            PriceLimit = 50000000,
+            TimeEnabled = false,
+            TimeLimit = 10
+        },
+        ["hypno bloom"] = {
+            PriceEnabled = false,
+            PriceLimit = 50000000,
+            TimeEnabled = false,
+            TimeLimit = 10
+        },
+        ["invisibility mushroom"] = {
+            PriceEnabled = false,
+            PriceLimit = 50000000,
+            TimeEnabled = false,
+            TimeLimit = 10
+        },
+        ["super sprinkler"] = {
+            PriceEnabled = false,
+            PriceLimit = 50000000,
+            TimeEnabled = false,
+            TimeLimit = 10
+        }
     }
 }
 
@@ -47,16 +65,14 @@ if isfile and isfile(configFileName) then
         return HttpService:JSONDecode(readfile(configFileName))
     end)
     if success and result then
-        if result.PriceMode ~= nil then config.PriceMode = result.PriceMode end
-        if result.PriceLimit ~= nil then config.PriceLimit = result.PriceLimit end
-        if result.TimeMode ~= nil then config.TimeMode = result.TimeMode end
-        if result.TimeLimit ~= nil then config.TimeLimit = result.TimeLimit end
-        
-        if result.PriceItems then
-            for k, v in pairs(result.PriceItems) do config.PriceItems[k] = v end
-        end
-        if result.TimeItems then
-            for k, v in pairs(result.TimeItems) do config.TimeItems[k] = v end
+        if result.ItemSettings then
+            for itemKey, itemSettings in pairs(result.ItemSettings) do
+                if config.ItemSettings[itemKey] then
+                    for k, v in pairs(itemSettings) do
+                        config.ItemSettings[itemKey][k] = v
+                    end
+                end
+            end
         end
     end
 end
@@ -88,7 +104,6 @@ end
 local auctionCheckTask = nil
 
 local function getAuctionGui()
-    -- Cek apakah Auction GUI sudah ada di PlayerGui
     local auctionGui = LocalPlayer.PlayerGui:FindFirstChild("Auction")
     return auctionGui
 end
@@ -96,16 +111,15 @@ end
 local function isAuctionOpen()
     local auctionGui = getAuctionGui()
     if not auctionGui then
-        return false -- GUI belum spawn
+        return false
     end
     if not auctionGui:IsA("ScreenGui") then
-        return false -- Bukan ScreenGui
+        return false
     end
     return auctionGui.Enabled == true
 end
 
 local function startAuctionMonitor()
-    -- Stop task lama kalau ada
     if auctionCheckTask then
         task.cancel(auctionCheckTask)
     end
@@ -113,19 +127,27 @@ local function startAuctionMonitor()
     auctionCheckTask = task.spawn(function()
         print("[Monitor] Auction monitor dimulai - cek setiap 3 detik")
         
-        while config.PriceMode or config.TimeMode do
-            task.wait(3) -- Cek setiap 3 detik
-            
-            if config.PriceMode or config.TimeMode then
-                local isOpen = isAuctionOpen()
-                
-                if not isOpen then
-                    print("[AutoOpen] Auction UI tertutup, membuka kembali...")
-                    openAuctionUI()
-                    task.wait(0.5)
-                else
-                    print("[Monitor] Auction UI masih terbuka ✓")
+        while true do
+            -- Check if any item has mode enabled
+            local anyModeEnabled = false
+            for _, settings in pairs(config.ItemSettings) do
+                if settings.PriceEnabled or settings.TimeEnabled then
+                    anyModeEnabled = true
+                    break
                 end
+            end
+            
+            if not anyModeEnabled then break end
+            
+            task.wait(3)
+            
+            local isOpen = isAuctionOpen()
+            if not isOpen then
+                print("[AutoOpen] Auction UI tertutup, membuka kembali...")
+                openAuctionUI()
+                task.wait(0.5)
+            else
+                print("[Monitor] Auction UI masih terbuka ✓")
             end
         end
         print("[Monitor] Auction monitor dihentikan")
@@ -149,7 +171,7 @@ ScreenGui.Parent = pcall(function() return CoreGui.Name end) and CoreGui or Loca
 ScreenGui.ResetOnSpawn = false
 
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 320, 0, 480)
+MainFrame.Size = UDim2.new(0, 420, 0, 580)
 MainFrame.AnchorPoint = Vector2.new(0.5, 0.5) 
 MainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
 MainFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
@@ -175,7 +197,6 @@ end
 
 workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(adjustScale)
 adjustScale()
--- ========================================== --
 
 local UIListLayout = Instance.new("UIListLayout")
 UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
@@ -206,140 +227,201 @@ SubTitle.TextSize = 12
 SubTitle.Font = Enum.Font.Gotham
 SubTitle.Parent = MainFrame
 
--- ========== FUNCTION: Create Section with Scrollable Items ==========
-local function createSection(titleText, modeKey, limitKey, limitPlaceholder, itemsConfig)
-    -- Header Frame (Toggle + Limit Input)
-    local HeaderFrame = Instance.new("Frame")
-    HeaderFrame.Size = UDim2.new(1, 0, 0, 30)
-    HeaderFrame.BackgroundTransparency = 1
-    HeaderFrame.Parent = MainFrame
+-- ========== CREATE SCROLLING ITEMS LIST ==========
+local ScrollContainer = Instance.new("Frame")
+ScrollContainer.Size = UDim2.new(1, 0, 0, 400)
+ScrollContainer.BackgroundTransparency = 1
+ScrollContainer.Parent = MainFrame
+
+local ScrollingFrame = Instance.new("ScrollingFrame")
+ScrollingFrame.Size = UDim2.new(1, 0, 1, 0)
+ScrollingFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+ScrollingFrame.ScrollBarThickness = 8
+ScrollingFrame.BackgroundTransparency = 1
+ScrollingFrame.Parent = ScrollContainer
+
+local ScrollingListLayout = Instance.new("UIListLayout")
+ScrollingListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+ScrollingListLayout.Padding = UDim.new(0, 8)
+ScrollingListLayout.Parent = ScrollingFrame
+
+-- ========== CREATE ITEM ROWS ==========
+for idx, itemName in ipairs(itemNames) do
+    local itemKey = string.lower(itemName)
     
-    local MasterToggle = Instance.new("TextButton")
-    MasterToggle.Size = UDim2.new(0.6, -5, 1, 0)
-    MasterToggle.BackgroundColor3 = config[modeKey] and Color3.fromRGB(50, 200, 50) or Color3.fromRGB(200, 50, 50)
-    MasterToggle.Text = titleText .. (config[modeKey] and " [ON]" or " [OFF]")
-    MasterToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
-    MasterToggle.Font = Enum.Font.GothamBold
-    MasterToggle.TextSize = 14
-    MasterToggle.Parent = HeaderFrame
+    local ItemFrame = Instance.new("Frame")
+    ItemFrame.Size = UDim2.new(1, 0, 0, 70)
+    ItemFrame.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+    ItemFrame.BorderSizePixel = 0
+    ItemFrame.Parent = ScrollingFrame
     
-    local LimitInput = Instance.new("TextBox")
-    LimitInput.Size = UDim2.new(0.4, 0, 1, 0)
-    LimitInput.Position = UDim2.new(0.6, 5, 0, 0)
-    LimitInput.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-    LimitInput.Text = tostring(config[limitKey])
-    LimitInput.TextColor3 = Color3.fromRGB(255, 255, 255)
-    LimitInput.Font = Enum.Font.Gotham
-    LimitInput.TextSize = 14
-    LimitInput.Parent = HeaderFrame
+    local ItemCorner = Instance.new("UICorner")
+    ItemCorner.CornerRadius = UDim.new(0, 6)
+    ItemCorner.Parent = ItemFrame
     
-    MasterToggle.MouseButton1Click:Connect(function()
-        config[modeKey] = not config[modeKey]
-        MasterToggle.BackgroundColor3 = config[modeKey] and Color3.fromRGB(50, 200, 50) or Color3.fromRGB(200, 50, 50)
-        MasterToggle.Text = titleText .. (config[modeKey] and " [ON]" or " [OFF]")
+    -- Item Name Label
+    local ItemLabel = Instance.new("TextLabel")
+    ItemLabel.Size = UDim2.new(1, -10, 0, 20)
+    ItemLabel.Position = UDim2.new(0, 5, 0, 2)
+    ItemLabel.BackgroundTransparency = 1
+    ItemLabel.Text = itemName
+    ItemLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    ItemLabel.TextSize = 13
+    ItemLabel.Font = Enum.Font.GothamBold
+    ItemLabel.TextXAlignment = Enum.TextXAlignment.Left
+    ItemLabel.Parent = ItemFrame
+    
+    -- Price Row
+    local PriceRow = Instance.new("Frame")
+    PriceRow.Size = UDim2.new(1, 0, 0, 24)
+    PriceRow.Position = UDim2.new(0, 0, 0, 24)
+    PriceRow.BackgroundTransparency = 1
+    PriceRow.Parent = ItemFrame
+    
+    local PriceCheckbox = Instance.new("TextButton")
+    PriceCheckbox.Size = UDim2.new(0, 18, 0, 18)
+    PriceCheckbox.Position = UDim2.new(0, 5, 0.5, -9)
+    PriceCheckbox.BackgroundColor3 = config.ItemSettings[itemKey].PriceEnabled and Color3.fromRGB(0, 200, 100) or Color3.fromRGB(80, 80, 80)
+    PriceCheckbox.Text = ""
+    PriceCheckbox.Parent = PriceRow
+    
+    local PriceCheckboxCorner = Instance.new("UICorner")
+    PriceCheckboxCorner.CornerRadius = UDim.new(0, 3)
+    PriceCheckboxCorner.Parent = PriceCheckbox
+    
+    local PriceLabel = Instance.new("TextLabel")
+    PriceLabel.Size = UDim2.new(0, 35, 1, 0)
+    PriceLabel.Position = UDim2.new(0, 28, 0, 0)
+    PriceLabel.BackgroundTransparency = 1
+    PriceLabel.Text = "Price:"
+    PriceLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    PriceLabel.TextSize = 11
+    PriceLabel.Font = Enum.Font.Gotham
+    PriceLabel.TextXAlignment = Enum.TextXAlignment.Left
+    PriceLabel.Parent = PriceRow
+    
+    local PriceInput = Instance.new("TextBox")
+    PriceInput.Size = UDim2.new(0, 90, 0, 18)
+    PriceInput.Position = UDim2.new(0, 68, 0.5, -9)
+    PriceInput.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+    PriceInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+    PriceInput.Text = tostring(config.ItemSettings[itemKey].PriceLimit / 1000000) .. "M"
+    PriceInput.TextSize = 11
+    PriceInput.Font = Enum.Font.Gotham
+    PriceInput.Parent = PriceRow
+    
+    local PriceInputCorner = Instance.new("UICorner")
+    PriceInputCorner.CornerRadius = UDim.new(0, 4)
+    PriceInputCorner.Parent = PriceInput
+    
+    -- Time Row
+    local TimeRow = Instance.new("Frame")
+    TimeRow.Size = UDim2.new(1, 0, 0, 24)
+    TimeRow.Position = UDim2.new(0, 0, 0, 48)
+    TimeRow.BackgroundTransparency = 1
+    TimeRow.Parent = ItemFrame
+    
+    local TimeCheckbox = Instance.new("TextButton")
+    TimeCheckbox.Size = UDim2.new(0, 18, 0, 18)
+    TimeCheckbox.Position = UDim2.new(0, 5, 0.5, -9)
+    TimeCheckbox.BackgroundColor3 = config.ItemSettings[itemKey].TimeEnabled and Color3.fromRGB(0, 200, 100) or Color3.fromRGB(80, 80, 80)
+    TimeCheckbox.Text = ""
+    TimeCheckbox.Parent = TimeRow
+    
+    local TimeCheckboxCorner = Instance.new("UICorner")
+    TimeCheckboxCorner.CornerRadius = UDim.new(0, 3)
+    TimeCheckboxCorner.Parent = TimeCheckbox
+    
+    local TimeLabel = Instance.new("TextLabel")
+    TimeLabel.Size = UDim2.new(0, 35, 1, 0)
+    TimeLabel.Position = UDim2.new(0, 28, 0, 0)
+    TimeLabel.BackgroundTransparency = 1
+    TimeLabel.Text = "Time:"
+    TimeLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    TimeLabel.TextSize = 11
+    TimeLabel.Font = Enum.Font.Gotham
+    TimeLabel.TextXAlignment = Enum.TextXAlignment.Left
+    TimeLabel.Parent = TimeRow
+    
+    local TimeInput = Instance.new("TextBox")
+    TimeInput.Size = UDim2.new(0, 90, 0, 18)
+    TimeInput.Position = UDim2.new(0, 68, 0.5, -9)
+    TimeInput.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+    TimeInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+    TimeInput.Text = tostring(config.ItemSettings[itemKey].TimeLimit) .. "s"
+    TimeInput.TextSize = 11
+    TimeInput.Font = Enum.Font.Gotham
+    TimeInput.Parent = TimeRow
+    
+    local TimeInputCorner = Instance.new("UICorner")
+    TimeInputCorner.CornerRadius = UDim.new(0, 4)
+    TimeInputCorner.Parent = TimeInput
+    
+    -- Price Checkbox Click
+    PriceCheckbox.MouseButton1Click:Connect(function()
+        config.ItemSettings[itemKey].PriceEnabled = not config.ItemSettings[itemKey].PriceEnabled
+        PriceCheckbox.BackgroundColor3 = config.ItemSettings[itemKey].PriceEnabled and Color3.fromRGB(0, 200, 100) or Color3.fromRGB(80, 80, 80)
         SaveConfig()
         
-        -- ========== AUTO OPEN AUCTION LOGIC ==========
-        if config[modeKey] then
-            print("[" .. titleText .. "] Mode ENABLED - Opening Auction UI...")
-            openAuctionUI()
-            task.wait(0.5)
-            startAuctionMonitor() -- Mulai monitor
-        else
-            print("[" .. titleText .. "] Mode DISABLED")
-            -- Cek apakah kedua mode OFF
-            if not config.PriceMode and not config.TimeMode then
-                stopAuctionMonitor() -- Stop monitor kalau kedua mode OFF
+        -- Start/Stop monitor based on any enabled mode
+        local anyEnabled = false
+        for _, settings in pairs(config.ItemSettings) do
+            if settings.PriceEnabled or settings.TimeEnabled then
+                anyEnabled = true
+                break
             end
         end
-    end)
-    
-    LimitInput.FocusLost:Connect(function()
-        local txt = LimitInput.Text:lower():gsub(" ", "")
-        local mult = 1
-        if txt:find("m") then mult = 1000000 txt = txt:gsub("m", "")
-        elseif txt:find("k") then mult = 1000 txt = txt:gsub("k", "") end
-        local val = tonumber(txt)
-        if val then
-            config[limitKey] = val * mult
-            LimitInput.Text = tostring(val * mult)
-            SaveConfig()
+        
+        if anyEnabled then
+            startAuctionMonitor()
         else
-            LimitInput.Text = tostring(config[limitKey])
+            stopAuctionMonitor()
         end
     end)
     
-    -- Scrollable Items Container
-    local ScrollContainer = Instance.new("Frame")
-    ScrollContainer.Size = UDim2.new(1, 0, 0, 130)
-    ScrollContainer.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
-    ScrollContainer.BorderSizePixel = 0
-    ScrollContainer.Parent = MainFrame
-    
-    local ScrollingFrame = Instance.new("ScrollingFrame")
-    ScrollingFrame.Size = UDim2.new(1, 0, 1, 0)
-    ScrollingFrame.BackgroundTransparency = 1
-    ScrollingFrame.ScrollBarThickness = 8
-    ScrollingFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
-    ScrollingFrame.Parent = ScrollContainer
-    
-    local ListLayout = Instance.new("UIListLayout")
-    ListLayout.SortOrder = Enum.SortOrder.LayoutOrder
-    ListLayout.Padding = UDim.new(0, 2)
-    ListLayout.Parent = ScrollingFrame
-    
-    local listPadding = Instance.new("UIPadding")
-    listPadding.PaddingTop = UDim.new(0, 5)
-    listPadding.PaddingLeft = UDim.new(0, 5)
-    listPadding.PaddingRight = UDim.new(0, 5)
-    listPadding.Parent = ScrollingFrame
-    
-    for _, item in ipairs(itemNames) do
-        local key = item:lower()
-        local ItemBtn = Instance.new("TextButton")
-        ItemBtn.Size = UDim2.new(1, 0, 0, 25)
-        ItemBtn.BackgroundColor3 = itemsConfig[key] and Color3.fromRGB(50, 150, 50) or Color3.fromRGB(60, 60, 60)
-        ItemBtn.Text = "  " .. item .. (itemsConfig[key] and " : ON" or " : OFF")
-        ItemBtn.TextXAlignment = Enum.TextXAlignment.Left
-        ItemBtn.TextColor3 = itemsConfig[key] and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(200, 200, 200)
-        ItemBtn.Font = Enum.Font.Gotham
-        ItemBtn.TextSize = 13
-        ItemBtn.Parent = ScrollingFrame
+    -- Time Checkbox Click
+    TimeCheckbox.MouseButton1Click:Connect(function()
+        config.ItemSettings[itemKey].TimeEnabled = not config.ItemSettings[itemKey].TimeEnabled
+        TimeCheckbox.BackgroundColor3 = config.ItemSettings[itemKey].TimeEnabled and Color3.fromRGB(0, 200, 100) or Color3.fromRGB(80, 80, 80)
+        SaveConfig()
         
-        ItemBtn.MouseButton1Click:Connect(function()
-            itemsConfig[key] = not itemsConfig[key]
-            ItemBtn.BackgroundColor3 = itemsConfig[key] and Color3.fromRGB(50, 150, 50) or Color3.fromRGB(60, 60, 60)
-            ItemBtn.Text = "  " .. item .. (itemsConfig[key] and " : ON" or " : OFF")
-            ItemBtn.TextColor3 = itemsConfig[key] and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(200, 200, 200)
-            SaveConfig()
-        end)
-    end
+        -- Start/Stop monitor based on any enabled mode
+        local anyEnabled = false
+        for _, settings in pairs(config.ItemSettings) do
+            if settings.PriceEnabled or settings.TimeEnabled then
+                anyEnabled = true
+                break
+            end
+        end
+        
+        if anyEnabled then
+            startAuctionMonitor()
+        else
+            stopAuctionMonitor()
+        end
+    end)
     
-    -- Update CanvasSize berdasarkan jumlah items
-    local function updateCanvasSize()
-        local itemCount = #itemNames
-        local itemHeight = 25
-        local padding = 2
-        local totalHeight = (itemCount * itemHeight) + ((itemCount - 1) * padding) + 10
-        ScrollingFrame.CanvasSize = UDim2.new(0, 0, 0, totalHeight)
-    end
+    -- Price Input Change
+    PriceInput.FocusLost:Connect(function()
+        local parsed = parseHarga(PriceInput.Text)
+        config.ItemSettings[itemKey].PriceLimit = parsed
+        SaveConfig()
+    end)
     
-    updateCanvasSize()
+    -- Time Input Change
+    TimeInput.FocusLost:Connect(function()
+        local parsed = parseWaktu(TimeInput.Text)
+        config.ItemSettings[itemKey].TimeLimit = parsed
+        SaveConfig()
+    end)
 end
 
-createSection("Auto Price", "PriceMode", "PriceLimit", "50M", config.PriceItems)
-
-local Divider = Instance.new("Frame")
-Divider.Size = UDim2.new(1, 0, 0, 2)
-Divider.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
-Divider.Parent = MainFrame
-
-createSection("Auto Time", "TimeMode", "TimeLimit", "10", config.TimeItems)
-
-local Divider2 = Instance.new("Frame")
-Divider2.Size = UDim2.new(1, 0, 0, 2)
-Divider2.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
-Divider2.Parent = MainFrame
+-- Update CanvasSize
+local itemCount = #itemNames
+local itemHeight = 70
+local padding = 8
+local totalHeight = (itemCount * itemHeight) + ((itemCount - 1) * padding)
+ScrollingFrame.CanvasSize = UDim2.new(0, 0, 0, totalHeight)
 
 local BtnOpenAuction = Instance.new("TextButton")
 BtnOpenAuction.Size = UDim2.new(1, 0, 0, 30)
@@ -381,7 +463,7 @@ end)
 -- ========================================== --
 --         FUNGSI PARSING                     --
 -- ========================================== --
-local function parseHarga(text)
+function parseHarga(text)
     if not text or text == "" then return math.huge end
     local clean = string.gsub(text, "[^%d%.MKBmkb]", "")
     clean = string.upper(clean)
@@ -402,19 +484,29 @@ local function parseHarga(text)
     return (num and num * m) or math.huge
 end
 
-local function parseWaktu(text)
+function parseWaktu(text)
     if not text or text == "" then return 999 end
     local m, s = string.match(text, "(%d+)m%s*(%d+)s")
     if m and s then return (tonumber(m) * 60) + tonumber(s) end
-    return 999
+    local sec = tonumber(text:match("%d+"))
+    return sec or 999
 end
 
 -- ========================================== --
---            MAIN LOOP (FIXED)               --
+--            MAIN LOOP                       --
 -- ========================================== --
 task.spawn(function()
     while task.wait(0.05) do
-        if not (config.PriceMode or config.TimeMode) then continue end
+        -- Check if any mode is enabled
+        local anyModeEnabled = false
+        for _, settings in pairs(config.ItemSettings) do
+            if settings.PriceEnabled or settings.TimeEnabled then
+                anyModeEnabled = true
+                break
+            end
+        end
+        
+        if not anyModeEnabled then continue end
         
         local auctionUI = LocalPlayer.PlayerGui:FindFirstChild("Auction")
         if not auctionUI or not auctionUI.Enabled then continue end
@@ -437,12 +529,16 @@ task.spawn(function()
                 if not itemNameLabel then continue end
                 local currentName = itemNameLabel.Text:lower()
                 
+                -- Find matching item
                 local matchItem = nil
-                for key, _ in pairs(config.PriceItems) do
-                    if currentName:find(key) then matchItem = key break end
+                for itemKey, _ in pairs(config.ItemSettings) do
+                    if currentName:find(itemKey) then matchItem = itemKey break end
                 end
                 
                 if not matchItem then continue end
+                
+                local itemSettings = config.ItemSettings[matchItem]
+                if not itemSettings then continue end
                 
                 local buyBtn = mainFrame:FindFirstChild("BuyButton", true)
                 if not buyBtn then continue end
@@ -469,14 +565,14 @@ task.spawn(function()
                 
                 local executeBuy = false
                 
-                if config.PriceMode and config.PriceItems[matchItem] and hrg <= config.PriceLimit then
+                if itemSettings.PriceEnabled and hrg <= itemSettings.PriceLimit then
                     executeBuy = true
-                    print(string.format("[TRIGGER PRICE] %s | Harga: %d <= Target: %d | LotID: %s", currentName, hrg, config.PriceLimit, lotId))
+                    print(string.format("[TRIGGER PRICE] %s | Harga: %d <= Target: %d | LotID: %s", currentName, hrg, itemSettings.PriceLimit, lotId))
                 end
                 
-                if config.TimeMode and config.TimeItems[matchItem] and wkt <= config.TimeLimit then
+                if itemSettings.TimeEnabled and wkt <= itemSettings.TimeLimit then
                     executeBuy = true
-                    print(string.format("[TRIGGER TIME] %s | Waktu: %d <= Target: %d | LotID: %s", currentName, wkt, config.TimeLimit, lotId))
+                    print(string.format("[TRIGGER TIME] %s | Waktu: %d <= Target: %d | LotID: %s", currentName, wkt, itemSettings.TimeLimit, lotId))
                 end
                 
                 if executeBuy and lotId then
@@ -502,26 +598,24 @@ end)
 -- ========================================== --
 --    AUTO-LOAD CHECK (Saat Script Pertama Load)  --
 -- ========================================== --
-task.wait(0.5) -- Wait biar UI selesai render
+task.wait(0.5)
 
-if config.PriceMode or config.TimeMode then
+local anyInitialEnabled = false
+for _, settings in pairs(config.ItemSettings) do
+    if settings.PriceEnabled or settings.TimeEnabled then
+        anyInitialEnabled = true
+        break
+    end
+end
+
+if anyInitialEnabled then
     print("[Init] Config terdeteksi sudah ON, auto-launching...")
     task.wait(0.5)
-    
-    if config.PriceMode then
-        print("[Init] Auto Price DETECTED - Opening Auction & Starting Monitor")
-        openAuctionUI()
-    end
-    
-    if config.TimeMode then
-        print("[Init] Auto Time DETECTED - Opening Auction & Starting Monitor")
-        openAuctionUI()
-    end
-    
+    openAuctionUI()
     task.wait(1)
-    startAuctionMonitor() -- Start monitor
+    startAuctionMonitor()
 else
     print("[Init] Config semua OFF - Ready for manual trigger")
 end
 
-print("✓ Auction Auto-Buy [AUTO-LOAD + MONITOR] loaded!")
+print("✓ Auction Auto-Buy [PER-ITEM SETTINGS] loaded!")
