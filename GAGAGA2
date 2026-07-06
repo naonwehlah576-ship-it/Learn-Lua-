@@ -834,6 +834,64 @@ local function getGardenSpawnPoint()
     return nil
 end
 
+local function getMyPlotFolder()
+    local plotId = LocalPlayer:GetAttribute("PlotId")
+    local gardensFolder = workspace:FindFirstChild("Gardens")
+    return plotId and gardensFolder and gardensFolder:FindFirstChild("Plot" .. tostring(plotId)) or nil
+end
+
+local function getGroundedGardenCFrame(rawPos)
+    if not rawPos then return nil end
+
+    -- Hardcoded ground Y untuk Grow a Garden 2
+    -- Pakai X/Z dari plot kamu, tapi Y dikunci ke 148 biar tidak TP ke langit.
+    return CFrame.new(rawPos.X, 148, rawPos.Z)
+end
+
+local function getAverageBasePartCFrame(container)
+    if not container then return nil end
+
+    local total = Vector3.new(0, 0, 0)
+    local count = 0
+
+    for _, obj in pairs(container:GetDescendants()) do
+        if obj:IsA("BasePart") and obj.Name ~= "SpawnPoint" then
+            total += obj.Position
+            count += 1
+        end
+    end
+
+    if count > 0 then
+        return getGroundedGardenCFrame(total / count)
+    end
+
+    return nil
+end
+
+local function getInsideGardenCFrame()
+    local myPlot = getMyPlotFolder()
+    if not myPlot then return nil end
+
+    local plantsFolder = myPlot:FindFirstChild("Plants")
+    local plantsCFrame = getAverageBasePartCFrame(plantsFolder)
+    if plantsCFrame then return plantsCFrame end
+
+    local visualFolder = myPlot:FindFirstChild("Visual")
+    local visualCFrame = getAverageBasePartCFrame(visualFolder)
+    if visualCFrame then return visualCFrame end
+
+    local plotCFrame = getAverageBasePartCFrame(myPlot)
+    if plotCFrame then return plotCFrame end
+
+    if myPlot:IsA("Model") then
+        return getGroundedGardenCFrame(myPlot:GetPivot().Position)
+    elseif myPlot:IsA("BasePart") then
+        return getGroundedGardenCFrame(myPlot.Position)
+    end
+
+    return nil
+end
+
 local function getPromptLocation(prompt)
     if not prompt or not prompt.Parent then return nil, nil end
     if prompt.Parent:IsA("BasePart") then return prompt.Parent.Position, prompt.Parent.CFrame
@@ -1216,20 +1274,19 @@ task.spawn(function()
             local isHuntingRare = config.AutoClaimRare and rareEventActive
             local isMalamHari = config.AntiNightThief and workspace:FindFirstChild("ActiveNight")
             
-            local spawnPt = getGardenSpawnPoint()
+            local myPlotFolder = getMyPlotFolder()
+
             if Hunt.State == "IDLE" and not isHuntingRare and not isMalamHari then
-                if spawnPt and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                if myPlotFolder and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
                     local hrp = LocalPlayer.Character.HumanoidRootPart
-                    if (hrp.Position - spawnPt.Position).Magnitude > 60 then 
-                        hrp.CFrame = spawnPt.CFrame + Vector3.new(0, 3, 0)
-                        task.wait(0.1) 
+                    local insideGardenCFrame = getInsideGardenCFrame()
+
+                    if insideGardenCFrame and (hrp.Position - insideGardenCFrame.Position).Magnitude > 60 then
+                        hrp.CFrame = insideGardenCFrame
+                        task.wait(0.1)
                     end
                 end
             end
-
-            local plotId = LocalPlayer:GetAttribute("PlotId")
-            local gardensFolder = workspace:FindFirstChild("Gardens")
-            local myPlotFolder = gardensFolder and gardensFolder:FindFirstChild("Plot" .. tostring(plotId))
             
             if myPlotFolder then
                 for _, obj in pairs(myPlotFolder:GetDescendants()) do
@@ -1680,27 +1737,16 @@ task.spawn(function()
         if config.AntiNightThief then
             local nightModel = workspace:FindFirstChild("ActiveNight")
             if nightModel then
-                local plotId = LocalPlayer:GetAttribute("PlotId")
-                if plotId then
-                    local gardens = workspace:FindFirstChild("Gardens")
-                    local myPlot = gardens and gardens:FindFirstChild("Plot" .. tostring(plotId))
-                    local targetInsidePos = nil
+                local targetInsideCFrame = getInsideGardenCFrame()
+                local char = LocalPlayer.Character
 
-                    if myPlot and myPlot:FindFirstChild("Visual") then
-                        local firstBed = myPlot.Visual:FindFirstChild("BedSection1") or myPlot.Visual:FindFirstChildWhichIsA("BasePart")
-                        if firstBed then targetInsidePos = firstBed.Position + Vector3.new(0, 3, 0) end
-                    end
-                    if not targetInsidePos and myPlot then targetInsidePos = myPlot:GetPivot().Position + Vector3.new(0, 3, 0) end
-
-                    local char = LocalPlayer.Character
-                    if targetInsidePos and char and char:FindFirstChild("HumanoidRootPart") then
-                        local hrp = char.HumanoidRootPart
-                        local jarakDariKebun = (hrp.Position - targetInsidePos).Magnitude
-                        if jarakDariKebun > 25 then
-                            stopMovement() 
-                            hrp.CFrame = CFrame.new(targetInsidePos)
-                            hrp.Velocity = Vector3.new(0, 0, 0) 
-                        end
+                if targetInsideCFrame and char and char:FindFirstChild("HumanoidRootPart") then
+                    local hrp = char.HumanoidRootPart
+                    local jarakDariKebun = (hrp.Position - targetInsideCFrame.Position).Magnitude
+                    if jarakDariKebun > 25 then
+                        stopMovement() 
+                        hrp.CFrame = targetInsideCFrame
+                        hrp.Velocity = Vector3.new(0, 0, 0) 
                     end
                 end
             end
