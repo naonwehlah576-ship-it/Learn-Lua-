@@ -1216,19 +1216,13 @@ task.spawn(function()
             local isHuntingRare = config.AutoClaimRare and rareEventActive
             local isMalamHari = config.AntiNightThief and workspace:FindFirstChild("ActiveNight")
             
-            local plotId = LocalPlayer:GetAttribute("PlotId")
-            local gardensFolder = workspace:FindFirstChild("Gardens")
-            local myPlot = gardensFolder and gardensFolder:FindFirstChild("Plot" .. tostring(plotId))
-
+            local spawnPt = getGardenSpawnPoint()
             if Hunt.State == "IDLE" and not isHuntingRare and not isMalamHari then
-                if myPlot and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                if spawnPt and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
                     local hrp = LocalPlayer.Character.HumanoidRootPart
-                    local plotPos = myPlot:GetPivot().Position
-                    local targetPos = Vector3.new(plotPos.X, 148, plotPos.Z)
-
-                    if (hrp.Position - targetPos).Magnitude > 60 then
-                        hrp.CFrame = CFrame.new(targetPos)
-                        task.wait(0.1)
+                    if (hrp.Position - spawnPt.Position).Magnitude > 60 then 
+                        hrp.CFrame = spawnPt.CFrame + Vector3.new(0, 3, 0)
+                        task.wait(0.1) 
                     end
                 end
             end
