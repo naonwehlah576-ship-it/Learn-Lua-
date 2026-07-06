@@ -139,7 +139,7 @@ local function startAuctionMonitor()
             
             if not anyModeEnabled then break end
             
-            task.wait(3)
+            task.wait(5)
             
             local isOpen = isAuctionOpen()
             if not isOpen then
