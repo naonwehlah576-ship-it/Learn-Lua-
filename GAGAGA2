@@ -134,12 +134,19 @@ Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 8)
 
 local uiScale = Instance.new("UIScale")
 uiScale.Parent = MainFrame
-local function updateScale() 
-    local viewport = workspace.CurrentCamera.ViewportSize
-    local scaleX = viewport.X / 960
-    local scaleY = viewport.Y / 580
-    local minScale = math.min(scaleX, scaleY)
-    if minScale < 1 then uiScale.Scale = minScale else uiScale.Scale = 1 end 
+local function updateScale()
+    local camera = workspace.CurrentCamera
+    if not camera then return end
+
+    local viewport = camera.ViewportSize
+
+    local scaleX = viewport.X / 1800
+    local scaleY = viewport.Y / 1000
+
+    local scale = math.min(scaleX, scaleY)
+    scale = math.clamp(scale, 0.5, 0.95)
+
+    uiScale.Scale = scale 
 end
 updateScale()
 workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(updateScale)
