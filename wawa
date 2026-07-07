@@ -140,13 +140,14 @@ local function updateScale()
 
     local viewport = camera.ViewportSize
 
+    -- Dynamic scale supaya GUI tidak kegedean di emulator / layar kecil.
     local scaleX = viewport.X / 1800
     local scaleY = viewport.Y / 1000
 
     local scale = math.min(scaleX, scaleY)
     scale = math.clamp(scale, 0.5, 0.95)
 
-    uiScale.Scale = scale 
+    uiScale.Scale = scale
 end
 updateScale()
 workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(updateScale)
@@ -2077,6 +2078,8 @@ task.spawn(function()
     local nextFruitPriceTime = 0
     local auctionCheckTask = nil
     local lastBuyLot = {}
+    local mailRows = {}
+    local lastMailTarget = ""
 
     local function parseWaktu(text)
         if not text or text == "" then return 999 end
@@ -2289,7 +2292,7 @@ task.spawn(function()
 
     local FarmPanel = makeSubPanel(ToolsScroll, "AUTO WATER / SPRINKLER / FRUIT PRICE", 5, 5, 430, 190)
     local AuctionPanel = makeSubPanel(ToolsScroll, "AUCTION AUTO BUY BY TIME ONLY", 445, 5, 430, 390)
-    local InfoPanel = makeSubPanel(ToolsScroll, "INFO", 5, 205, 430, 185)
+    local MailPanel = makeSubPanel(ToolsScroll, "MAILBOX AUTO SEND", 5, 205, 430, 185)
 
     local waterToggle = makeButton(FarmPanel, "", 8, 32, 125, 26)
     makeLabel(FarmPanel, "sec", 142, 35, 25, 20)
@@ -2477,23 +2480,264 @@ task.spawn(function()
         SaveToolsConfig()
     end)
 
-    local infoText = Instance.new("TextLabel")
-    infoText.Size = UDim2.new(1, -16, 1, -35)
-    infoText.Position = UDim2.new(0, 8, 0, 30)
-    infoText.BackgroundTransparency = 1
-    infoText.TextColor3 = Color3.fromRGB(210, 210, 210)
-    infoText.Font = Enum.Font.Gotham
-    infoText.TextSize = 11
-    infoText.TextXAlignment = Enum.TextXAlignment.Left
-    infoText.TextYAlignment = Enum.TextYAlignment.Top
-    infoText.TextWrapped = true
-    infoText.Text =
-        "TOOLS tab V2 sudah masuk ke tab row asli.\n\n" ..
-        "RightControl = hide/show main hub.\n\n" ..
-        "Auction: price trigger sudah dihapus.\n" ..
-        "Auction hanya buy saat timer <= limit.\n\n" ..
-        "Config:\n" .. CONFIG_FILE
-    infoText.Parent = InfoPanel
+    --// MAILBOX COMPACT UI
+    local mailTargetBox = makeBox(MailPanel, "", 8, 32, 160, 24)
+    mailTargetBox.PlaceholderText = "Target username"
+
+    local mailScanBtn = makeButton(MailPanel, "Scan", 174, 32, 60, 24)
+    local mailSendAllBtn = makeButton(MailPanel, "Send All", 240, 32, 82, 24)
+    local mailClearBtn = makeButton(MailPanel, "Clear", 328, 32, 86, 24)
+
+    local mailList = Instance.new("ScrollingFrame")
+    mailList.Size = UDim2.new(1, -16, 0, 118)
+    mailList.Position = UDim2.new(0, 8, 0, 62)
+    mailList.BackgroundColor3 = Color3.fromRGB(24, 24, 24)
+    mailList.BorderSizePixel = 0
+    mailList.ScrollBarThickness = 4
+    mailList.CanvasSize = UDim2.new(0, 0, 0, 0)
+    mailList.Parent = MailPanel
+    Instance.new("UICorner", mailList).CornerRadius = UDim.new(0, 5)
+
+    local mailLayout = Instance.new("UIListLayout")
+    mailLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    mailLayout.Padding = UDim.new(0, 3)
+    mailLayout.Parent = mailList
+
+    local function updateMailCanvas()
+        task.defer(function()
+            mailList.CanvasSize = UDim2.new(0, 0, 0, mailLayout.AbsoluteContentSize.Y + 6)
+        end)
+    end
+    mailLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(updateMailCanvas)
+
+    local function fixMailCategory(category, itemName)
+        local fixedCategory = category
+
+        if fixedCategory == "Seed" then
+            fixedCategory = "Seeds"
+        elseif fixedCategory == "HarvestedFruit" then
+            fixedCategory = "HarvestedFruits"
+        end
+
+        if fixedCategory == "Gear" then
+            if string.match(itemName, "Trowel") then
+                fixedCategory = "Trowels"
+            elseif string.match(itemName, "Sprinkler") then
+                fixedCategory = "Sprinklers"
+            elseif string.match(itemName, "Watering Can") or string.match(itemName, "Wateringcan") then
+                fixedCategory = "WateringCans"
+            elseif string.match(itemName, "Mushroom") then
+                fixedCategory = "Mushrooms"
+            elseif string.match(itemName, "Gnome") then
+                fixedCategory = "Gnomes"
+            elseif string.match(itemName, "Raccoon") then
+                fixedCategory = "Raccoons"
+            elseif string.match(itemName, "Crate") then
+                fixedCategory = "Crates"
+            elseif string.match(itemName, "Prop") then
+                fixedCategory = "Props"
+            elseif string.match(itemName, "Seed Pack") or string.match(itemName, "SeedPack") then
+                fixedCategory = "SeedPacks"
+            end
+        end
+
+        return fixedCategory
+    end
+
+    local function getMailTargetUserId()
+        local targetName = mailTargetBox.Text
+        if not targetName or targetName == "" then
+            warn("[MAIL] Target username kosong")
+            return nil
+        end
+
+        lastMailTarget = targetName
+
+        local ok, userId = pcall(function()
+            return Players:GetUserIdFromNameAsync(targetName)
+        end)
+
+        if not ok or not userId then
+            warn("[MAIL] Username tidak valid:", targetName, tostring(userId))
+            return nil
+        end
+
+        return userId
+    end
+
+    local function sendMailboxItem(itemName, category, amount)
+        amount = tonumber(amount) or 0
+        if amount <= 0 then
+            warn("[MAIL] Amount harus > 0:", itemName)
+            return false
+        end
+
+        local userId = getMailTargetUserId()
+        if not userId then
+            return false
+        end
+
+        local fixedCategory = fixMailCategory(category, itemName)
+        local payload = {
+            {
+                Category = fixedCategory,
+                ItemKey = itemName,
+                Count = amount
+            }
+        }
+
+        local ok, result = pcall(function()
+            return Networking.Mailbox.SendBatch:Fire(userId, payload, "Sent via Dafa Hub")
+        end)
+
+        if ok and result then
+            print("[MAIL] Sent:", amount, itemName, "to", mailTargetBox.Text)
+            return true
+        end
+
+        warn("[MAIL] Failed:", itemName, tostring(result))
+        return false
+    end
+
+    local function createMailRow(itemName, maxCount, category, order)
+        local row = Instance.new("Frame")
+        row.Size = UDim2.new(1, -6, 0, 28)
+        row.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+        row.BorderSizePixel = 0
+        row.LayoutOrder = order
+        row.Parent = mailList
+        Instance.new("UICorner", row).CornerRadius = UDim.new(0, 4)
+
+        local itemLabel = Instance.new("TextLabel")
+        itemLabel.Size = UDim2.new(1, -170, 1, 0)
+        itemLabel.Position = UDim2.new(0, 7, 0, 0)
+        itemLabel.BackgroundTransparency = 1
+        itemLabel.TextColor3 = Color3.fromRGB(230, 230, 230)
+        itemLabel.Text = itemName .. " x" .. tostring(maxCount)
+        itemLabel.TextXAlignment = Enum.TextXAlignment.Left
+        itemLabel.TextTruncate = Enum.TextTruncate.AtEnd
+        itemLabel.Font = Enum.Font.GothamBold
+        itemLabel.TextSize = 10
+        itemLabel.Parent = row
+
+        local amountBox = makeBox(row, "0", 245, 4, 42, 20)
+        amountBox.PlaceholderText = "Qty"
+
+        local maxBtn = makeButton(row, "Max", 292, 4, 42, 20)
+        local sendBtn = makeButton(row, "Send", 339, 4, 58, 20)
+        sendBtn.BackgroundColor3 = Color3.fromRGB(0, 145, 95)
+
+        amountBox.FocusLost:Connect(function()
+            local n = tonumber(amountBox.Text)
+            if not n or n < 0 then
+                amountBox.Text = "0"
+            elseif n > maxCount then
+                amountBox.Text = tostring(maxCount)
+            else
+                amountBox.Text = tostring(math.floor(n))
+            end
+        end)
+
+        maxBtn.MouseButton1Click:Connect(function()
+            amountBox.Text = tostring(maxCount)
+        end)
+
+        sendBtn.MouseButton1Click:Connect(function()
+            if sendMailboxItem(itemName, category, amountBox.Text) then
+                amountBox.Text = "0"
+            end
+        end)
+
+        table.insert(mailRows, {
+            Name = itemName,
+            Category = category,
+            MaxCount = maxCount,
+            Box = amountBox
+        })
+    end
+
+    local function inferMailCategory(item)
+        local category = item:GetAttribute("MainCategory")
+        if category then
+            return category
+        end
+
+        -- Fallback buat item fruit/configuration yang kadang tidak punya MainCategory.
+        if item:GetAttribute("HarvestedFruit") == true or item:GetAttribute("FruitName") or item:GetAttribute("Fruit") then
+            return "HarvestedFruit"
+        end
+
+        if item:GetAttribute("Seed") or string.find(string.lower(item.Name), "seed") then
+            return "Seed"
+        end
+
+        return nil
+    end
+
+    local function scanMailboxBackpack()
+        mailRows = {}
+
+        for _, child in pairs(mailList:GetChildren()) do
+            if child:IsA("Frame") then
+                child:Destroy()
+            end
+        end
+
+        local scannedKeys = {}
+        local order = 1
+
+        local function scanContainer(container)
+            if not container then
+                return
+            end
+
+            for _, item in pairs(container:GetChildren()) do
+                if item:IsA("Tool") or item:IsA("Configuration") then
+                    local category = inferMailCategory(item)
+                    local count = item:GetAttribute("Count") or 1
+
+                    -- Kalau fruit hasil harvest biasanya count tidak ada, tetap 1.
+                    if category then
+                        local key = item.Name .. "|" .. tostring(category) .. "|" .. tostring(item:GetAttribute("Id") or item:GetDebugId())
+                        if not scannedKeys[key] then
+                            scannedKeys[key] = true
+                            createMailRow(item.Name, count, category, order)
+                            order += 1
+                        end
+                    end
+                end
+            end
+        end
+
+        scanContainer(LocalPlayer:FindFirstChild("Backpack"))
+        scanContainer(LocalPlayer.Character)
+
+        updateMailCanvas()
+        print("[MAIL] Scan done. Items:", order - 1)
+    end
+
+    mailScanBtn.MouseButton1Click:Connect(scanMailboxBackpack)
+
+    mailClearBtn.MouseButton1Click:Connect(function()
+        for _, row in ipairs(mailRows) do
+            if row.Box then
+                row.Box.Text = "0"
+            end
+        end
+    end)
+
+    mailSendAllBtn.MouseButton1Click:Connect(function()
+        for _, row in ipairs(mailRows) do
+            local amount = tonumber(row.Box and row.Box.Text)
+            if amount and amount > 0 then
+                local ok = sendMailboxItem(row.Name, row.Category, amount)
+                if ok and row.Box then
+                    row.Box.Text = "0"
+                end
+                task.wait(0.25)
+            end
+        end
+    end)
 
     local function openAuctionUI()
         pcall(function()
