@@ -1920,6 +1920,22 @@ task.spawn(function()
         return
     end
 
+    local PlayerStateClient = nil
+    local MailboxItemCatalog = nil
+
+    pcall(function()
+        PlayerStateClient = require(ReplicatedStorage:WaitForChild("ClientModules"):WaitForChild("PlayerStateClient"))
+    end)
+
+    pcall(function()
+        local controllers = LocalPlayer:WaitForChild("PlayerScripts"):WaitForChild("Controllers")
+        local catalogModule = controllers:FindFirstChild("MailboxItemCatalog", true)
+
+        if catalogModule and catalogModule:IsA("ModuleScript") then
+            MailboxItemCatalog = require(catalogModule)
+        end
+    end)
+
     local HubGui = CoreGui:FindFirstChild("GAG2_Automation_Hub") or PlayerGui:FindFirstChild("GAG2_Automation_Hub")
     if not HubGui then
         warn("[TOOLS V2] Main Hub GUI tidak ditemukan")
@@ -2481,12 +2497,14 @@ task.spawn(function()
     end)
 
     --// MAILBOX COMPACT UI
-    local mailTargetBox = makeBox(MailPanel, "", 8, 32, 160, 24)
+    local mailTargetBox = makeBox(MailPanel, "", 8, 32, 150, 24)
     mailTargetBox.PlaceholderText = "Target username"
 
-    local mailScanBtn = makeButton(MailPanel, "Scan", 174, 32, 60, 24)
-    local mailSendAllBtn = makeButton(MailPanel, "Send All", 240, 32, 82, 24)
-    local mailClearBtn = makeButton(MailPanel, "Clear", 328, 32, 86, 24)
+    local mailSearchBox = makeBox(MailPanel, "", 164, 32, 120, 24)
+    mailSearchBox.PlaceholderText = "Search item"
+
+    local mailScanBtn = makeButton(MailPanel, "Scan", 290, 32, 58, 24)
+    local mailClearBtn = makeButton(MailPanel, "Clear", 354, 32, 60, 24)
 
     local mailList = Instance.new("ScrollingFrame")
     mailList.Size = UDim2.new(1, -16, 0, 118)
@@ -2599,7 +2617,30 @@ task.spawn(function()
         return false
     end
 
-    local function createMailRow(itemName, maxCount, category, order)
+    local function refreshMailSearch()
+        local q = string.lower(tostring(mailSearchBox.Text or ""))
+        q = q:gsub("^%s+", ""):gsub("%s+$", "")
+
+        for _, rowData in ipairs(mailRows) do
+            local row = rowData.Row
+            if row then
+                if q == "" then
+                    row.Visible = true
+                else
+                    local text = string.lower(tostring(rowData.DisplayName or rowData.Name or ""))
+                    local cat = string.lower(tostring(rowData.Category or ""))
+                    row.Visible = text:find(q, 1, true) ~= nil or cat:find(q, 1, true) ~= nil
+                end
+            end
+        end
+
+        updateMailCanvas()
+    end
+
+    mailSearchBox:GetPropertyChangedSignal("Text"):Connect(refreshMailSearch)
+
+    local function createMailRow(displayName, maxCount, category, order, itemKeyOverride)
+        local itemName = itemKeyOverride or displayName
         local row = Instance.new("Frame")
         row.Size = UDim2.new(1, -6, 0, 28)
         row.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
@@ -2613,7 +2654,7 @@ task.spawn(function()
         itemLabel.Position = UDim2.new(0, 7, 0, 0)
         itemLabel.BackgroundTransparency = 1
         itemLabel.TextColor3 = Color3.fromRGB(230, 230, 230)
-        itemLabel.Text = itemName .. " x" .. tostring(maxCount)
+        itemLabel.Text = displayName .. " x" .. tostring(maxCount)
         itemLabel.TextXAlignment = Enum.TextXAlignment.Left
         itemLabel.TextTruncate = Enum.TextTruncate.AtEnd
         itemLabel.Font = Enum.Font.GothamBold
@@ -2649,11 +2690,151 @@ task.spawn(function()
         end)
 
         table.insert(mailRows, {
+            Row = row,
             Name = itemName,
+            DisplayName = displayName,
             Category = category,
             MaxCount = maxCount,
             Box = amountBox
         })
+    end
+
+    local function isGiftableInventoryEntry(category, itemKey, entryValue, seenPets)
+        if MailboxItemCatalog and MailboxItemCatalog.IsGiftable then
+            local okGiftable, giftable = pcall(function()
+                return MailboxItemCatalog.IsGiftable(category)
+            end)
+
+            if okGiftable and not giftable then
+                return false
+            end
+        end
+
+        if category == "HarvestedFruits" then
+            return typeof(entryValue) == "table" and entryValue.Id ~= nil
+        end
+
+        if category == "Pets" then
+            if typeof(entryValue) ~= "table" or entryValue.Id == nil then
+                return false
+            end
+
+            if seenPets[itemKey] then
+                return false
+            end
+
+            seenPets[itemKey] = true
+            return entryValue.Equipped ~= true
+        end
+
+        return typeof(entryValue) == "number" and entryValue > 0
+    end
+
+    local function getMailboxDisplayName(category, itemKey, entryValue)
+        if category == "HarvestedFruits" and typeof(entryValue) == "table" then
+            local fruitName = entryValue.FruitName or entryValue.Fruit or entryValue.Name or entryValue.SeedName
+            local mutation = entryValue.Mutation
+            local weight = entryValue.Weight or entryValue.Kg or entryValue.Mass
+
+            local text = fruitName and tostring(fruitName) or tostring(itemKey)
+
+            if mutation and mutation ~= "" then
+                text = text .. " [" .. tostring(mutation) .. "]"
+            end
+
+            if tonumber(weight) then
+                text = text .. " [" .. string.format("%.2fkg", tonumber(weight)) .. "]"
+            end
+
+            return text
+        end
+
+        if category == "Pets" and typeof(entryValue) == "table" then
+            return tostring(entryValue.Name or entryValue.PetName or entryValue.Type or itemKey)
+        end
+
+        return tostring(itemKey)
+    end
+
+    local function getGiftableMailboxEntries()
+        local results = {}
+
+        -- Cara asli game: PlayerStateClient.Data.Inventory + MailboxItemCatalog.Categories.
+        -- Ini yang paling akurat karena sama seperti Mailbox UI resmi.
+        if PlayerStateClient and MailboxItemCatalog and typeof(MailboxItemCatalog.Categories) == "table" then
+            local replica = nil
+            pcall(function()
+                replica = PlayerStateClient:GetLocalReplica()
+            end)
+
+            local inventory = replica and replica.Data and replica.Data.Inventory
+
+            if typeof(inventory) == "table" then
+                local seenPets = {}
+
+                for _, category in pairs(MailboxItemCatalog.Categories) do
+                    local categoryData = inventory[category]
+
+                    if typeof(categoryData) == "table" then
+                        if category == "HarvestedFruits" or category == "Pets" then
+                            for itemKey, entryValue in pairs(categoryData) do
+                                if isGiftableInventoryEntry(category, itemKey, entryValue, seenPets) then
+                                    table.insert(results, {
+                                        Name = getMailboxDisplayName(category, itemKey, entryValue),
+                                        ItemKey = itemKey,
+                                        Category = category,
+                                        Count = 1
+                                    })
+                                end
+                            end
+                        else
+                            for itemKey, entryValue in pairs(categoryData) do
+                                if isGiftableInventoryEntry(category, itemKey, entryValue, seenPets) then
+                                    table.insert(results, {
+                                        Name = tostring(itemKey),
+                                        ItemKey = itemKey,
+                                        Category = category,
+                                        Count = entryValue
+                                    })
+                                end
+                            end
+                        end
+                    end
+                end
+
+                table.sort(results, function(a, b)
+                    if a.Category == b.Category then
+                        return tostring(a.Name) < tostring(b.Name)
+                    end
+                    return tostring(a.Category) < tostring(b.Category)
+                end)
+
+                return results, "PlayerStateClient"
+            end
+        end
+
+        -- Fallback MailPerfect lama: hanya Tool dengan MainCategory.
+        -- Tidak pakai tebak nama Gear lagi biar tidak kebanyakan item yang sebenarnya tidak bisa mailbox.
+        local backpack = LocalPlayer:FindFirstChild("Backpack")
+        if backpack then
+            for _, item in pairs(backpack:GetChildren()) do
+                if item:IsA("Tool") then
+                    local category = item:GetAttribute("MainCategory")
+                    local count = item:GetAttribute("Count") or 1
+
+                    if category then
+                        table.insert(results, {
+                            Name = item.Name,
+                            ItemKey = item.Name,
+                            Category = category,
+                            Count = count
+                        })
+                    end
+                end
+            end
+        end
+
+        return results, "BackpackFallback"
     end
 
     local function scanMailboxBackpack()
@@ -2665,25 +2846,15 @@ task.spawn(function()
             end
         end
 
-        local backpack = LocalPlayer:FindFirstChild("Backpack")
-        if not backpack then
-            return
+        local entries, source = getGiftableMailboxEntries()
+
+        for order, entry in ipairs(entries) do
+            createMailRow(entry.Name, entry.Count, entry.Category, order, entry.ItemKey)
         end
 
-        local order = 1
-        for _, item in pairs(backpack:GetChildren()) do
-            if item:IsA("Tool") then
-                local count = item:GetAttribute("Count") or 1
-                local category = item:GetAttribute("MainCategory")
-
-                if category then
-                    createMailRow(item.Name, count, category, order)
-                    order += 1
-                end
-            end
-        end
-
+        refreshMailSearch()
         updateMailCanvas()
+        print("[MAIL] Scan done. Source:", source, "Items:", #entries)
     end
 
     mailScanBtn.MouseButton1Click:Connect(scanMailboxBackpack)
@@ -2692,19 +2863,6 @@ task.spawn(function()
         for _, row in ipairs(mailRows) do
             if row.Box then
                 row.Box.Text = "0"
-            end
-        end
-    end)
-
-    mailSendAllBtn.MouseButton1Click:Connect(function()
-        for _, row in ipairs(mailRows) do
-            local amount = tonumber(row.Box and row.Box.Text)
-            if amount and amount > 0 then
-                local ok = sendMailboxItem(row.Name, row.Category, amount)
-                if ok and row.Box then
-                    row.Box.Text = "0"
-                end
-                task.wait(0.25)
             end
         end
     end)
