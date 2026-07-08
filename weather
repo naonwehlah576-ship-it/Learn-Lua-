@@ -1,0 +1,1586 @@
+--// Standalone Weather Predictor GUI
+--// Source logic converted from uploaded script.js weatherAt/upcomingWeather.
+--// Shows special moon/weather prediction at bottom-right.
+
+local Players = game:GetService("Players")
+local CoreGui = game:GetService("CoreGui")
+local UserInputService = game:GetService("UserInputService")
+
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+
+local GUI_NAME = "DafaWeatherPredictorStandalone"
+local old = CoreGui:FindFirstChild(GUI_NAME) or PlayerGui:FindFirstChild(GUI_NAME)
+if old then old:Destroy() end
+
+local W = {
+    offset = 0,
+    clen = 600,
+    phases = {
+        {
+            offset = 0,
+            duration = 450,
+            name = "Day"
+        },
+        {
+            offset = 450,
+            duration = 30,
+            name = "Sunset"
+        },
+        {
+            offset = 480,
+            duration = 120,
+            name = "Night"
+        }
+    },
+    seq = {
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Rainbow Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Rainbow Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Mega Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Rainbow Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Rainbow Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Bloodmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Rainbow Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Mega Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Rainbow Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Rainbow Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Rainbow Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Rainbow Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Mega Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Mega Moon"},
+        {"Day", "Sunset", "Bloodmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Rainbow Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Rainbow Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Rainbow Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Mega Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Rainbow Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Rainbow Moon"},
+        {"Day", "Sunset", "Bloodmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Rainbow Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Rainbow Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Rainbow Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Rainbow Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Rainbow Moon"},
+        {"Day", "Sunset", "Bloodmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Bloodmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Rainbow Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Mega Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Rainbow Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Rainbow Moon"},
+        {"Day", "Sunset", "Bloodmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Bloodmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Mega Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Rainbow Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Mega Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Rainbow Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Mega Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Rainbow Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Rainbow Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Rainbow Moon"},
+        {"Day", "Sunset", "Rainbow Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Rainbow Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Rainbow Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Mega Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Rainbow Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Mega Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Rainbow Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Mega Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Bloodmoon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Bloodmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Rainbow Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Mega Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Rainbow Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Rainbow Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Rainbow Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Bloodmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Bloodmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Mega Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Mega Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Bloodmoon"},
+        {"Day", "Sunset", "Mega Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Rainbow Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Rainbow Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Bloodmoon"},
+        {"Day", "Sunset", "Rainbow Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Rainbow Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Rainbow Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Mega Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Mega Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Mega Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Rainbow Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Rainbow Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Rainbow Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Rainbow Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Rainbow Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Rainbow Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Mega Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Bloodmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Rainbow Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Rainbow Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Rainbow Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Bloodmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Rainbow Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Rainbow Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Rainbow Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Rainbow Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Rainbow Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Rainbow Moon"},
+        {"Day", "Sunset", "Rainbow Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Bloodmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Rainbow Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Rainbow Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Rainbow Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Rainbow Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Rainbow Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Rainbow Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Rainbow Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Mega Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Moon"},
+        {"Day", "Sunset", "Goldmoon"},
+        {"Day", "Sunset", "Moon"}
+    },
+    startCycle = 2971701
+}
+
+local WSKIP = {
+    Day = true,
+    Sunset = true,
+    Moon = true
+}
+
+local WatchOrder = {
+    "Bloodmoon",
+    "Rainbow Moon",
+    "Goldmoon",
+    "Mega Moon"
+}
+
+local Icon = {
+    ["Bloodmoon"] = "🌕",
+    ["Rainbow Moon"] = "🌈",
+    ["Goldmoon"] = "🟡",
+    ["Mega Moon"] = "🌑",
+    ["Moon"] = "🌙",
+    ["Day"] = "☀️",
+    ["Sunset"] = "🌇"
+}
+
+local Color = {
+    ["Bloodmoon"] = Color3.fromRGB(255, 90, 90),
+    ["Rainbow Moon"] = Color3.fromRGB(150, 120, 255),
+    ["Goldmoon"] = Color3.fromRGB(255, 205, 80),
+    ["Mega Moon"] = Color3.fromRGB(180, 120, 255),
+    ["Moon"] = Color3.fromRGB(190, 190, 230),
+    ["Day"] = Color3.fromRGB(255, 230, 120),
+    ["Sunset"] = Color3.fromRGB(255, 150, 80)
+}
+
+local function now()
+    return os.time()
+end
+
+local function clock(sec)
+    sec = math.max(0, math.floor(sec or 0))
+    local m = math.floor(sec / 60)
+    local s = sec % 60
+    return string.format("%02d:%02d", m, s)
+end
+
+local function shortDur(sec)
+    sec = math.max(0, math.floor(sec or 0))
+    local d = math.floor(sec / 86400)
+    local h = math.floor((sec % 86400) / 3600)
+    local m = math.floor((sec % 3600) / 60)
+    local s = sec % 60
+
+    if d > 0 then
+        return string.format("%dd %dh", d, h)
+    elseif h > 0 then
+        return string.format("%dh %dm", h, m)
+    elseif m > 0 then
+        return string.format("%dm %02ds", m, s)
+    else
+        return string.format("%ds", s)
+    end
+end
+
+local function weatherAt(t)
+    if not W or not W.clen then
+        return nil
+    end
+
+    local cyc = math.floor(t / W.clen)
+    local into = t - cyc * W.clen
+
+    local pi = 1
+    for i = 1, #W.phases do
+        if into >= W.phases[i].offset then
+            pi = i
+        end
+    end
+
+    local idx = cyc - W.startCycle + 1
+    local seqRow = W.seq[idx]
+    local name = seqRow and seqRow[pi] or nil
+
+    local nextOff
+    if pi + 1 <= #W.phases then
+        nextOff = W.phases[pi + 1].offset
+    else
+        nextOff = W.clen
+    end
+
+    return {
+        name = name,
+        phaseName = W.phases[pi].name,
+        secsLeft = cyc * W.clen + nextOff - t,
+        cyc = cyc,
+        pi = pi
+    }
+end
+
+local function upcomingWeather(maxSteps)
+    local t = now()
+    local out = {}
+    local cur = weatherAt(t)
+
+    if not cur then
+        return out
+    end
+
+    local cyc = cur.cyc
+    local pi = cur.pi
+
+    for _ = 1, maxSteps do
+        pi += 1
+        if pi > #W.phases then
+            pi = 1
+            cyc += 1
+        end
+
+        local idx = cyc - W.startCycle + 1
+        if idx < 1 or idx > #W.seq then
+            break
+        end
+
+        local row = W.seq[idx]
+        local name = row and row[pi]
+        if name then
+            local startT = cyc * W.clen + W.phases[pi].offset
+            table.insert(out, {
+                name = name,
+                secs = startT - t,
+                cyc = cyc,
+                pi = pi
+            })
+        end
+    end
+
+    return out
+end
+
+local function nextByName(targetName, maxSteps)
+    for _, u in ipairs(upcomingWeather(maxSteps or 2500)) do
+        if u.name == targetName then
+            return u
+        end
+    end
+
+    return nil
+end
+
+
+local SeedAnchor = 1783021200
+local SeedPeriod = 300
+local SeedItems = {
+    {
+        name = "Dragon's Breath",
+        rarity = "Super",
+        q = {
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+        }
+    },
+    {
+        name = "Moon Bloom",
+        rarity = "Super",
+        q = {
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+        }
+    },
+    {
+        name = "Hypno Bloom",
+        rarity = "Super",
+        q = {
+            0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+        }
+    }
+}
+
+local function seedWindowIndex(t)
+    return math.floor((t - SeedAnchor) / SeedPeriod) + 1
+end
+
+local function seedCurrent(item, t)
+    local idx = seedWindowIndex(t)
+    local q = item.q[idx]
+    if q and q > 0 then
+        local windowEnd = SeedAnchor + idx * SeedPeriod
+        return q, math.max(0, windowEnd - t)
+    end
+    return nil, nil
+end
+
+local function seedNext(item, t)
+    local idx = seedWindowIndex(t)
+    for k = math.max(1, idx + 1), #item.q do
+        local q = item.q[k]
+        if q and q > 0 then
+            local startT = SeedAnchor + (k - 1) * SeedPeriod
+            return q, math.max(0, startT - t)
+        end
+    end
+    return nil, nil
+end
+
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = GUI_NAME
+screenGui.ResetOnSpawn = false
+screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+pcall(function()
+    screenGui.Parent = CoreGui
+end)
+if not screenGui.Parent then
+    screenGui.Parent = PlayerGui
+end
+
+local frame = Instance.new("Frame")
+frame.Name = "Main"
+frame.Size = UDim2.new(0, 250, 0, 226)
+frame.AnchorPoint = Vector2.new(1, 1)
+frame.Position = UDim2.new(1, -14, 1, -14)
+frame.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
+frame.BackgroundTransparency = 0.08
+frame.BorderSizePixel = 0
+frame.Parent = screenGui
+Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 8)
+
+local stroke = Instance.new("UIStroke")
+stroke.Thickness = 1
+stroke.Transparency = 0.45
+stroke.Color = Color3.fromRGB(120, 120, 120)
+stroke.Parent = frame
+
+local top = Instance.new("Frame")
+top.Size = UDim2.new(1, 0, 0, 27)
+top.BackgroundColor3 = Color3.fromRGB(26, 26, 26)
+top.BorderSizePixel = 0
+top.Parent = frame
+Instance.new("UICorner", top).CornerRadius = UDim.new(0, 8)
+
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, -42, 1, 0)
+title.Position = UDim2.new(0, 8, 0, 0)
+title.BackgroundTransparency = 1
+title.Text = "🌙 Weather Predictor"
+title.TextColor3 = Color3.fromRGB(240, 240, 240)
+title.Font = Enum.Font.GothamBold
+title.TextSize = 12
+title.TextXAlignment = Enum.TextXAlignment.Left
+title.Parent = top
+
+local close = Instance.new("TextButton")
+close.Size = UDim2.new(0, 28, 0, 27)
+close.Position = UDim2.new(1, -30, 0, 0)
+close.BackgroundTransparency = 1
+close.Text = "×"
+close.TextColor3 = Color3.fromRGB(210, 210, 210)
+close.Font = Enum.Font.GothamBold
+close.TextSize = 16
+close.Parent = top
+
+close.MouseButton1Click:Connect(function()
+    screenGui:Destroy()
+end)
+
+local nowLabel = Instance.new("TextLabel")
+nowLabel.Size = UDim2.new(1, -16, 0, 24)
+nowLabel.Position = UDim2.new(0, 8, 0, 32)
+nowLabel.BackgroundTransparency = 1
+nowLabel.Text = "Now: ..."
+nowLabel.TextColor3 = Color3.fromRGB(230, 230, 230)
+nowLabel.Font = Enum.Font.GothamBold
+nowLabel.TextSize = 12
+nowLabel.TextXAlignment = Enum.TextXAlignment.Left
+nowLabel.Parent = frame
+
+local phaseLabel = Instance.new("TextLabel")
+phaseLabel.Size = UDim2.new(1, -16, 0, 18)
+phaseLabel.Position = UDim2.new(0, 8, 0, 52)
+phaseLabel.BackgroundTransparency = 1
+phaseLabel.Text = "Phase ends: ..."
+phaseLabel.TextColor3 = Color3.fromRGB(170, 170, 170)
+phaseLabel.Font = Enum.Font.Gotham
+phaseLabel.TextSize = 10
+phaseLabel.TextXAlignment = Enum.TextXAlignment.Left
+phaseLabel.Parent = frame
+
+local rows = {}
+local y = 74
+for i, name in ipairs(WatchOrder) do
+    local row = Instance.new("TextLabel")
+    row.Size = UDim2.new(1, -16, 0, 18)
+    row.Position = UDim2.new(0, 8, 0, y)
+    row.BackgroundTransparency = 1
+    row.TextColor3 = Color[name] or Color3.fromRGB(230, 230, 230)
+    row.Font = Enum.Font.GothamBold
+    row.TextSize = 11
+    row.TextXAlignment = Enum.TextXAlignment.Left
+    row.Text = (Icon[name] or "•") .. " " .. name .. ": ..."
+    row.Parent = frame
+    rows[name] = row
+    y += 19
+end
+
+
+local sep = Instance.new("Frame")
+sep.Size = UDim2.new(1, -16, 0, 1)
+sep.Position = UDim2.new(0, 8, 0, 151)
+sep.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
+sep.BackgroundTransparency = 0.35
+sep.BorderSizePixel = 0
+sep.Parent = frame
+
+local seedTitle = Instance.new("TextLabel")
+seedTitle.Size = UDim2.new(1, -16, 0, 16)
+seedTitle.Position = UDim2.new(0, 8, 0, 156)
+seedTitle.BackgroundTransparency = 1
+seedTitle.Text = "🌱 Seed Predictor"
+seedTitle.TextColor3 = Color3.fromRGB(235, 235, 235)
+seedTitle.Font = Enum.Font.GothamBold
+seedTitle.TextSize = 11
+seedTitle.TextXAlignment = Enum.TextXAlignment.Left
+seedTitle.Parent = frame
+
+local seedRows = {}
+local seedY = 174
+for _, item in ipairs(SeedItems) do
+    local row = Instance.new("TextLabel")
+    row.Size = UDim2.new(1, -16, 0, 16)
+    row.Position = UDim2.new(0, 8, 0, seedY)
+    row.BackgroundTransparency = 1
+    row.TextColor3 = Color3.fromRGB(39, 224, 200)
+    row.Font = Enum.Font.GothamBold
+    row.TextSize = 10
+    row.TextXAlignment = Enum.TextXAlignment.Left
+    row.Text = item.name .. ": ..."
+    row.Parent = frame
+    seedRows[item.name] = row
+    seedY += 16
+end
+
+local hint = Instance.new("TextLabel")
+hint.Size = UDim2.new(1, -16, 0, 14)
+hint.Position = UDim2.new(0, 8, 1, -17)
+hint.BackgroundTransparency = 1
+hint.Text = "drag topbar • based on local clock"
+hint.TextColor3 = Color3.fromRGB(110, 110, 110)
+hint.Font = Enum.Font.Gotham
+hint.TextSize = 9
+hint.TextXAlignment = Enum.TextXAlignment.Right
+hint.Parent = frame
+
+-- Drag
+local dragging = false
+local dragInput, dragStart, startPos
+
+top.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = frame.Position
+
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+top.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        dragInput = input
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if input == dragInput and dragging then
+        local delta = input.Position - dragStart
+        frame.Position = UDim2.new(
+            startPos.X.Scale,
+            startPos.X.Offset + delta.X,
+            startPos.Y.Scale,
+            startPos.Y.Offset + delta.Y
+        )
+    end
+end)
+
+local function refresh()
+    local cur = weatherAt(now())
+
+    if cur and cur.name then
+        nowLabel.Text = string.format("Now: %s %s", Icon[cur.name] or "", cur.name)
+        nowLabel.TextColor3 = Color[cur.name] or Color3.fromRGB(230, 230, 230)
+        phaseLabel.Text = string.format("Next phase: %s", clock(cur.secsLeft))
+    else
+        nowLabel.Text = "Now: Unknown / data expired"
+        nowLabel.TextColor3 = Color3.fromRGB(255, 110, 110)
+        phaseLabel.Text = "Need newer DATA.weather"
+    end
+
+    for _, name in ipairs(WatchOrder) do
+        local nxt = nextByName(name, 2500)
+        local row = rows[name]
+
+        if row then
+            if cur and cur.name == name then
+                row.Text = string.format("%s %s: NOW (%s left)", Icon[name] or "•", name, clock(cur.secsLeft))
+            elseif nxt then
+                row.Text = string.format("%s %s: %s", Icon[name] or "•", name, shortDur(nxt.secs))
+            else
+                row.Text = string.format("%s %s: not in data", Icon[name] or "•", name)
+            end
+        end
+    end
+
+    local t = now()
+    for _, item in ipairs(SeedItems) do
+        local row = seedRows[item.name]
+        if row then
+            local curQty, curLeft = seedCurrent(item, t)
+            if curQty then
+                row.Text = string.format("• %s: NOW x%s (%s)", item.name, tostring(curQty), clock(curLeft))
+            else
+                local nextQty, nextLeft = seedNext(item, t)
+                if nextQty then
+                    row.Text = string.format("• %s: %s", item.name, shortDur(nextLeft))
+                else
+                    row.Text = string.format("• %s: not in data", item.name)
+                end
+            end
+        end
+    end
+end
+
+task.spawn(function()
+    while screenGui.Parent do
+        refresh()
+        task.wait(1)
+    end
+end)
+
+print("[WEATHER PREDICTOR] Loaded")
