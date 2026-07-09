@@ -1178,13 +1178,18 @@ end
 
 local function eventNameMatchesSnow(name)
     local n = normalizeEventName(name)
-    return n:find("snowfall", 1, true) ~= nil
-        or n:find("snowman", 1, true) ~= nil
+    -- Jangan pakai contains terlalu luas, biar object aneh/preview nggak false trigger.
+    return n == "snowfall"
+        or n == "snowman"
+        or n == "snowevent"
+        or n == "snowfallevent"
+        or n == "snowmanevent"
 end
 
 local function eventNameMatchesGoldmoon(name)
     local n = normalizeEventName(name)
-    return n:find("goldmoon", 1, true) ~= nil
+    return n == "goldmoon"
+        or n == "goldmoonevent"
 end
 
 local function scanWorkspaceAttributesForLeaveEvent()
@@ -1205,27 +1210,16 @@ local function scanWorkspaceAttributesForLeaveEvent()
 end
 
 local function scanWorkspaceObjectsForLeaveEvent()
-    -- Utama: weather/event biasanya muncul sebagai child workspace.
+    -- Aman: cuma cek object event level atas workspace.
+    -- Descendants dimatiin karena bisa false trigger dari Preview/Temporary/Attachment.
     for _, obj in ipairs(workspace:GetChildren()) do
-        if config.LeaveOnSnowEvent and eventNameMatchesSnow(obj.Name) then
-            return "Snowfall/Snowman object: " .. obj.Name
-        end
-        if config.LeaveOnGoldmoonEvent and eventNameMatchesGoldmoon(obj.Name) then
-            return "Goldmoon object: " .. obj.Name
-        end
-    end
-
-    -- Fallback ringan: cek descendants dengan batas supaya nggak terlalu berat.
-    local checked = 0
-    for _, obj in ipairs(workspace:GetDescendants()) do
-        checked += 1
-        if checked > 1500 then break end
-
-        if config.LeaveOnSnowEvent and eventNameMatchesSnow(obj.Name) then
-            return "Snowfall/Snowman descendant: " .. obj:GetFullName()
-        end
-        if config.LeaveOnGoldmoonEvent and eventNameMatchesGoldmoon(obj.Name) then
-            return "Goldmoon descendant: " .. obj:GetFullName()
+        if obj.Name ~= "Temporary" then
+            if config.LeaveOnSnowEvent and eventNameMatchesSnow(obj.Name) then
+                return "Snowfall/Snowman object: " .. obj.Name
+            end
+            if config.LeaveOnGoldmoonEvent and eventNameMatchesGoldmoon(obj.Name) then
+                return "Goldmoon object: " .. obj.Name
+            end
         end
     end
 
