@@ -94,7 +94,11 @@ local config = {
     SelectedHarvests = {}, SelectedFavSeeds = {}, SelectedShovels = {},
     SeedLimits = {}, SeedImportantNumbers = {}, 
     ShovelLimits = {}, ShovelBaseWeights = {},
-    HopMinPlayers = "3", AutoDodge = false
+    HopMinPlayers = "3", AutoDodge = false,
+    PlantFruitNoclip = true,
+    AutoLeaveEvent = false,
+    LeaveOnSnowEvent = false,
+    LeaveOnGoldmoonEvent = false
 }
 
 local Hunt = { State = "IDLE", Target = nil, Type = nil, GraceTimer = 0, InitialMoney = 0, ExpectedPrice = 0 }
@@ -827,6 +831,11 @@ createButton(SettingsScroll, "Buka Console:", "F9", 29, function()
     VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.F9, false, game)
 end)
 
+createToggle(SettingsScroll, "Plant/Fruit Noclip (Default ON)", "PlantFruitNoclip", 30)
+createToggle(SettingsScroll, "Auto Leave If Event", "AutoLeaveEvent", 31)
+createToggle(SettingsScroll, "Leave: Snowfall / Snowman", "LeaveOnSnowEvent", 32)
+createToggle(SettingsScroll, "Leave: Goldmoon", "LeaveOnGoldmoonEvent", 33)
+
 -- =====================================================================
 -- 4. UTILITY FUNCTIONS & SMART PATHFINDING
 -- =====================================================================
@@ -841,6 +850,61 @@ local function getGardenSpawnPoint()
     end
     return nil
 end
+
+-- =====================================================================
+-- PLANT / FRUIT NOCLIP ONLY (Default ON)
+-- Cuma matiin collision pohon + buah di plot sendiri, bukan world/player.
+-- =====================================================================
+local PlantFruitNoclipConn = nil
+local PlantFruitOldCollision = {}
+
+local function getMyPlantsFolderForNoclip()
+    local plotId = LocalPlayer:GetAttribute("PlotId")
+    if not plotId then return nil end
+
+    local gardensFolder = workspace:FindFirstChild("Gardens")
+    local myPlot = gardensFolder and gardensFolder:FindFirstChild("Plot" .. tostring(plotId))
+    return myPlot and myPlot:FindFirstChild("Plants")
+end
+
+local function applyPlantFruitNoclip()
+    local plantsFolder = getMyPlantsFolderForNoclip()
+    if not plantsFolder then return end
+
+    for _, obj in ipairs(plantsFolder:GetDescendants()) do
+        if obj:IsA("BasePart") then
+            if PlantFruitOldCollision[obj] == nil then
+                PlantFruitOldCollision[obj] = obj.CanCollide
+            end
+            obj.CanCollide = false
+        end
+    end
+end
+
+local function restorePlantFruitCollision()
+    for part, oldState in pairs(PlantFruitOldCollision) do
+        if part and part.Parent and part:IsA("BasePart") then
+            part.CanCollide = oldState
+        end
+    end
+    table.clear(PlantFruitOldCollision)
+end
+
+task.spawn(function()
+    while ScreenGui.Parent do
+        if config.PlantFruitNoclip then
+            applyPlantFruitNoclip()
+            task.wait(0.35)
+        else
+            restorePlantFruitCollision()
+            task.wait(1)
+        end
+    end
+end)
+
+ScreenGui.Destroying:Connect(function()
+    restorePlantFruitCollision()
+end)
 
 local function getPromptLocation(prompt)
     if not prompt or not prompt.Parent then return nil, nil end
@@ -1096,6 +1160,98 @@ task.spawn(function()
                     -- autoDodgeTriggered tetap TRUE - tidak akan scan lagi
                 end
             end
+        end
+    end
+end)
+
+
+-- =====================================================================
+-- AUTO LEAVE IF EVENT HAPPEN
+-- Event pilihan: Snowfall/Snowman dan Goldmoon.
+-- Note: leave pakai LocalPlayer:Kick(), jadi script berhenti total setelah keluar.
+-- =====================================================================
+local autoLeaveTriggered = false
+
+local function normalizeEventName(name)
+    return string.lower(tostring(name or "")):gsub("%s+", ""):gsub("_", ""):gsub("%-", "")
+end
+
+local function eventNameMatchesSnow(name)
+    local n = normalizeEventName(name)
+    return n:find("snowfall", 1, true) ~= nil
+        or n:find("snowman", 1, true) ~= nil
+end
+
+local function eventNameMatchesGoldmoon(name)
+    local n = normalizeEventName(name)
+    return n:find("goldmoon", 1, true) ~= nil
+end
+
+local function scanWorkspaceAttributesForLeaveEvent()
+    local attrNames = {"Weather", "CurrentWeather", "ActiveWeather", "Event", "CurrentEvent", "WeatherEvent"}
+    for _, attrName in ipairs(attrNames) do
+        local val = workspace:GetAttribute(attrName)
+        if val ~= nil then
+            local text = tostring(val)
+            if config.LeaveOnSnowEvent and eventNameMatchesSnow(text) then
+                return "Snowfall/Snowman attribute: " .. text
+            end
+            if config.LeaveOnGoldmoonEvent and eventNameMatchesGoldmoon(text) then
+                return "Goldmoon attribute: " .. text
+            end
+        end
+    end
+    return nil
+end
+
+local function scanWorkspaceObjectsForLeaveEvent()
+    -- Utama: weather/event biasanya muncul sebagai child workspace.
+    for _, obj in ipairs(workspace:GetChildren()) do
+        if config.LeaveOnSnowEvent and eventNameMatchesSnow(obj.Name) then
+            return "Snowfall/Snowman object: " .. obj.Name
+        end
+        if config.LeaveOnGoldmoonEvent and eventNameMatchesGoldmoon(obj.Name) then
+            return "Goldmoon object: " .. obj.Name
+        end
+    end
+
+    -- Fallback ringan: cek descendants dengan batas supaya nggak terlalu berat.
+    local checked = 0
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        checked += 1
+        if checked > 1500 then break end
+
+        if config.LeaveOnSnowEvent and eventNameMatchesSnow(obj.Name) then
+            return "Snowfall/Snowman descendant: " .. obj:GetFullName()
+        end
+        if config.LeaveOnGoldmoonEvent and eventNameMatchesGoldmoon(obj.Name) then
+            return "Goldmoon descendant: " .. obj:GetFullName()
+        end
+    end
+
+    return nil
+end
+
+local function getAutoLeaveEventReason()
+    local reason = scanWorkspaceAttributesForLeaveEvent()
+    if reason then return reason end
+    return scanWorkspaceObjectsForLeaveEvent()
+end
+
+task.spawn(function()
+    while task.wait(0.75) do
+        if config.AutoLeaveEvent and not autoLeaveTriggered then
+            local reason = getAutoLeaveEventReason()
+            if reason then
+                autoLeaveTriggered = true
+                warn("[AUTO LEAVE EVENT] Detected:", reason)
+                task.wait(0.35)
+                pcall(function()
+                    LocalPlayer:Kick("Auto Leave Event: " .. reason)
+                end)
+            end
+        elseif not config.AutoLeaveEvent then
+            autoLeaveTriggered = false
         end
     end
 end)
@@ -1920,6 +2076,22 @@ task.spawn(function()
         return
     end
 
+    local PlayerStateClient = nil
+    local MailboxItemCatalog = nil
+
+    pcall(function()
+        PlayerStateClient = require(ReplicatedStorage:WaitForChild("ClientModules"):WaitForChild("PlayerStateClient"))
+    end)
+
+    pcall(function()
+        local controllers = LocalPlayer:WaitForChild("PlayerScripts"):WaitForChild("Controllers")
+        local catalogModule = controllers:FindFirstChild("MailboxItemCatalog", true)
+
+        if catalogModule and catalogModule:IsA("ModuleScript") then
+            MailboxItemCatalog = require(catalogModule)
+        end
+    end)
+
     local HubGui = CoreGui:FindFirstChild("GAG2_Automation_Hub") or PlayerGui:FindFirstChild("GAG2_Automation_Hub")
     if not HubGui then
         warn("[TOOLS V2] Main Hub GUI tidak ditemukan")
@@ -1989,6 +2161,7 @@ task.spawn(function()
         AutoSprinkler = false,
         SprinklerInterval = "120",
         SprinklerType = "Common Sprinkler",
+        TpToTarget = true,
 
         Targets = {
             ["Strawberry"] = true,
@@ -1999,6 +2172,8 @@ task.spawn(function()
         FruitPriceRefresh = 3,
         FruitPriceTextName = "AutoPriceValue",
         KgTolerance = 0.12,
+
+        WeatherPredictor = false,
 
         AuctionItems = {
             ["super watering can"] = {TimeEnabled = false, TimeLimit = 10},
@@ -2078,6 +2253,8 @@ task.spawn(function()
     local nextFruitPriceTime = 0
     local auctionCheckTask = nil
     local lastBuyLot = {}
+    local weatherGui = nil
+    local weatherRows = {}
     local mailRows = {}
     local lastMailTarget = ""
 
@@ -2306,6 +2483,7 @@ task.spawn(function()
 
     makeLabel(FarmPanel, "Targets:", 8, 99, 70, 18)
     local targetAllBtn = makeButton(FarmPanel, "All", 76, 96, 55, 23)
+    local tpTargetToggle = makeButton(FarmPanel, "", 138, 96, 118, 23)
 
     local targetButtons = {}
     local function refreshTargetButtons()
@@ -2328,14 +2506,17 @@ task.spawn(function()
     makeTargetButton("Strawberry", 8, 126, 205)
     makeTargetButton("Venus Fly Trap", 220, 126, 202)
 
-    local fruitPriceToggle = makeButton(FarmPanel, "", 8, 158, 205, 24)
-    local openAuctionBtn = makeButton(FarmPanel, "Open Auction", 220, 158, 98, 24)
-    local openMailBtn = makeButton(FarmPanel, "Open Mail", 325, 158, 97, 24)
+    local fruitPriceToggle = makeButton(FarmPanel, "", 8, 158, 118, 24)
+    local weatherToggle = makeButton(FarmPanel, "", 132, 158, 104, 24)
+    local openAuctionBtn = makeButton(FarmPanel, "Auction", 242, 158, 82, 24)
+    local openMailBtn = makeButton(FarmPanel, "Mail", 330, 158, 92, 24)
 
     local function refreshFarmToggles()
         paintToggle(waterToggle, ToolsConfig.AutoWater, "Water: ON", "Water: OFF")
         paintToggle(sprinklerToggle, ToolsConfig.AutoSprinkler, "Sprinkler: ON", "Sprinkler: OFF")
-        paintToggle(fruitPriceToggle, ToolsConfig.FruitPriceEnabled, "Fruit Price: ON", "Fruit Price: OFF")
+        paintToggle(fruitPriceToggle, ToolsConfig.FruitPriceEnabled, "Price: ON", "Price: OFF")
+        paintToggle(weatherToggle, ToolsConfig.WeatherPredictor, "Weather: ON", "Weather: OFF")
+        paintToggle(tpTargetToggle, ToolsConfig.TpToTarget, "TP Target: ON", "TP Target: OFF")
     end
 
     waterToggle.MouseButton1Click:Connect(function()
@@ -2352,11 +2533,29 @@ task.spawn(function()
         SaveToolsConfig()
     end)
 
+    tpTargetToggle.MouseButton1Click:Connect(function()
+        ToolsConfig.TpToTarget = not ToolsConfig.TpToTarget
+        refreshFarmToggles()
+        SaveToolsConfig()
+    end)
+
     fruitPriceToggle.MouseButton1Click:Connect(function()
         ToolsConfig.FruitPriceEnabled = not ToolsConfig.FruitPriceEnabled
         nextFruitPriceTime = os.clock()
         refreshFarmToggles()
         SaveToolsConfig()
+    end)
+
+    weatherToggle.MouseButton1Click:Connect(function()
+        ToolsConfig.WeatherPredictor = not ToolsConfig.WeatherPredictor
+        refreshFarmToggles()
+        SaveToolsConfig()
+
+        if not ToolsConfig.WeatherPredictor and weatherGui then
+            weatherGui:Destroy()
+            weatherGui = nil
+            weatherRows = {}
+        end
     end)
 
     targetAllBtn.MouseButton1Click:Connect(function()
@@ -2481,12 +2680,14 @@ task.spawn(function()
     end)
 
     --// MAILBOX COMPACT UI
-    local mailTargetBox = makeBox(MailPanel, "", 8, 32, 160, 24)
+    local mailTargetBox = makeBox(MailPanel, "", 8, 32, 150, 24)
     mailTargetBox.PlaceholderText = "Target username"
 
-    local mailScanBtn = makeButton(MailPanel, "Scan", 174, 32, 60, 24)
-    local mailSendAllBtn = makeButton(MailPanel, "Send All", 240, 32, 82, 24)
-    local mailClearBtn = makeButton(MailPanel, "Clear", 328, 32, 86, 24)
+    local mailSearchBox = makeBox(MailPanel, "", 164, 32, 120, 24)
+    mailSearchBox.PlaceholderText = "Search item"
+
+    local mailScanBtn = makeButton(MailPanel, "Scan", 290, 32, 58, 24)
+    local mailClearBtn = makeButton(MailPanel, "Clear", 354, 32, 60, 24)
 
     local mailList = Instance.new("ScrollingFrame")
     mailList.Size = UDim2.new(1, -16, 0, 118)
@@ -2599,7 +2800,30 @@ task.spawn(function()
         return false
     end
 
-    local function createMailRow(itemName, maxCount, category, order)
+    local function refreshMailSearch()
+        local q = string.lower(tostring(mailSearchBox.Text or ""))
+        q = q:gsub("^%s+", ""):gsub("%s+$", "")
+
+        for _, rowData in ipairs(mailRows) do
+            local row = rowData.Row
+            if row then
+                if q == "" then
+                    row.Visible = true
+                else
+                    local text = string.lower(tostring(rowData.DisplayName or rowData.Name or ""))
+                    local cat = string.lower(tostring(rowData.Category or ""))
+                    row.Visible = text:find(q, 1, true) ~= nil or cat:find(q, 1, true) ~= nil
+                end
+            end
+        end
+
+        updateMailCanvas()
+    end
+
+    mailSearchBox:GetPropertyChangedSignal("Text"):Connect(refreshMailSearch)
+
+    local function createMailRow(displayName, maxCount, category, order, itemKeyOverride)
+        local itemName = itemKeyOverride or displayName
         local row = Instance.new("Frame")
         row.Size = UDim2.new(1, -6, 0, 28)
         row.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
@@ -2613,7 +2837,7 @@ task.spawn(function()
         itemLabel.Position = UDim2.new(0, 7, 0, 0)
         itemLabel.BackgroundTransparency = 1
         itemLabel.TextColor3 = Color3.fromRGB(230, 230, 230)
-        itemLabel.Text = itemName .. " x" .. tostring(maxCount)
+        itemLabel.Text = displayName .. " x" .. tostring(maxCount)
         itemLabel.TextXAlignment = Enum.TextXAlignment.Left
         itemLabel.TextTruncate = Enum.TextTruncate.AtEnd
         itemLabel.Font = Enum.Font.GothamBold
@@ -2649,29 +2873,151 @@ task.spawn(function()
         end)
 
         table.insert(mailRows, {
+            Row = row,
             Name = itemName,
+            DisplayName = displayName,
             Category = category,
             MaxCount = maxCount,
             Box = amountBox
         })
     end
 
-    local function inferMailCategory(item)
-        local category = item:GetAttribute("MainCategory")
-        if category then
-            return category
+    local function isGiftableInventoryEntry(category, itemKey, entryValue, seenPets)
+        if MailboxItemCatalog and MailboxItemCatalog.IsGiftable then
+            local okGiftable, giftable = pcall(function()
+                return MailboxItemCatalog.IsGiftable(category)
+            end)
+
+            if okGiftable and not giftable then
+                return false
+            end
         end
 
-        -- Fallback buat item fruit/configuration yang kadang tidak punya MainCategory.
-        if item:GetAttribute("HarvestedFruit") == true or item:GetAttribute("FruitName") or item:GetAttribute("Fruit") then
-            return "HarvestedFruit"
+        if category == "HarvestedFruits" then
+            return typeof(entryValue) == "table" and entryValue.Id ~= nil
         end
 
-        if item:GetAttribute("Seed") or string.find(string.lower(item.Name), "seed") then
-            return "Seed"
+        if category == "Pets" then
+            if typeof(entryValue) ~= "table" or entryValue.Id == nil then
+                return false
+            end
+
+            if seenPets[itemKey] then
+                return false
+            end
+
+            seenPets[itemKey] = true
+            return entryValue.Equipped ~= true
         end
 
-        return nil
+        return typeof(entryValue) == "number" and entryValue > 0
+    end
+
+    local function getMailboxDisplayName(category, itemKey, entryValue)
+        if category == "HarvestedFruits" and typeof(entryValue) == "table" then
+            local fruitName = entryValue.FruitName or entryValue.Fruit or entryValue.Name or entryValue.SeedName
+            local mutation = entryValue.Mutation
+            local weight = entryValue.Weight or entryValue.Kg or entryValue.Mass
+
+            local text = fruitName and tostring(fruitName) or tostring(itemKey)
+
+            if mutation and mutation ~= "" then
+                text = text .. " [" .. tostring(mutation) .. "]"
+            end
+
+            if tonumber(weight) then
+                text = text .. " [" .. string.format("%.2fkg", tonumber(weight)) .. "]"
+            end
+
+            return text
+        end
+
+        if category == "Pets" and typeof(entryValue) == "table" then
+            return tostring(entryValue.Name or entryValue.PetName or entryValue.Type or itemKey)
+        end
+
+        return tostring(itemKey)
+    end
+
+    local function getGiftableMailboxEntries()
+        local results = {}
+
+        -- Cara asli game: PlayerStateClient.Data.Inventory + MailboxItemCatalog.Categories.
+        -- Ini yang paling akurat karena sama seperti Mailbox UI resmi.
+        if PlayerStateClient and MailboxItemCatalog and typeof(MailboxItemCatalog.Categories) == "table" then
+            local replica = nil
+            pcall(function()
+                replica = PlayerStateClient:GetLocalReplica()
+            end)
+
+            local inventory = replica and replica.Data and replica.Data.Inventory
+
+            if typeof(inventory) == "table" then
+                local seenPets = {}
+
+                for _, category in pairs(MailboxItemCatalog.Categories) do
+                    local categoryData = inventory[category]
+
+                    if typeof(categoryData) == "table" then
+                        if category == "HarvestedFruits" or category == "Pets" then
+                            for itemKey, entryValue in pairs(categoryData) do
+                                if isGiftableInventoryEntry(category, itemKey, entryValue, seenPets) then
+                                    table.insert(results, {
+                                        Name = getMailboxDisplayName(category, itemKey, entryValue),
+                                        ItemKey = itemKey,
+                                        Category = category,
+                                        Count = 1
+                                    })
+                                end
+                            end
+                        else
+                            for itemKey, entryValue in pairs(categoryData) do
+                                if isGiftableInventoryEntry(category, itemKey, entryValue, seenPets) then
+                                    table.insert(results, {
+                                        Name = tostring(itemKey),
+                                        ItemKey = itemKey,
+                                        Category = category,
+                                        Count = entryValue
+                                    })
+                                end
+                            end
+                        end
+                    end
+                end
+
+                table.sort(results, function(a, b)
+                    if a.Category == b.Category then
+                        return tostring(a.Name) < tostring(b.Name)
+                    end
+                    return tostring(a.Category) < tostring(b.Category)
+                end)
+
+                return results, "PlayerStateClient"
+            end
+        end
+
+        -- Fallback MailPerfect lama: hanya Tool dengan MainCategory.
+        -- Tidak pakai tebak nama Gear lagi biar tidak kebanyakan item yang sebenarnya tidak bisa mailbox.
+        local backpack = LocalPlayer:FindFirstChild("Backpack")
+        if backpack then
+            for _, item in pairs(backpack:GetChildren()) do
+                if item:IsA("Tool") then
+                    local category = item:GetAttribute("MainCategory")
+                    local count = item:GetAttribute("Count") or 1
+
+                    if category then
+                        table.insert(results, {
+                            Name = item.Name,
+                            ItemKey = item.Name,
+                            Category = category,
+                            Count = count
+                        })
+                    end
+                end
+            end
+        end
+
+        return results, "BackpackFallback"
     end
 
     local function scanMailboxBackpack()
@@ -2683,37 +3029,15 @@ task.spawn(function()
             end
         end
 
-        local scannedKeys = {}
-        local order = 1
+        local entries, source = getGiftableMailboxEntries()
 
-        local function scanContainer(container)
-            if not container then
-                return
-            end
-
-            for _, item in pairs(container:GetChildren()) do
-                if item:IsA("Tool") or item:IsA("Configuration") then
-                    local category = inferMailCategory(item)
-                    local count = item:GetAttribute("Count") or 1
-
-                    -- Kalau fruit hasil harvest biasanya count tidak ada, tetap 1.
-                    if category then
-                        local key = item.Name .. "|" .. tostring(category) .. "|" .. tostring(item:GetAttribute("Id") or item:GetDebugId())
-                        if not scannedKeys[key] then
-                            scannedKeys[key] = true
-                            createMailRow(item.Name, count, category, order)
-                            order += 1
-                        end
-                    end
-                end
-            end
+        for order, entry in ipairs(entries) do
+            createMailRow(entry.Name, entry.Count, entry.Category, order, entry.ItemKey)
         end
 
-        scanContainer(LocalPlayer:FindFirstChild("Backpack"))
-        scanContainer(LocalPlayer.Character)
-
+        refreshMailSearch()
         updateMailCanvas()
-        print("[MAIL] Scan done. Items:", order - 1)
+        print("[MAIL] Scan done. Source:", source, "Items:", #entries)
     end
 
     mailScanBtn.MouseButton1Click:Connect(scanMailboxBackpack)
@@ -2722,19 +3046,6 @@ task.spawn(function()
         for _, row in ipairs(mailRows) do
             if row.Box then
                 row.Box.Text = "0"
-            end
-        end
-    end)
-
-    mailSendAllBtn.MouseButton1Click:Connect(function()
-        for _, row in ipairs(mailRows) do
-            local amount = tonumber(row.Box and row.Box.Text)
-            if amount and amount > 0 then
-                local ok = sendMailboxItem(row.Name, row.Category, amount)
-                if ok and row.Box then
-                    row.Box.Text = "0"
-                end
-                task.wait(0.25)
             end
         end
     end)
@@ -2835,6 +3146,20 @@ task.spawn(function()
         return nil
     end
 
+    local function tpToPlantTarget(pos)
+        if not ToolsConfig.TpToTarget then return end
+        if not pos then return end
+
+        local char = LocalPlayer.Character
+        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+        if not hrp then return end
+
+        -- agak mundur/naik supaya nggak nyangkut di model tanaman.
+        local targetPos = pos + Vector3.new(0, 4, 5)
+        hrp.CFrame = CFrame.new(targetPos, pos)
+        task.wait(0.12)
+    end
+
     local function getPlantAreaParts(myPlot)
         local parts = {}
         for _, obj in pairs(myPlot:GetDescendants()) do
@@ -2910,6 +3235,7 @@ task.spawn(function()
             if seedName and ToolsConfig.Targets[seedName] then
                 local pos = getPlantPosition(plant)
                 if pos then
+                    tpToPlantTarget(pos)
                     pcall(function()
                         Networking.WateringCan.UseWateringCan:Fire(pos - Vector3.new(0, 0.3, 0), canName, equipped)
                     end)
@@ -2930,6 +3256,8 @@ task.spawn(function()
         local placePos = getSprinklerPlacePosition(myPlot, plantPos, offsetIndex)
 
         if isTooCloseToSprinkler(myPlot, placePos) then return false, "TOO_CLOSE" end
+
+        tpToPlantTarget(plantPos)
 
         local ok = pcall(function()
             Networking.Place.PlaceSprinkler:Fire(placePos, sprinklerName, equipped, plotId)
@@ -3277,6 +3605,1385 @@ task.spawn(function()
         end
     end
 
+
+    --// WEATHER PREDICTOR CORE
+    local WeatherData = {
+        offset = 0,
+        clen = 600,
+        phases = {
+            {
+                offset = 0,
+                duration = 450,
+                name = "Day"
+            },
+            {
+                offset = 450,
+                duration = 30,
+                name = "Sunset"
+            },
+            {
+                offset = 480,
+                duration = 120,
+                name = "Night"
+            }
+        },
+        seq = {
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Rainbow Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Rainbow Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Mega Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Rainbow Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Rainbow Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Bloodmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Rainbow Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Mega Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Rainbow Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Rainbow Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Rainbow Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Rainbow Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Mega Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Mega Moon"},
+            {"Day", "Sunset", "Bloodmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Rainbow Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Rainbow Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Rainbow Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Mega Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Rainbow Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Rainbow Moon"},
+            {"Day", "Sunset", "Bloodmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Rainbow Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Rainbow Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Rainbow Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Rainbow Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Rainbow Moon"},
+            {"Day", "Sunset", "Bloodmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Bloodmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Rainbow Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Mega Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Rainbow Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Rainbow Moon"},
+            {"Day", "Sunset", "Bloodmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Bloodmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Mega Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Rainbow Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Mega Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Rainbow Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Mega Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Rainbow Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Rainbow Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Rainbow Moon"},
+            {"Day", "Sunset", "Rainbow Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Rainbow Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Rainbow Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Mega Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Rainbow Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Mega Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Rainbow Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Mega Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Bloodmoon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Bloodmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Rainbow Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Mega Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Rainbow Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Rainbow Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Rainbow Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Bloodmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Bloodmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Mega Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Mega Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Bloodmoon"},
+            {"Day", "Sunset", "Mega Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Rainbow Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Rainbow Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Bloodmoon"},
+            {"Day", "Sunset", "Rainbow Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Rainbow Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Rainbow Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Mega Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Mega Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Mega Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Rainbow Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Rainbow Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Rainbow Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Rainbow Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Rainbow Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Rainbow Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Mega Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Bloodmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Rainbow Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Rainbow Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Rainbow Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Bloodmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Rainbow Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Rainbow Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Rainbow Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Rainbow Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Rainbow Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Rainbow Moon"},
+            {"Day", "Sunset", "Rainbow Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Bloodmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Rainbow Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Rainbow Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Rainbow Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Rainbow Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Rainbow Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Rainbow Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Rainbow Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Mega Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Moon"},
+            {"Day", "Sunset", "Goldmoon"},
+            {"Day", "Sunset", "Moon"}
+        },
+        startCycle = 2971701
+    }
+
+    local WeatherWatchOrder = {
+        "Bloodmoon",
+        "Rainbow Moon",
+        "Goldmoon",
+        "Mega Moon"
+    }
+
+    local WeatherIcon = {
+        ["Bloodmoon"] = "🌕",
+        ["Rainbow Moon"] = "🌈",
+        ["Goldmoon"] = "🟡",
+        ["Mega Moon"] = "🌑",
+        ["Moon"] = "🌙",
+        ["Day"] = "☀️",
+        ["Sunset"] = "🌇"
+    }
+
+    local WeatherColor = {
+        ["Bloodmoon"] = Color3.fromRGB(255, 90, 90),
+        ["Rainbow Moon"] = Color3.fromRGB(150, 120, 255),
+        ["Goldmoon"] = Color3.fromRGB(255, 205, 80),
+        ["Mega Moon"] = Color3.fromRGB(180, 120, 255),
+        ["Moon"] = Color3.fromRGB(190, 190, 230),
+        ["Day"] = Color3.fromRGB(255, 230, 120),
+        ["Sunset"] = Color3.fromRGB(255, 150, 80)
+    }
+
+    local function weatherClock(sec)
+        sec = math.max(0, math.floor(sec or 0))
+        local m = math.floor(sec / 60)
+        local s = sec % 60
+        return string.format("%02d:%02d", m, s)
+    end
+
+    local function weatherShortDur(sec)
+        sec = math.max(0, math.floor(sec or 0))
+        local d = math.floor(sec / 86400)
+        local h = math.floor((sec % 86400) / 3600)
+        local m = math.floor((sec % 3600) / 60)
+        local s = sec % 60
+
+        if d > 0 then
+            return string.format("%dd %dh", d, h)
+        elseif h > 0 then
+            return string.format("%dh %dm", h, m)
+        elseif m > 0 then
+            return string.format("%dm %02ds", m, s)
+        else
+            return string.format("%ds", s)
+        end
+    end
+
+    local function weatherAt(t)
+        if not WeatherData or not WeatherData.clen then
+            return nil
+        end
+
+        local cyc = math.floor(t / WeatherData.clen)
+        local into = t - cyc * WeatherData.clen
+
+        local pi = 1
+        for i = 1, #WeatherData.phases do
+            if into >= WeatherData.phases[i].offset then
+                pi = i
+            end
+        end
+
+        local idx = cyc - WeatherData.startCycle + 1
+        local seqRow = WeatherData.seq[idx]
+        local name = seqRow and seqRow[pi] or nil
+
+        local nextOff
+        if pi + 1 <= #WeatherData.phases then
+            nextOff = WeatherData.phases[pi + 1].offset
+        else
+            nextOff = WeatherData.clen
+        end
+
+        return {
+            name = name,
+            phaseName = WeatherData.phases[pi].name,
+            secsLeft = cyc * WeatherData.clen + nextOff - t,
+            cyc = cyc,
+            pi = pi
+        }
+    end
+
+    local function upcomingWeather(maxSteps)
+        local t = os.time()
+        local out = {}
+        local cur = weatherAt(t)
+
+        if not cur then
+            return out
+        end
+
+        local cyc = cur.cyc
+        local pi = cur.pi
+
+        for _ = 1, maxSteps do
+            pi += 1
+            if pi > #WeatherData.phases then
+                pi = 1
+                cyc += 1
+            end
+
+            local idx = cyc - WeatherData.startCycle + 1
+            if idx < 1 or idx > #WeatherData.seq then
+                break
+            end
+
+            local row = WeatherData.seq[idx]
+            local name = row and row[pi]
+
+            if name then
+                local startT = cyc * WeatherData.clen + WeatherData.phases[pi].offset
+                table.insert(out, {
+                    name = name,
+                    secs = startT - t,
+                    cyc = cyc,
+                    pi = pi
+                })
+            end
+        end
+
+        return out
+    end
+
+    local function nextWeatherByName(targetName, maxSteps)
+        for _, u in ipairs(upcomingWeather(maxSteps or 2500)) do
+            if u.name == targetName then
+                return u
+            end
+        end
+
+        return nil
+    end
+
+    local function destroyWeatherGui()
+        if weatherGui then
+            weatherGui:Destroy()
+            weatherGui = nil
+            weatherRows = {}
+        end
+    end
+
+    local function ensureWeatherGui()
+        if weatherGui and weatherGui.Parent then
+            return
+        end
+
+        local parentGui = HubGui.Parent or PlayerGui
+
+        weatherGui = Instance.new("Frame")
+        weatherGui.Name = "DafaWeatherMini"
+        weatherGui.Size = UDim2.new(0, 230, 0, 156)
+        weatherGui.AnchorPoint = Vector2.new(1, 1)
+        weatherGui.Position = UDim2.new(1, -14, 1, -14)
+        weatherGui.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
+        weatherGui.BackgroundTransparency = 0.08
+        weatherGui.BorderSizePixel = 0
+        weatherGui.ZIndex = 80
+        weatherGui.Parent = parentGui
+        Instance.new("UICorner", weatherGui).CornerRadius = UDim.new(0, 8)
+
+        local stroke = Instance.new("UIStroke")
+        stroke.Thickness = 1
+        stroke.Transparency = 0.45
+        stroke.Color = Color3.fromRGB(120, 120, 120)
+        stroke.Parent = weatherGui
+
+        local top = Instance.new("Frame")
+        top.Name = "Top"
+        top.Size = UDim2.new(1, 0, 0, 27)
+        top.BackgroundColor3 = Color3.fromRGB(26, 26, 26)
+        top.BorderSizePixel = 0
+        top.ZIndex = 81
+        top.Parent = weatherGui
+        Instance.new("UICorner", top).CornerRadius = UDim.new(0, 8)
+
+        local title = Instance.new("TextLabel")
+        title.Size = UDim2.new(1, -42, 1, 0)
+        title.Position = UDim2.new(0, 8, 0, 0)
+        title.BackgroundTransparency = 1
+        title.Text = "🌙 Weather Predictor"
+        title.TextColor3 = Color3.fromRGB(240, 240, 240)
+        title.Font = Enum.Font.GothamBold
+        title.TextSize = 12
+        title.TextXAlignment = Enum.TextXAlignment.Left
+        title.ZIndex = 82
+        title.Parent = top
+
+        local closeBtn = Instance.new("TextButton")
+        closeBtn.Size = UDim2.new(0, 28, 0, 27)
+        closeBtn.Position = UDim2.new(1, -30, 0, 0)
+        closeBtn.BackgroundTransparency = 1
+        closeBtn.Text = "×"
+        closeBtn.TextColor3 = Color3.fromRGB(210, 210, 210)
+        closeBtn.Font = Enum.Font.GothamBold
+        closeBtn.TextSize = 16
+        closeBtn.ZIndex = 82
+        closeBtn.Parent = top
+
+        closeBtn.MouseButton1Click:Connect(function()
+            ToolsConfig.WeatherPredictor = false
+            refreshFarmToggles()
+            SaveToolsConfig()
+            destroyWeatherGui()
+        end)
+
+        local nowLabel = Instance.new("TextLabel")
+        nowLabel.Name = "NowLabel"
+        nowLabel.Size = UDim2.new(1, -16, 0, 24)
+        nowLabel.Position = UDim2.new(0, 8, 0, 32)
+        nowLabel.BackgroundTransparency = 1
+        nowLabel.Text = "Now: ..."
+        nowLabel.TextColor3 = Color3.fromRGB(230, 230, 230)
+        nowLabel.Font = Enum.Font.GothamBold
+        nowLabel.TextSize = 12
+        nowLabel.TextXAlignment = Enum.TextXAlignment.Left
+        nowLabel.ZIndex = 82
+        nowLabel.Parent = weatherGui
+
+        local phaseLabel = Instance.new("TextLabel")
+        phaseLabel.Name = "PhaseLabel"
+        phaseLabel.Size = UDim2.new(1, -16, 0, 18)
+        phaseLabel.Position = UDim2.new(0, 8, 0, 52)
+        phaseLabel.BackgroundTransparency = 1
+        phaseLabel.Text = "Phase ends: ..."
+        phaseLabel.TextColor3 = Color3.fromRGB(170, 170, 170)
+        phaseLabel.Font = Enum.Font.Gotham
+        phaseLabel.TextSize = 10
+        phaseLabel.TextXAlignment = Enum.TextXAlignment.Left
+        phaseLabel.ZIndex = 82
+        phaseLabel.Parent = weatherGui
+
+        weatherRows = {
+            NowLabel = nowLabel,
+            PhaseLabel = phaseLabel
+        }
+
+        local y = 74
+        for _, name in ipairs(WeatherWatchOrder) do
+            local row = Instance.new("TextLabel")
+            row.Size = UDim2.new(1, -16, 0, 18)
+            row.Position = UDim2.new(0, 8, 0, y)
+            row.BackgroundTransparency = 1
+            row.TextColor3 = WeatherColor[name] or Color3.fromRGB(230, 230, 230)
+            row.Font = Enum.Font.GothamBold
+            row.TextSize = 11
+            row.TextXAlignment = Enum.TextXAlignment.Left
+            row.Text = (WeatherIcon[name] or "•") .. " " .. name .. ": ..."
+            row.ZIndex = 82
+            row.Parent = weatherGui
+            weatherRows[name] = row
+            y += 19
+        end
+
+        local hint = Instance.new("TextLabel")
+        hint.Size = UDim2.new(1, -16, 0, 14)
+        hint.Position = UDim2.new(0, 8, 1, -17)
+        hint.BackgroundTransparency = 1
+        hint.Text = "drag topbar • local clock"
+        hint.TextColor3 = Color3.fromRGB(110, 110, 110)
+        hint.Font = Enum.Font.Gotham
+        hint.TextSize = 9
+        hint.TextXAlignment = Enum.TextXAlignment.Right
+        hint.ZIndex = 82
+        hint.Parent = weatherGui
+
+        local dragging = false
+        local dragInput, dragStart, startPos
+
+        top.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                dragging = true
+                dragStart = input.Position
+                startPos = weatherGui.Position
+
+                input.Changed:Connect(function()
+                    if input.UserInputState == Enum.UserInputState.End then
+                        dragging = false
+                    end
+                end)
+            end
+        end)
+
+        top.InputChanged:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+                dragInput = input
+            end
+        end)
+
+        UserInputService.InputChanged:Connect(function(input)
+            if input == dragInput and dragging and weatherGui then
+                local delta = input.Position - dragStart
+                weatherGui.Position = UDim2.new(
+                    startPos.X.Scale,
+                    startPos.X.Offset + delta.X,
+                    startPos.Y.Scale,
+                    startPos.Y.Offset + delta.Y
+                )
+            end
+        end)
+    end
+
+    local function refreshWeatherGui()
+        if not ToolsConfig.WeatherPredictor then
+            destroyWeatherGui()
+            return
+        end
+
+        ensureWeatherGui()
+
+        local cur = weatherAt(os.time())
+        local nowLabel = weatherRows.NowLabel
+        local phaseLabel = weatherRows.PhaseLabel
+
+        if cur and cur.name then
+            nowLabel.Text = string.format("Now: %s %s", WeatherIcon[cur.name] or "", cur.name)
+            nowLabel.TextColor3 = WeatherColor[cur.name] or Color3.fromRGB(230, 230, 230)
+            phaseLabel.Text = string.format("Next phase: %s", weatherClock(cur.secsLeft))
+        else
+            nowLabel.Text = "Now: Unknown / data expired"
+            nowLabel.TextColor3 = Color3.fromRGB(255, 110, 110)
+            phaseLabel.Text = "Need newer DATA.weather"
+        end
+
+        for _, name in ipairs(WeatherWatchOrder) do
+            local nxt = nextWeatherByName(name, 2500)
+            local row = weatherRows[name]
+
+            if row then
+                if cur and cur.name == name then
+                    row.Text = string.format("%s %s: NOW (%s left)", WeatherIcon[name] or "•", name, weatherClock(cur.secsLeft))
+                elseif nxt then
+                    row.Text = string.format("%s %s: %s", WeatherIcon[name] or "•", name, weatherShortDur(nxt.secs))
+                else
+                    row.Text = string.format("%s %s: not in data", WeatherIcon[name] or "•", name)
+                end
+            end
+        end
+    end
+
     task.spawn(function()
         print("[TOOLS V2] Loaded")
 
@@ -3309,6 +5016,12 @@ task.spawn(function()
                 local interval = tonumber(ToolsConfig.FruitPriceRefresh) or 3
                 nextFruitPriceTime = now + math.max(interval, 1)
                 task.spawn(applyPricesToGui)
+            end
+
+            if ToolsConfig.WeatherPredictor then
+                refreshWeatherGui()
+            elseif weatherGui then
+                destroyWeatherGui()
             end
 
             if isAnyAuctionEnabled() then
