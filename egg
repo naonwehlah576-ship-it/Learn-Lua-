@@ -1,1 +1,340 @@
 
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local LocalPlayer = Players.LocalPlayer
+local EggCmds = require(ReplicatedStorage.Library.Client.EggCmds)
+local AssetsDirectory = require(ReplicatedStorage.Directory.Assets)
+
+-- ==========================================
+-- CONFIGURATION & SETTINGS
+-- ==========================================
+local Config = {
+    AutoSteal = false,
+    TweenSpeed = 60, -- Studs per second
+    SafeArea = Vector3.new(534, 72, -365),
+    HoverY = 72,
+    Rarities = {
+        Common = false,
+        Uncommon = false,
+        Rare = false,
+        Epic = false,
+        Legendary = false,
+        Mythic = false,
+        Secret = true,
+        Divine = true
+    }
+}
+
+-- ==========================================
+-- UTILITY FUNCTIONS (NOCLIP & TWEEN)
+-- ==========================================
+local noclipConnection
+local function ToggleNoclip(state)
+    local char = LocalPlayer.Character
+    if not char then return end
+    
+    if state then
+        if not noclipConnection then
+            noclipConnection = RunService.Stepped:Connect(function()
+                for _, part in pairs(char:GetDescendants()) do
+                    if part:IsA("BasePart") and part.CanCollide then
+                        part.CanCollide = false
+                    end
+                end
+            end)
+        end
+    else
+        if noclipConnection then
+            noclipConnection:Disconnect()
+            noclipConnection = nil
+        end
+    end
+end
+
+local function TweenTo(targetPos)
+    local char = LocalPlayer.Character
+    if not char or not char:FindFirstChild("HumanoidRootPart") then return false end
+    
+    local hrp = char.HumanoidRootPart
+    local distance = (hrp.Position - targetPos).Magnitude
+    local timeToTween = distance / Config.TweenSpeed
+    
+    local tweenInfo = TweenInfo.new(timeToTween, Enum.EasingStyle.Linear)
+    local tween = TweenService:Create(hrp, tweenInfo, {CFrame = CFrame.new(targetPos)})
+    
+    ToggleNoclip(true)
+    hrp.Anchored = true
+    tween:Play()
+    tween.Completed:Wait()
+    hrp.Anchored = false
+    
+    return true
+end
+
+-- ==========================================
+-- GUI CREATION
+-- ==========================================
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "AutoStealGui"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = game:GetService("CoreGui")
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 300, 0, 400)
+MainFrame.Position = UDim2.new(0.5, -150, 0.5, -200)
+MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+MainFrame.BorderSizePixel = 0
+MainFrame.ClipsDescendants = true
+MainFrame.Parent = ScreenGui
+Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 8)
+
+-- Draggable Topbar
+local Topbar = Instance.new("Frame")
+Topbar.Size = UDim2.new(1, 0, 0, 30)
+Topbar.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+Topbar.Parent = MainFrame
+Instance.new("UICorner", Topbar).CornerRadius = UDim.new(0, 8)
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, -60, 1, 0)
+Title.Position = UDim2.new(0, 10, 0, 0)
+Title.BackgroundTransparency = 1
+Title.Text = "🥚 Smart Auto Steal"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 14
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Parent = Topbar
+
+local MinimizeBtn = Instance.new("TextButton")
+MinimizeBtn.Size = UDim2.new(0, 30, 0, 30)
+MinimizeBtn.Position = UDim2.new(1, -60, 0, 0)
+MinimizeBtn.BackgroundTransparency = 1
+MinimizeBtn.Text = "-"
+MinimizeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+MinimizeBtn.TextSize = 20
+MinimizeBtn.Parent = Topbar
+
+local CloseBtn = Instance.new("TextButton")
+CloseBtn.Size = UDim2.new(0, 30, 0, 30)
+CloseBtn.Position = UDim2.new(1, -30, 0, 0)
+CloseBtn.BackgroundTransparency = 1
+CloseBtn.Text = "X"
+CloseBtn.TextColor3 = Color3.fromRGB(255, 100, 100)
+CloseBtn.TextSize = 16
+CloseBtn.Font = Enum.Font.GothamBold
+CloseBtn.Parent = Topbar
+
+-- Make Draggable
+local dragging, dragInput, dragStart, startPos
+Topbar.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = true
+        dragStart = input.Position
+        startPos = MainFrame.Position
+    end
+end)
+Topbar.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement then dragInput = input end
+end)
+UserInputService.InputChanged:Connect(function(input)
+    if input == dragInput and dragging then
+        local delta = input.Position - dragStart
+        MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+end)
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
+end)
+
+-- Right Ctrl Toggle
+UserInputService.InputBegan:Connect(function(input, gpe)
+    if not gpe and input.KeyCode == Enum.KeyCode.RightControl then
+        MainFrame.Visible = not MainFrame.Visible
+    end
+end)
+
+-- Minimize & Close
+local isMinimized = false
+MinimizeBtn.MouseButton1Click:Connect(function()
+    isMinimized = not isMinimized
+    MainFrame.Size = isMinimized and UDim2.new(0, 300, 0, 30) or UDim2.new(0, 300, 0, 400)
+end)
+CloseBtn.MouseButton1Click:Connect(function() ScreenGui:Destroy() end)
+
+-- Master Toggle
+local MasterToggle = Instance.new("TextButton")
+MasterToggle.Size = UDim2.new(1, -20, 0, 35)
+MasterToggle.Position = UDim2.new(0, 10, 0, 40)
+MasterToggle.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+MasterToggle.Text = "AUTO STEAL: OFF"
+MasterToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+MasterToggle.Font = Enum.Font.GothamBold
+MasterToggle.Parent = MainFrame
+Instance.new("UICorner", MasterToggle).CornerRadius = UDim.new(0, 6)
+
+MasterToggle.MouseButton1Click:Connect(function()
+    Config.AutoSteal = not Config.AutoSteal
+    MasterToggle.BackgroundColor3 = Config.AutoSteal and Color3.fromRGB(50, 200, 50) or Color3.fromRGB(200, 50, 50)
+    MasterToggle.Text = Config.AutoSteal and "AUTO STEAL: ON" or "AUTO STEAL: OFF"
+end)
+
+-- Speed Config
+local SpeedLabel = Instance.new("TextLabel")
+SpeedLabel.Size = UDim2.new(0.6, 0, 0, 25)
+SpeedLabel.Position = UDim2.new(0, 10, 0, 85)
+SpeedLabel.BackgroundTransparency = 1
+SpeedLabel.Text = "Tween Speed (Studs/s):"
+SpeedLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+SpeedLabel.Font = Enum.Font.Gotham
+SpeedLabel.TextSize = 12
+SpeedLabel.TextXAlignment = Enum.TextXAlignment.Left
+SpeedLabel.Parent = MainFrame
+
+local SpeedBox = Instance.new("TextBox")
+SpeedBox.Size = UDim2.new(0.3, 0, 0, 25)
+SpeedBox.Position = UDim2.new(0.6, 0, 0, 85)
+SpeedBox.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
+SpeedBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+SpeedBox.Text = tostring(Config.TweenSpeed)
+SpeedBox.Font = Enum.Font.GothamBold
+SpeedBox.Parent = MainFrame
+Instance.new("UICorner", SpeedBox).CornerRadius = UDim.new(0, 4)
+
+SpeedBox.FocusLost:Connect(function()
+    local val = tonumber(SpeedBox.Text)
+    if val and val > 0 then Config.TweenSpeed = val else SpeedBox.Text = tostring(Config.TweenSpeed) end
+end)
+
+-- Rarity Checkboxes
+local RarityFrame = Instance.new("ScrollingFrame")
+RarityFrame.Size = UDim2.new(1, -20, 1, -125)
+RarityFrame.Position = UDim2.new(0, 10, 0, 115)
+RarityFrame.BackgroundTransparency = 1
+RarityFrame.ScrollBarThickness = 4
+RarityFrame.Parent = MainFrame
+
+local layout = Instance.new("UIListLayout")
+layout.Padding = UDim.new(0, 5)
+layout.Parent = RarityFrame
+
+for rarity, state in pairs(Config.Rarities) do
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1, -10, 0, 25)
+    btn.BackgroundColor3 = state and Color3.fromRGB(50, 150, 200) or Color3.fromRGB(60, 60, 65)
+    btn.Text = rarity
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 12
+    btn.Parent = RarityFrame
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
+    
+    btn.MouseButton1Click:Connect(function()
+        Config.Rarities[rarity] = not Config.Rarities[rarity]
+        btn.BackgroundColor3 = Config.Rarities[rarity] and Color3.fromRGB(50, 150, 200) or Color3.fromRGB(60, 60, 65)
+    end)
+end
+
+-- ==========================================
+-- AUTO STEAL LOGIC
+-- ==========================================
+local function GetRarity(category)
+    local assetData = AssetsDirectory.Directory and AssetsDirectory.Directory[category]
+    if assetData and assetData.Rarity then
+        return typeof(assetData.Rarity) == "table" and (assetData.Rarity.Name or assetData.Rarity.DisplayName) or tostring(assetData.Rarity)
+    end
+    return "Unknown"
+end
+
+local function GetTargetEgg()
+    local snapshot = EggCmds.RequestAreaEggSnapshot()
+    if not snapshot or not snapshot.Records then return nil end
+    
+    for _, record in ipairs(snapshot.Records) do
+        if record.State == "Slot" or record.State == "Dropped" then
+            local category = record.AssetCategory or "Unknown"
+            local rarity = GetRarity(category)
+            
+            -- Cek apakah rarity telur ini dicentang di GUI
+            if Config.Rarities[rarity] and record.BottomCFrame then
+                return record
+            end
+        end
+    end
+    return nil
+end
+
+local function ClaimSafeZone()
+    -- Tween kembali ke Safe Area untuk reset posisi dan klaim
+    TweenTo(Config.SafeArea)
+    task.wait(1) -- Beri waktu sedikit untuk game mendeteksi claim
+end
+
+task.spawn(function()
+    while task.wait(0.5) do
+        if not Config.AutoSteal then
+            ToggleNoclip(false)
+            continue 
+        end
+        
+        local char = LocalPlayer.Character
+        if not char or not char:FindFirstChild("HumanoidRootPart") then continue end
+        
+        local currentPos = char.HumanoidRootPart.Position
+        
+        -- 1. Pastikan mulai dari Safe Area jika tidak ada target
+        if (currentPos - Config.SafeArea).Magnitude > 10 then
+            -- Balik ke safe area dulu lewat highway Y
+            TweenTo(Vector3.new(currentPos.X, Config.HoverY, currentPos.Z))
+            TweenTo(Vector3.new(Config.SafeArea.X, Config.HoverY, Config.SafeArea.Z))
+            TweenTo(Config.SafeArea)
+        end
+        
+        -- 2. Scan Telur
+        local targetEgg = GetTargetEgg()
+        if targetEgg then
+            local eggPos = targetEgg.BottomCFrame.Position
+            
+            -- 3. Berangkat lewat Highway (Y = 72)
+            TweenTo(Vector3.new(Config.SafeArea.X, Config.HoverY, Config.SafeArea.Z)) -- Naik dari safe area
+            TweenTo(Vector3.new(eggPos.X, Config.HoverY, eggPos.Z)) -- Jalan lurus ke atas target
+            TweenTo(eggPos) -- Turun ke target
+            
+            task.wait(0.3) -- Jeda stabilisasi posisi untuk server
+            
+            -- 4. Steal Telur
+            -- Note: Karena kita butuh interaksi prompt, kita scan workspace
+            local promptFired = false
+            for _, obj in ipairs(workspace:GetDescendants()) do
+                if obj:IsA("ProximityPrompt") and obj.Name == "CarryAreaEgg" then
+                    local parent = obj.Parent
+                    if parent and (parent.Position - eggPos).Magnitude < 10 then
+                        fireproximityprompt(obj, obj.HoldDuration, true)
+                        promptFired = true
+                        task.wait(obj.HoldDuration + 0.2)
+                        break
+                    end
+                end
+            end
+            
+            -- Jika prompt gagal/tidak ada, pakai Remote Cadangan (berdasarkan data module)
+            if not promptFired then
+                pcall(function()
+                    EggCmds.RequestCarryAreaEgg(targetEgg.Uid, nil) 
+                end)
+            end
+            
+            -- 5. Bawa pulang lewat Highway
+            local posAfterSteal = char.HumanoidRootPart.Position
+            TweenTo(Vector3.new(posAfterSteal.X, Config.HoverY, posAfterSteal.Z)) -- Naik dari posisi curian
+            TweenTo(Vector3.new(Config.SafeArea.X, Config.HoverY, Config.SafeArea.Z)) -- Pulang
+            
+            -- 6. Claim
+            ClaimSafeZone()
+        end
+    end
+end)
