@@ -1,4 +1,3 @@
-
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
@@ -55,7 +54,8 @@ local function ToggleNoclip(state)
     end
 end
 
-local function TweenTo(targetPos)
+-- Update: Tambah parameter stayAnchored biar gak jatuh ke void pas diam
+local function TweenTo(targetPos, stayAnchored)
     local char = LocalPlayer.Character
     if not char or not char:FindFirstChild("HumanoidRootPart") then return false end
     
@@ -67,10 +67,14 @@ local function TweenTo(targetPos)
     local tween = TweenService:Create(hrp, tweenInfo, {CFrame = CFrame.new(targetPos)})
     
     ToggleNoclip(true)
-    hrp.Anchored = true
+    hrp.Anchored = true -- Tahan di udara
     tween:Play()
     tween.Completed:Wait()
-    hrp.Anchored = false
+    
+    -- Hanya lepas jangkar kalau stayAnchored nilainya false
+    if not stayAnchored then
+        hrp.Anchored = false
+    end
     
     return true
 end
@@ -81,6 +85,9 @@ end
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "AutoStealGui"
 ScreenGui.ResetOnSpawn = false
+-- Hapus GUI lama kalau ada biar gak dobel
+local existing = game:GetService("CoreGui"):FindFirstChild("AutoStealGui")
+if existing then existing:Destroy() end
 ScreenGui.Parent = game:GetService("CoreGui")
 
 local MainFrame = Instance.new("Frame")
@@ -222,21 +229,26 @@ local layout = Instance.new("UIListLayout")
 layout.Padding = UDim.new(0, 5)
 layout.Parent = RarityFrame
 
-for rarity, state in pairs(Config.Rarities) do
-    local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(1, -10, 0, 25)
-    btn.BackgroundColor3 = state and Color3.fromRGB(50, 150, 200) or Color3.fromRGB(60, 60, 65)
-    btn.Text = rarity
-    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    btn.Font = Enum.Font.GothamBold
-    btn.TextSize = 12
-    btn.Parent = RarityFrame
-    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
-    
-    btn.MouseButton1Click:Connect(function()
-        Config.Rarities[rarity] = not Config.Rarities[rarity]
+-- Define order for UI
+local RarityOrder = {"Common", "Uncommon", "Rare", "Epic", "Legendary", "Mythic", "Secret", "Divine"}
+
+for _, rarity in ipairs(RarityOrder) do
+    if Config.Rarities[rarity] ~= nil then
+        local btn = Instance.new("TextButton")
+        btn.Size = UDim2.new(1, -10, 0, 25)
         btn.BackgroundColor3 = Config.Rarities[rarity] and Color3.fromRGB(50, 150, 200) or Color3.fromRGB(60, 60, 65)
-    end)
+        btn.Text = rarity
+        btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        btn.Font = Enum.Font.GothamBold
+        btn.TextSize = 12
+        btn.Parent = RarityFrame
+        Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
+        
+        btn.MouseButton1Click:Connect(function()
+            Config.Rarities[rarity] = not Config.Rarities[rarity]
+            btn.BackgroundColor3 = Config.Rarities[rarity] and Color3.fromRGB(50, 150, 200) or Color3.fromRGB(60, 60, 65)
+        end)
+    end
 end
 
 -- ==========================================
@@ -269,8 +281,8 @@ local function GetTargetEgg()
 end
 
 local function ClaimSafeZone()
-    -- Tween kembali ke Safe Area untuk reset posisi dan klaim
-    TweenTo(Config.SafeArea)
+    -- Tween kembali ke Safe Area untuk reset posisi dan klaim (lepas jangkar)
+    TweenTo(Config.SafeArea, false)
     task.wait(1) -- Beri waktu sedikit untuk game mendeteksi claim
 end
 
@@ -289,9 +301,9 @@ task.spawn(function()
         -- 1. Pastikan mulai dari Safe Area jika tidak ada target
         if (currentPos - Config.SafeArea).Magnitude > 10 then
             -- Balik ke safe area dulu lewat highway Y
-            TweenTo(Vector3.new(currentPos.X, Config.HoverY, currentPos.Z))
-            TweenTo(Vector3.new(Config.SafeArea.X, Config.HoverY, Config.SafeArea.Z))
-            TweenTo(Config.SafeArea)
+            TweenTo(Vector3.new(currentPos.X, Config.HoverY, currentPos.Z), true)
+            TweenTo(Vector3.new(Config.SafeArea.X, Config.HoverY, Config.SafeArea.Z), true)
+            TweenTo(Config.SafeArea, false)
         end
         
         -- 2. Scan Telur
@@ -300,38 +312,40 @@ task.spawn(function()
             local eggPos = targetEgg.BottomCFrame.Position
             
             -- 3. Berangkat lewat Highway (Y = 72)
-            TweenTo(Vector3.new(Config.SafeArea.X, Config.HoverY, Config.SafeArea.Z)) -- Naik dari safe area
-            TweenTo(Vector3.new(eggPos.X, Config.HoverY, eggPos.Z)) -- Jalan lurus ke atas target
-            TweenTo(eggPos) -- Turun ke target
+            TweenTo(Vector3.new(Config.SafeArea.X, Config.HoverY, Config.SafeArea.Z), true) -- Naik dari safe area
+            TweenTo(Vector3.new(eggPos.X, Config.HoverY, eggPos.Z), true) -- Jalan lurus ke atas target
+            TweenTo(eggPos, true) -- Turun ke target (Tahan Anchored = true biar gak jatuh!)
             
             task.wait(0.3) -- Jeda stabilisasi posisi untuk server
             
             -- 4. Steal Telur
-            -- Note: Karena kita butuh interaksi prompt, kita scan workspace
             local promptFired = false
             for _, obj in ipairs(workspace:GetDescendants()) do
                 if obj:IsA("ProximityPrompt") and obj.Name == "CarryAreaEgg" then
                     local parent = obj.Parent
                     if parent and (parent.Position - eggPos).Magnitude < 10 then
-                        fireproximityprompt(obj, obj.HoldDuration, true)
-                        promptFired = true
-                        task.wait(obj.HoldDuration + 0.2)
+                        if fireproximityprompt then
+                            fireproximityprompt(obj, obj.HoldDuration, true)
+                            promptFired = true
+                            task.wait(obj.HoldDuration + 0.2)
+                        end
                         break
                     end
                 end
             end
             
-            -- Jika prompt gagal/tidak ada, pakai Remote Cadangan (berdasarkan data module)
+            -- Fallback jika prompt gagal (opsional, jaga-jaga kalau error)
             if not promptFired then
                 pcall(function()
                     EggCmds.RequestCarryAreaEgg(targetEgg.Uid, nil) 
                 end)
+                task.wait(0.5)
             end
             
             -- 5. Bawa pulang lewat Highway
             local posAfterSteal = char.HumanoidRootPart.Position
-            TweenTo(Vector3.new(posAfterSteal.X, Config.HoverY, posAfterSteal.Z)) -- Naik dari posisi curian
-            TweenTo(Vector3.new(Config.SafeArea.X, Config.HoverY, Config.SafeArea.Z)) -- Pulang
+            TweenTo(Vector3.new(posAfterSteal.X, Config.HoverY, posAfterSteal.Z), true) -- Naik dari posisi curian
+            TweenTo(Vector3.new(Config.SafeArea.X, Config.HoverY, Config.SafeArea.Z), true) -- Pulang
             
             -- 6. Claim
             ClaimSafeZone()
