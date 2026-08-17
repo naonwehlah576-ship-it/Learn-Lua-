@@ -1,12 +1,10 @@
 local Players = game:GetService("Players")
-local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local LocalPlayer = Players.LocalPlayer
 local EggCmds = require(ReplicatedStorage.Library.Client.EggCmds)
-local AreaEggSlotIdentity = require(ReplicatedStorage.Library.Util.AreaEggSlotIdentity) -- Dipakai untuk bypass remote
 local AssetsDirectory = require(ReplicatedStorage.Directory.Assets)
 
 -- ==========================================
@@ -14,9 +12,8 @@ local AssetsDirectory = require(ReplicatedStorage.Directory.Assets)
 -- ==========================================
 local Config = {
     AutoSteal = false,
-    TweenSpeed = 60, -- Studs per second
+    CustomSpeed = 35, -- Kecepatan jalan lu
     SafeArea = Vector3.new(534, 72, -365),
-    HoverY = 72,
     Rarities = {
         Common = false,
         Uncommon = false,
@@ -30,51 +27,45 @@ local Config = {
 }
 
 -- ==========================================
--- UTILITY FUNCTIONS (NOCLIP & TWEEN)
+-- MOVEMENT HELPER (WALK MODE)
 -- ==========================================
-local noclipConnection
-local function ToggleNoclip(state)
+local function WalkTo(targetPos)
     local char = LocalPlayer.Character
-    if not char then return end
-    
-    if state then
-        if not noclipConnection then
-            noclipConnection = RunService.Stepped:Connect(function()
-                for _, part in pairs(char:GetDescendants()) do
-                    if part:IsA("BasePart") and part.CanCollide then
-                        part.CanCollide = false
-                    end
-                end
-            end)
-        end
-    else
-        if noclipConnection then
-            noclipConnection:Disconnect()
-            noclipConnection = nil
-        end
-    end
-end
+    if not char then return false end
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hum or not hrp then return false end
 
-local function TweenTo(targetPos, stayAnchored)
-    local char = LocalPlayer.Character
-    if not char or not char:FindFirstChild("HumanoidRootPart") then return false end
-    
-    local hrp = char.HumanoidRootPart
-    local distance = (hrp.Position - targetPos).Magnitude
-    local timeToTween = distance / Config.TweenSpeed
-    
-    local tweenInfo = TweenInfo.new(timeToTween, Enum.EasingStyle.Linear)
-    local tween = TweenService:Create(hrp, tweenInfo, {CFrame = CFrame.new(targetPos)})
-    
-    ToggleNoclip(true)
-    hrp.Anchored = true 
-    tween:Play()
-    tween.Completed:Wait()
-    
-    if not stayAnchored then
-        hrp.Anchored = false
+    hum:MoveTo(targetPos)
+
+    local reached = false
+    local connection
+    connection = hum.MoveToFinished:Connect(function()
+        reached = true
+    end)
+
+    local startTime = tick()
+    while not reached and Config.AutoSteal do
+        task.wait(0.1)
+        if not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then break end
+        
+        -- Paksa WalkSpeed terus biar gak ditarik server
+        hum.WalkSpeed = Config.CustomSpeed
+        
+        -- Cek jarak murni tanpa sumbu Y
+        local currentDist = (Vector3.new(hrp.Position.X, 0, hrp.Position.Z) - Vector3.new(targetPos.X, 0, targetPos.Z)).Magnitude
+        if currentDist <= 3.5 then
+            break
+        end
+
+        if tick() - startTime > 7 then
+            hum:MoveTo(targetPos)
+            startTime = tick()
+        end
     end
-    
+
+    if connection then connection:Disconnect() end
+    hum.WalkSpeed = 16 -- BALIK JADI NORMAL HUMANOID
     return true
 end
 
@@ -82,14 +73,14 @@ end
 -- GUI CREATION
 -- ==========================================
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "AutoStealGui"
+ScreenGui.Name = "AutoStealGui_WalkProx"
 ScreenGui.ResetOnSpawn = false
-local existing = game:GetService("CoreGui"):FindFirstChild("AutoStealGui")
+local existing = game:GetService("CoreGui"):FindFirstChild("AutoStealGui_WalkProx")
 if existing then existing:Destroy() end
 ScreenGui.Parent = game:GetService("CoreGui")
 
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 300, 0, 400)
+MainFrame.Size = UDim2.new(0, 300, 0, 420)
 MainFrame.Position = UDim2.new(0.5, -150, 0.5, -200)
 MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
 MainFrame.BorderSizePixel = 0
@@ -107,10 +98,10 @@ local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(1, -60, 1, 0)
 Title.Position = UDim2.new(0, 10, 0, 0)
 Title.BackgroundTransparency = 1
-Title.Text = "🥚 Smart Auto Steal"
+Title.Text = "🏃 Auto Steal (Walk + Prox)"
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
 Title.Font = Enum.Font.GothamBold
-Title.TextSize = 14
+Title.TextSize = 13
 Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.Parent = Topbar
 
@@ -163,7 +154,7 @@ end)
 local isMinimized = false
 MinimizeBtn.MouseButton1Click:Connect(function()
     isMinimized = not isMinimized
-    MainFrame.Size = isMinimized and UDim2.new(0, 300, 0, 30) or UDim2.new(0, 300, 0, 400)
+    MainFrame.Size = isMinimized and UDim2.new(0, 300, 0, 30) or UDim2.new(0, 300, 0, 420)
 end)
 CloseBtn.MouseButton1Click:Connect(function() ScreenGui:Destroy() end)
 
@@ -187,10 +178,10 @@ local SpeedLabel = Instance.new("TextLabel")
 SpeedLabel.Size = UDim2.new(0.6, 0, 0, 25)
 SpeedLabel.Position = UDim2.new(0, 10, 0, 85)
 SpeedLabel.BackgroundTransparency = 1
-SpeedLabel.Text = "Tween Speed (Studs/s):"
+SpeedLabel.Text = "Custom WalkSpeed:"
 SpeedLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
 SpeedLabel.Font = Enum.Font.Gotham
-SpeedLabel.TextSize = 12
+SpeedLabel.TextSize = 12 
 SpeedLabel.TextXAlignment = Enum.TextXAlignment.Left
 SpeedLabel.Parent = MainFrame
 
@@ -198,20 +189,23 @@ local SpeedBox = Instance.new("TextBox")
 SpeedBox.Size = UDim2.new(0.3, 0, 0, 25)
 SpeedBox.Position = UDim2.new(0.6, 0, 0, 85)
 SpeedBox.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
-SpeedBox.TextColor3 = Color3.fromRGB(255, 255, 255)
-SpeedBox.Text = tostring(Config.TweenSpeed)
+SpeedBox.TextColor3 = Color3.fromRGB(255, 215, 60)
+SpeedBox.Text = tostring(Config.CustomSpeed)
 SpeedBox.Font = Enum.Font.GothamBold
 SpeedBox.Parent = MainFrame
 Instance.new("UICorner", SpeedBox).CornerRadius = UDim.new(0, 4)
 
 SpeedBox.FocusLost:Connect(function()
     local val = tonumber(SpeedBox.Text)
-    if val and val > 0 then Config.TweenSpeed = val else SpeedBox.Text = tostring(Config.TweenSpeed) end
+    if val and val > 0 then 
+        Config.CustomSpeed = val 
+    else 
+        SpeedBox.Text = tostring(Config.CustomSpeed) 
+    end
 end)
 
--- Rarity Checkboxes
 local RarityFrame = Instance.new("ScrollingFrame")
-RarityFrame.Size = UDim2.new(1, -20, 1, -150) -- Dikecilin dikit buat tempat Status Label
+RarityFrame.Size = UDim2.new(1, -20, 1, -155)
 RarityFrame.Position = UDim2.new(0, 10, 0, 115)
 RarityFrame.BackgroundTransparency = 1
 RarityFrame.ScrollBarThickness = 4
@@ -288,66 +282,66 @@ local function GetTargetEgg()
     return nil
 end
 
-local function ClaimSafeZone()
-    UpdateStatus("Reset Posisi & Klaim di Safe Area")
-    TweenTo(Config.SafeArea, false)
-    task.wait(1)
-end
-
 task.spawn(function()
     while task.wait(0.5) do
         if not Config.AutoSteal then
             UpdateStatus("Idle (Off)")
-            ToggleNoclip(false)
+            local char = LocalPlayer.Character
+            local hum = char and char:FindFirstChildOfClass("Humanoid")
+            if hum then hum.WalkSpeed = 16 end 
             continue 
         end
         
         local char = LocalPlayer.Character
-        if not char or not char:FindFirstChild("HumanoidRootPart") then continue end
+        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+        if not hrp then continue end
         
-        local currentPos = char.HumanoidRootPart.Position
+        local currentPos = hrp.Position
         
-        UpdateStatus("Mencari Telur...")
-        
-        if (currentPos - Config.SafeArea).Magnitude > 10 then
-            UpdateStatus("Kembali ke Safe Area...")
-            TweenTo(Vector3.new(currentPos.X, Config.HoverY, currentPos.Z), true)
-            TweenTo(Vector3.new(Config.SafeArea.X, Config.HoverY, Config.SafeArea.Z), true)
-            TweenTo(Config.SafeArea, false)
+        -- Balik ke Safe Area kalau jauh & gak ada target
+        if (Vector3.new(currentPos.X, 0, currentPos.Z) - Vector3.new(Config.SafeArea.X, 0, Config.SafeArea.Z)).Magnitude > 10 then
+            UpdateStatus("Pulang ke Safe Area...")
+            WalkTo(Config.SafeArea)
         end
         
+        UpdateStatus("Mencari Target Telur...")
         local targetEgg = GetTargetEgg()
         if targetEgg then
             local eggPos = targetEgg.BottomCFrame.Position
             
-            UpdateStatus("Berangkat lewat Y=72...")
-            TweenTo(Vector3.new(Config.SafeArea.X, Config.HoverY, Config.SafeArea.Z), true) 
-            TweenTo(Vector3.new(eggPos.X, Config.HoverY, eggPos.Z), true) 
+            -- 1. Jalan normal ke telur
+            UpdateStatus("Jalan ke posisi telur...")
+            WalkTo(eggPos)
+            task.wait(0.2) 
             
-            UpdateStatus("Turun ke posisi telur...")
-            TweenTo(eggPos, true) 
-            
-            task.wait(0.3) 
-            
-            -- [DIPERBAIKI] Remote Steal Bypass
-            UpdateStatus("Eksekusi Mencuri Telur!")
-            local slotKey = nil
-            if AreaEggSlotIdentity.IsFirstAreaUid(targetEgg.Uid) then
-                slotKey = AreaEggSlotIdentity.BuildSlotKey(targetEgg.AreaId, targetEgg.NestId)
+            -- 2. Tembak ProximityPrompt fisik tanpa remote bypass
+            UpdateStatus("Mencoba nge-klik prompt Steal...")
+            local promptFired = false
+            for _, prompt in ipairs(workspace:GetDescendants()) do
+                if prompt:IsA("ProximityPrompt") and prompt.Enabled then
+                    local hostPart = prompt:FindFirstAncestorWhichIsA("BasePart")
+                    if hostPart and (hrp.Position - hostPart.Position).Magnitude <= 15 then
+                        if fireproximityprompt then
+                            fireproximityprompt(prompt, 1, true)
+                            promptFired = true
+                            UpdateStatus("Berhasil ditekan!")
+                            task.wait(prompt.HoldDuration + 0.2)
+                        end
+                        break
+                    end
+                end
             end
             
-            pcall(function()
-                EggCmds.RequestCarryAreaEgg(targetEgg.Uid, slotKey) 
-            end)
-            
-            task.wait(0.5)
-            
-            UpdateStatus("Membawa telur pulang...")
-            local posAfterSteal = char.HumanoidRootPart.Position
-            TweenTo(Vector3.new(posAfterSteal.X, Config.HoverY, posAfterSteal.Z), true) 
-            TweenTo(Vector3.new(Config.SafeArea.X, Config.HoverY, Config.SafeArea.Z), true) 
-            
-            ClaimSafeZone()
+            if promptFired then
+                -- 3. Jalan balik bawa telur
+                UpdateStatus("Telur dapat! Pulang...")
+                WalkTo(Config.SafeArea)
+                UpdateStatus("Menaruh telur...")
+                task.wait(1)
+            else
+                UpdateStatus("Gagal nemu prompt fisik!")
+                task.wait(1)
+            end
         end
     end
 end)
