@@ -6,6 +6,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local LocalPlayer = Players.LocalPlayer
 local EggCmds = require(ReplicatedStorage.Library.Client.EggCmds)
+local AreaEggSlotIdentity = require(ReplicatedStorage.Library.Util.AreaEggSlotIdentity) -- Dipakai untuk bypass remote
 local AssetsDirectory = require(ReplicatedStorage.Directory.Assets)
 
 -- ==========================================
@@ -54,7 +55,6 @@ local function ToggleNoclip(state)
     end
 end
 
--- Update: Tambah parameter stayAnchored biar gak jatuh ke void pas diam
 local function TweenTo(targetPos, stayAnchored)
     local char = LocalPlayer.Character
     if not char or not char:FindFirstChild("HumanoidRootPart") then return false end
@@ -67,11 +67,10 @@ local function TweenTo(targetPos, stayAnchored)
     local tween = TweenService:Create(hrp, tweenInfo, {CFrame = CFrame.new(targetPos)})
     
     ToggleNoclip(true)
-    hrp.Anchored = true -- Tahan di udara
+    hrp.Anchored = true 
     tween:Play()
     tween.Completed:Wait()
     
-    -- Hanya lepas jangkar kalau stayAnchored nilainya false
     if not stayAnchored then
         hrp.Anchored = false
     end
@@ -85,7 +84,6 @@ end
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "AutoStealGui"
 ScreenGui.ResetOnSpawn = false
--- Hapus GUI lama kalau ada biar gak dobel
 local existing = game:GetService("CoreGui"):FindFirstChild("AutoStealGui")
 if existing then existing:Destroy() end
 ScreenGui.Parent = game:GetService("CoreGui")
@@ -99,7 +97,6 @@ MainFrame.ClipsDescendants = true
 MainFrame.Parent = ScreenGui
 Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 8)
 
--- Draggable Topbar
 local Topbar = Instance.new("Frame")
 Topbar.Size = UDim2.new(1, 0, 0, 30)
 Topbar.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
@@ -136,7 +133,6 @@ CloseBtn.TextSize = 16
 CloseBtn.Font = Enum.Font.GothamBold
 CloseBtn.Parent = Topbar
 
--- Make Draggable
 local dragging, dragInput, dragStart, startPos
 Topbar.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 then
@@ -158,14 +154,12 @@ UserInputService.InputEnded:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
 end)
 
--- Right Ctrl Toggle
 UserInputService.InputBegan:Connect(function(input, gpe)
     if not gpe and input.KeyCode == Enum.KeyCode.RightControl then
         MainFrame.Visible = not MainFrame.Visible
     end
 end)
 
--- Minimize & Close
 local isMinimized = false
 MinimizeBtn.MouseButton1Click:Connect(function()
     isMinimized = not isMinimized
@@ -173,7 +167,6 @@ MinimizeBtn.MouseButton1Click:Connect(function()
 end)
 CloseBtn.MouseButton1Click:Connect(function() ScreenGui:Destroy() end)
 
--- Master Toggle
 local MasterToggle = Instance.new("TextButton")
 MasterToggle.Size = UDim2.new(1, -20, 0, 35)
 MasterToggle.Position = UDim2.new(0, 10, 0, 40)
@@ -190,7 +183,6 @@ MasterToggle.MouseButton1Click:Connect(function()
     MasterToggle.Text = Config.AutoSteal and "AUTO STEAL: ON" or "AUTO STEAL: OFF"
 end)
 
--- Speed Config
 local SpeedLabel = Instance.new("TextLabel")
 SpeedLabel.Size = UDim2.new(0.6, 0, 0, 25)
 SpeedLabel.Position = UDim2.new(0, 10, 0, 85)
@@ -219,7 +211,7 @@ end)
 
 -- Rarity Checkboxes
 local RarityFrame = Instance.new("ScrollingFrame")
-RarityFrame.Size = UDim2.new(1, -20, 1, -125)
+RarityFrame.Size = UDim2.new(1, -20, 1, -150) -- Dikecilin dikit buat tempat Status Label
 RarityFrame.Position = UDim2.new(0, 10, 0, 115)
 RarityFrame.BackgroundTransparency = 1
 RarityFrame.ScrollBarThickness = 4
@@ -229,7 +221,6 @@ local layout = Instance.new("UIListLayout")
 layout.Padding = UDim.new(0, 5)
 layout.Parent = RarityFrame
 
--- Define order for UI
 local RarityOrder = {"Common", "Uncommon", "Rare", "Epic", "Legendary", "Mythic", "Secret", "Divine"}
 
 for _, rarity in ipairs(RarityOrder) do
@@ -252,6 +243,24 @@ for _, rarity in ipairs(RarityOrder) do
 end
 
 -- ==========================================
+-- LIVE STATUS LOGGER
+-- ==========================================
+local StatusLabel = Instance.new("TextLabel")
+StatusLabel.Size = UDim2.new(1, -20, 0, 25)
+StatusLabel.Position = UDim2.new(0, 10, 1, -30)
+StatusLabel.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+StatusLabel.Text = "Status: Idle"
+StatusLabel.TextColor3 = Color3.fromRGB(255, 215, 0)
+StatusLabel.Font = Enum.Font.GothamBold
+StatusLabel.TextSize = 12
+StatusLabel.Parent = MainFrame
+Instance.new("UICorner", StatusLabel).CornerRadius = UDim.new(0, 4)
+
+local function UpdateStatus(msg)
+    StatusLabel.Text = "Status: " .. msg
+end
+
+-- ==========================================
 -- AUTO STEAL LOGIC
 -- ==========================================
 local function GetRarity(category)
@@ -271,7 +280,6 @@ local function GetTargetEgg()
             local category = record.AssetCategory or "Unknown"
             local rarity = GetRarity(category)
             
-            -- Cek apakah rarity telur ini dicentang di GUI
             if Config.Rarities[rarity] and record.BottomCFrame then
                 return record
             end
@@ -281,14 +289,15 @@ local function GetTargetEgg()
 end
 
 local function ClaimSafeZone()
-    -- Tween kembali ke Safe Area untuk reset posisi dan klaim (lepas jangkar)
+    UpdateStatus("Reset Posisi & Klaim di Safe Area")
     TweenTo(Config.SafeArea, false)
-    task.wait(1) -- Beri waktu sedikit untuk game mendeteksi claim
+    task.wait(1)
 end
 
 task.spawn(function()
     while task.wait(0.5) do
         if not Config.AutoSteal then
+            UpdateStatus("Idle (Off)")
             ToggleNoclip(false)
             continue 
         end
@@ -298,56 +307,46 @@ task.spawn(function()
         
         local currentPos = char.HumanoidRootPart.Position
         
-        -- 1. Pastikan mulai dari Safe Area jika tidak ada target
+        UpdateStatus("Mencari Telur...")
+        
         if (currentPos - Config.SafeArea).Magnitude > 10 then
-            -- Balik ke safe area dulu lewat highway Y
+            UpdateStatus("Kembali ke Safe Area...")
             TweenTo(Vector3.new(currentPos.X, Config.HoverY, currentPos.Z), true)
             TweenTo(Vector3.new(Config.SafeArea.X, Config.HoverY, Config.SafeArea.Z), true)
             TweenTo(Config.SafeArea, false)
         end
         
-        -- 2. Scan Telur
         local targetEgg = GetTargetEgg()
         if targetEgg then
             local eggPos = targetEgg.BottomCFrame.Position
             
-            -- 3. Berangkat lewat Highway (Y = 72)
-            TweenTo(Vector3.new(Config.SafeArea.X, Config.HoverY, Config.SafeArea.Z), true) -- Naik dari safe area
-            TweenTo(Vector3.new(eggPos.X, Config.HoverY, eggPos.Z), true) -- Jalan lurus ke atas target
-            TweenTo(eggPos, true) -- Turun ke target (Tahan Anchored = true biar gak jatuh!)
+            UpdateStatus("Berangkat lewat Y=72...")
+            TweenTo(Vector3.new(Config.SafeArea.X, Config.HoverY, Config.SafeArea.Z), true) 
+            TweenTo(Vector3.new(eggPos.X, Config.HoverY, eggPos.Z), true) 
             
-            task.wait(0.3) -- Jeda stabilisasi posisi untuk server
+            UpdateStatus("Turun ke posisi telur...")
+            TweenTo(eggPos, true) 
             
-            -- 4. Steal Telur
-            local promptFired = false
-            for _, obj in ipairs(workspace:GetDescendants()) do
-                if obj:IsA("ProximityPrompt") and obj.Name == "CarryAreaEgg" then
-                    local parent = obj.Parent
-                    if parent and (parent.Position - eggPos).Magnitude < 10 then
-                        if fireproximityprompt then
-                            fireproximityprompt(obj, obj.HoldDuration, true)
-                            promptFired = true
-                            task.wait(obj.HoldDuration + 0.2)
-                        end
-                        break
-                    end
-                end
+            task.wait(0.3) 
+            
+            -- [DIPERBAIKI] Remote Steal Bypass
+            UpdateStatus("Eksekusi Mencuri Telur!")
+            local slotKey = nil
+            if AreaEggSlotIdentity.IsFirstAreaUid(targetEgg.Uid) then
+                slotKey = AreaEggSlotIdentity.BuildSlotKey(targetEgg.AreaId, targetEgg.NestId)
             end
             
-            -- Fallback jika prompt gagal (opsional, jaga-jaga kalau error)
-            if not promptFired then
-                pcall(function()
-                    EggCmds.RequestCarryAreaEgg(targetEgg.Uid, nil) 
-                end)
-                task.wait(0.5)
-            end
+            pcall(function()
+                EggCmds.RequestCarryAreaEgg(targetEgg.Uid, slotKey) 
+            end)
             
-            -- 5. Bawa pulang lewat Highway
+            task.wait(0.5)
+            
+            UpdateStatus("Membawa telur pulang...")
             local posAfterSteal = char.HumanoidRootPart.Position
-            TweenTo(Vector3.new(posAfterSteal.X, Config.HoverY, posAfterSteal.Z), true) -- Naik dari posisi curian
-            TweenTo(Vector3.new(Config.SafeArea.X, Config.HoverY, Config.SafeArea.Z), true) -- Pulang
+            TweenTo(Vector3.new(posAfterSteal.X, Config.HoverY, posAfterSteal.Z), true) 
+            TweenTo(Vector3.new(Config.SafeArea.X, Config.HoverY, Config.SafeArea.Z), true) 
             
-            -- 6. Claim
             ClaimSafeZone()
         end
     end
