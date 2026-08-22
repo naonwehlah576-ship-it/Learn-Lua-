@@ -1,5 +1,5 @@
 -- ==============================================================================
--- AUTO STEAL EGG (SMART PRIORITY SYSTEM + COSMIC RARITY + LERP ENGINE)
+-- AUTO STEAL EGG (DIRECT-TO-TARGET + BOUNDS DETECTION + TITAN HUNTER + LERP)
 -- ==============================================================================
 
 local Players = game:GetService("Players")
@@ -8,15 +8,16 @@ local UserInputService = game:GetService("UserInputService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local HttpService = game:GetService("HttpService")
 local Workspace = game:GetService("Workspace")
-local CoreGui = game:GetService("CoreGui")
 local VirtualUser = game:GetService("VirtualUser")
 
 local LocalPlayer = Players.LocalPlayer
 
--- Mengambil modul game
+-- Mengambil modul game resmi
 local EggCmds = require(ReplicatedStorage.Library.Client.EggCmds)
 local AreaEggSlotIdentity = require(ReplicatedStorage.Library.Util.AreaEggSlotIdentity)
 local AssetsDirectory = require(ReplicatedStorage.Directory.Assets)
+local EggItemUtil = require(ReplicatedStorage.Library.Util.EggItemUtil)
+local AreaEggResetTimeUtil = require(ReplicatedStorage.Library.Util.AreaEggResetTimeUtil)
 
 -- ==========================================
 -- ANTI-AFK SYSTEM (Mencegah Disconnect 20 Menit)
@@ -63,6 +64,8 @@ local Config = {
     Enabled = false,
     FlySpeed = 65,
     FlyHeight = 75,
+    TitanWeight = 1000000, -- Default: 1 Juta Kg
+    BarrierDelay = 2.5,   -- Default: 2.5 Detik jeda barrier
     SafeArea = Vector3.new(540.1, 71.4, -369.1),
     Rarities = {
         Common = false,
@@ -78,7 +81,7 @@ local Config = {
     }
 }
 
--- Tingkatan Prioritas Kasta Rarity (Angka lebih besar = Prioritas Lebih Tinggi)
+-- Kasta Hierarki Prioritas Normal
 local RarityPriority = {
     ["Divine"] = 10,
     ["Eternal"] = 9,
@@ -97,6 +100,8 @@ local function SaveConfig()
         local dataToSave = {
             FlySpeed = Config.FlySpeed,
             FlyHeight = Config.FlyHeight,
+            TitanWeight = Config.TitanWeight,
+            BarrierDelay = Config.BarrierDelay,
             Rarities = Config.Rarities
         }
         pcall(function()
@@ -112,11 +117,9 @@ local function LoadConfig()
             local decoded = HttpService:JSONDecode(raw)
             if decoded then
                 if decoded.FlySpeed then Config.FlySpeed = decoded.FlySpeed end
-                if decoded.FlyHeight then 
-                    Config.FlyHeight = decoded.FlyHeight 
-                elseif decoded.HoverY then
-                    Config.FlyHeight = decoded.HoverY
-                end
+                if decoded.FlyHeight then Config.FlyHeight = decoded.FlyHeight end
+                if decoded.TitanWeight then Config.TitanWeight = decoded.TitanWeight end
+                if decoded.BarrierDelay then Config.BarrierDelay = decoded.BarrierDelay end
                 if decoded.Rarities then
                     for k, v in pairs(decoded.Rarities) do
                         if Config.Rarities[k] ~= nil then
@@ -132,34 +135,92 @@ end
 LoadConfig()
 
 -- ==========================================
--- EVENT CLAIM & TRACKER
+-- EVENT CLAIM & TRACKER & BARRIER STATE
 -- ==========================================
 local JustClaimed = false
 local IgnoredEggs = {}
 local EggsStolenCount = 0
+local IsBarrierOpen = true
 
 local StatusLabel
 local CounterLabel
 local MasterToggle
 
 local function SetStatus(text)
-    if StatusLabel then
-        StatusLabel.Text = "Status: " .. text
-    end
+    pcall(function()
+        if StatusLabel then
+            StatusLabel.Text = "Status: " .. text
+        end
+    end)
 end
 
 local function UpdateCounterDisplay()
-    if CounterLabel then
-        CounterLabel.Text = "Eggs Stolen: " .. tostring(EggsStolenCount)
+    pcall(function()
+        if CounterLabel then
+            CounterLabel.Text = "Eggs Stolen: " .. tostring(EggsStolenCount)
+        end
+    end)
+end
+
+local function FormatKg(num)
+    if num >= 1000000 then
+        return string.format("%.2fM Kg", num / 1000000)
+    elseif num >= 1000 then
+        return string.format("%.1fK Kg", num / 1000)
+    else
+        return string.format("%.2f Kg", num)
     end
+end
+
+-- Deteksi apakah posisi berada di dalam lapangan farm telur
+local function IsInFarmArea(pos)
+    local minZ = -431
+    local maxZ = -296
+    return pos.X >= 549 and pos.Z >= minZ and pos.Z <= maxZ
+end
+
+-- Pengecekan status malam langsung dari jam server game
+local function CheckIsServerNight()
+    local isNight = false
+    pcall(function()
+        if AreaEggResetTimeUtil and AreaEggResetTimeUtil.IsNight then
+            isNight = AreaEggResetTimeUtil.IsNight(Workspace:GetServerTimeNow())
+        end
+    end)
+    return isNight
 end
 
 EggCmds.AreaEggClaimed:Connect(function()
     JustClaimed = true
 end)
 
+-- SIKLUS MALAM
+EggCmds.AreaEggResetStartCountdown:Connect(function()
+    IsBarrierOpen = false
+    SetStatus("🌙 Malam / Area Ditutup (Standby Safe Zone)")
+end)
+
+-- SIKLUS SIANG
+EggCmds.AreaEggRareSpawnsPresented:Connect(function()
+    IsBarrierOpen = false
+    task.spawn(function()
+        local delayTime = tonumber(Config.BarrierDelay) or 2.5
+        local startTime = tick()
+        while (tick() - startTime) < delayTime do
+            if not Config.Enabled then break end
+            local remain = math.max(0, delayTime - (tick() - startTime))
+            SetStatus(string.format("⏳ Buka Barrier dalam: %.1fs", remain))
+            task.wait(0.1)
+        end
+        if not CheckIsServerNight() then
+            IsBarrierOpen = true
+            SetStatus("🟢 Barrier Terbuka! Menyerbu Telur...")
+        end
+    end)
+end)
+
 -- ==========================================
--- NOCLIP SYSTEM (COLLISION RESTORATION)
+-- NOCLIP SYSTEM & ANTI-PUSHBACK BYPASS
 -- ==========================================
 local noclipConnection
 local function ToggleNoclip(state)
@@ -196,16 +257,23 @@ local function ToggleNoclip(state)
     end
 end
 
-local function SetupHumanoid(char)
+local function SetupCharacter(char)
     local hum = char:WaitForChild("Humanoid", 5)
     if hum then
         hum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
         hum:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
     end
+    
+    task.spawn(function()
+        local badScript = char:WaitForChild("AntiCollisionHighSeedPushBack", 3)
+        if badScript then
+            badScript:Destroy()
+        end
+    end)
 end
 
-if LocalPlayer.Character then SetupHumanoid(LocalPlayer.Character) end
-LocalPlayer.CharacterAdded:Connect(SetupHumanoid)
+if LocalPlayer.Character then SetupCharacter(LocalPlayer.Character) end
+LocalPlayer.CharacterAdded:Connect(SetupCharacter)
 
 -- ==========================================
 -- EMERGENCY FORCE STOP FUNCTION
@@ -213,10 +281,12 @@ LocalPlayer.CharacterAdded:Connect(SetupHumanoid)
 local function ForceStopAutomation()
     Config.Enabled = false
     
-    if MasterToggle then
-        MasterToggle.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
-        MasterToggle.Text = "AUTO STEAL: OFF"
-    end
+    pcall(function()
+        if MasterToggle then
+            MasterToggle.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+            MasterToggle.Text = "AUTO STEAL: OFF"
+        end
+    end)
     
     ToggleNoclip(false)
     
@@ -303,7 +373,7 @@ local function SmoothFly(targetPos, speed)
 end
 
 -- ==========================================
--- LOGIC DETEKSI & SMART PRIORITY SELECTION
+-- LOGIC DETEKSI & TITAN-WEIGHT MULTI-TIER
 -- ==========================================
 local function GetRarityText(category)
     local assetData = AssetsDirectory.Directory and AssetsDirectory.Directory[category]
@@ -311,6 +381,24 @@ local function GetRarityText(category)
         return typeof(assetData.Rarity) == "table" and (assetData.Rarity.Name or assetData.Rarity.DisplayName) or tostring(assetData.Rarity)
     end
     return "Unknown"
+end
+
+local function GetTargetScore(candidate)
+    local rarity = candidate.Rarity
+    local weight = candidate.WeightKg
+
+    if rarity == "Divine" then
+        return 4, weight
+    elseif rarity == "Eternal" then
+        return 3, weight
+    elseif weight >= Config.TitanWeight and Config.TitanWeight > 0 then
+        return 2, weight
+    elseif Config.Rarities[rarity] then
+        local rank = RarityPriority[rarity] or 0
+        return 1, rank, weight
+    end
+
+    return 0, 0, 0
 end
 
 local function GetBestTargetEgg()
@@ -324,22 +412,33 @@ local function GetBestTargetEgg()
     local now = tick()
     local candidates = {}
 
-    -- Kumpulkan semua telur yang sesuai filter dan tidak cooldown
     for _, record in ipairs(snapshot.Records) do
         if not IgnoredEggs[record.Uid] or now > IgnoredEggs[record.Uid] then
-            if record.State == "Slot" or record.State == "Dropped" then
-                local rarity = GetRarityText(record.AssetCategory)
-                if Config.Rarities[rarity] and record.BottomCFrame then
-                    local eggPos = record.BottomCFrame.Position
-                    local distance = (eggPos - myPos).Magnitude
-                    local priorityScore = RarityPriority[rarity] or 0
+            if (record.State == "Slot" or record.State == "Dropped") and record.BottomCFrame then
+                local category = tostring(record.AssetCategory or "Unknown")
+                local rarity = GetRarityText(category)
+                local scale = tonumber(record.AssetScale) or 1
+                
+                local weightKg = 0
+                local success, res = pcall(function()
+                    return EggItemUtil.GetWeightKgForScale(category, scale)
+                end)
+                if success and tonumber(res) then weightKg = res end
 
-                    table.insert(candidates, {
-                        Record = record,
-                        Rarity = rarity,
-                        Priority = priorityScore,
-                        Distance = distance
-                    })
+                local eggPos = record.BottomCFrame.Position
+                local distance = (eggPos - myPos).Magnitude
+
+                local cand = {
+                    Record = record,
+                    Rarity = rarity,
+                    Category = category,
+                    WeightKg = weightKg,
+                    Distance = distance
+                }
+
+                local tier = GetTargetScore(cand)
+                if tier > 0 then
+                    table.insert(candidates, cand)
                 end
             end
         end
@@ -347,32 +446,60 @@ local function GetBestTargetEgg()
 
     if #candidates == 0 then return nil end
 
-    -- SORTING CERDAS: 
-    -- 1. Utamakan Rarity Tertinggi (Priority Terbesar)
-    -- 2. Jika Rarity sama, pilih Jarak Terdekat (Distance Terkecil)
+    -- MULTI-TIER SMART SORTING
     table.sort(candidates, function(a, b)
-        if a.Priority ~= b.Priority then
-            return a.Priority > b.Priority
-        else
-            return a.Distance < b.Distance
+        local tierA, valA1 = GetTargetScore(a)
+        local tierB, valB1 = GetTargetScore(b)
+
+        if tierA ~= tierB then
+            return tierA > tierB
         end
+
+        if tierA == 4 or tierA == 3 or tierA == 2 then
+            if a.WeightKg ~= b.WeightKg then
+                return a.WeightKg > b.WeightKg
+            else
+                return a.Distance < b.Distance
+            end
+        elseif tierA == 1 then
+            if valA1 ~= valB1 then
+                return valA1 > valB1
+            elseif a.WeightKg ~= b.WeightKg then
+                return a.WeightKg > b.WeightKg
+            else
+                return a.Distance < b.Distance
+            end
+        end
+        return false
     end)
 
-    return candidates[1].Record
+    return candidates[1]
 end
 
 -- ==========================================
--- GUI CREATION
+-- GUI CREATION (PC & MOBILE UNIVERSAL)
 -- ==========================================
+local function GetSafeGuiParent()
+    if gethui then
+        local success, res = pcall(gethui)
+        if success and res then return res end
+    end
+    return LocalPlayer:WaitForChild("PlayerGui")
+end
+
+local SafeParent = GetSafeGuiParent()
+if SafeParent:FindFirstChild("AutoStealTweenGui") then 
+    pcall(function() SafeParent["AutoStealTweenGui"]:Destroy() end) 
+end
+
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "AutoStealTweenGui"
 ScreenGui.ResetOnSpawn = false
-if CoreGui:FindFirstChild(ScreenGui.Name) then CoreGui[ScreenGui.Name]:Destroy() end
-ScreenGui.Parent = CoreGui
+ScreenGui.Parent = SafeParent
 
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 250, 0, 510)
-MainFrame.Position = UDim2.new(0.7, 0, 0.20, 0)
+MainFrame.Size = UDim2.new(0, 250, 0, 575)
+MainFrame.Position = UDim2.new(0.7, 0, 0.16, 0)
 MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
 MainFrame.BorderSizePixel = 0
 MainFrame.Parent = ScreenGui
@@ -487,7 +614,7 @@ StatusLabel.BackgroundTransparency = 1
 StatusLabel.Text = "Status: Idle"
 StatusLabel.TextColor3 = Color3.fromRGB(180, 200, 220)
 StatusLabel.Font = Enum.Font.GothamMedium
-StatusLabel.TextSize = 11
+StatusLabel.TextSize = 10
 StatusLabel.TextXAlignment = Enum.TextXAlignment.Left
 StatusLabel.Parent = MainFrame
 
@@ -505,23 +632,23 @@ CounterLabel.Parent = MainFrame
 
 -- Speed TextBox
 local SpeedLabel = Instance.new("TextLabel")
-SpeedLabel.Size = UDim2.new(0.6, 0, 0, 25)
+SpeedLabel.Size = UDim2.new(0.6, 0, 0, 24)
 SpeedLabel.Position = UDim2.new(0, 10, 0, 145)
 SpeedLabel.BackgroundTransparency = 1
 SpeedLabel.Text = "Fly Speed:"
 SpeedLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
 SpeedLabel.Font = Enum.Font.GothamSemibold
-SpeedLabel.TextSize = 13
+SpeedLabel.TextSize = 12
 SpeedLabel.TextXAlignment = Enum.TextXAlignment.Left
 SpeedLabel.Parent = MainFrame
 
 local SpeedBox = Instance.new("TextBox")
-SpeedBox.Size = UDim2.new(0.4, -20, 0, 25)
+SpeedBox.Size = UDim2.new(0.4, -20, 0, 24)
 SpeedBox.Position = UDim2.new(0.6, 10, 0, 145)
 SpeedBox.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
 SpeedBox.TextColor3 = Color3.fromRGB(255, 255, 255)
 SpeedBox.Font = Enum.Font.GothamBold
-SpeedBox.TextSize = 13
+SpeedBox.TextSize = 12
 SpeedBox.Text = tostring(Config.FlySpeed)
 SpeedBox.Parent = MainFrame
 Instance.new("UICorner", SpeedBox).CornerRadius = UDim.new(0, 4)
@@ -536,25 +663,25 @@ SpeedBox.FocusLost:Connect(function()
     end
 end)
 
--- General Fly Height TextBox
+-- Fly Height TextBox
 local HeightLabel = Instance.new("TextLabel")
-HeightLabel.Size = UDim2.new(0.6, 0, 0, 25)
-HeightLabel.Position = UDim2.new(0, 10, 0, 175)
+HeightLabel.Size = UDim2.new(0.6, 0, 0, 24)
+HeightLabel.Position = UDim2.new(0, 10, 0, 173)
 HeightLabel.BackgroundTransparency = 1
 HeightLabel.Text = "Fly Height:"
 HeightLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
 HeightLabel.Font = Enum.Font.GothamSemibold
-HeightLabel.TextSize = 13
+HeightLabel.TextSize = 12
 HeightLabel.TextXAlignment = Enum.TextXAlignment.Left
 HeightLabel.Parent = MainFrame
 
 local HeightBox = Instance.new("TextBox")
-HeightBox.Size = UDim2.new(0.4, -20, 0, 25)
-HeightBox.Position = UDim2.new(0.6, 10, 0, 175)
+HeightBox.Size = UDim2.new(0.4, -20, 0, 24)
+HeightBox.Position = UDim2.new(0.6, 10, 0, 173)
 HeightBox.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
 HeightBox.TextColor3 = Color3.fromRGB(255, 255, 255)
 HeightBox.Font = Enum.Font.GothamBold
-HeightBox.TextSize = 13
+HeightBox.TextSize = 12
 HeightBox.Text = tostring(Config.FlyHeight)
 HeightBox.Parent = MainFrame
 Instance.new("UICorner", HeightBox).CornerRadius = UDim.new(0, 4)
@@ -569,10 +696,76 @@ HeightBox.FocusLost:Connect(function()
     end
 end)
 
+-- Titan Weight Override TextBox
+local TitanLabel = Instance.new("TextLabel")
+TitanLabel.Size = UDim2.new(0.6, 0, 0, 24)
+TitanLabel.Position = UDim2.new(0, 10, 0, 201)
+TitanLabel.BackgroundTransparency = 1
+TitanLabel.Text = "Steal Any >= (Kg):"
+TitanLabel.TextColor3 = Color3.fromRGB(255, 215, 0)
+TitanLabel.Font = Enum.Font.GothamSemibold
+TitanLabel.TextSize = 11
+TitanLabel.TextXAlignment = Enum.TextXAlignment.Left
+TitanLabel.Parent = MainFrame
+
+local TitanBox = Instance.new("TextBox")
+TitanBox.Size = UDim2.new(0.4, -20, 0, 24)
+TitanBox.Position = UDim2.new(0.6, 10, 0, 201)
+TitanBox.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
+TitanBox.TextColor3 = Color3.fromRGB(255, 215, 0)
+TitanBox.Font = Enum.Font.GothamBold
+TitanBox.TextSize = 11
+TitanBox.Text = tostring(Config.TitanWeight)
+TitanBox.Parent = MainFrame
+Instance.new("UICorner", TitanBox).CornerRadius = UDim.new(0, 4)
+
+TitanBox.FocusLost:Connect(function()
+    local val = tonumber(TitanBox.Text)
+    if val and val >= 0 then
+        Config.TitanWeight = val
+        SaveConfig()
+    else
+        TitanBox.Text = tostring(Config.TitanWeight)
+    end
+end)
+
+-- Barrier Delay TextBox
+local BarrierDelayLabel = Instance.new("TextLabel")
+BarrierDelayLabel.Size = UDim2.new(0.6, 0, 0, 24)
+BarrierDelayLabel.Position = UDim2.new(0, 10, 0, 229)
+BarrierDelayLabel.BackgroundTransparency = 1
+BarrierDelayLabel.Text = "Barrier Delay (s):"
+BarrierDelayLabel.TextColor3 = Color3.fromRGB(135, 206, 250)
+BarrierDelayLabel.Font = Enum.Font.GothamSemibold
+BarrierDelayLabel.TextSize = 11
+BarrierDelayLabel.TextXAlignment = Enum.TextXAlignment.Left
+BarrierDelayLabel.Parent = MainFrame
+
+local BarrierDelayBox = Instance.new("TextBox")
+BarrierDelayBox.Size = UDim2.new(0.4, -20, 0, 24)
+BarrierDelayBox.Position = UDim2.new(0.6, 10, 0, 229)
+BarrierDelayBox.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
+BarrierDelayBox.TextColor3 = Color3.fromRGB(135, 206, 250)
+BarrierDelayBox.Font = Enum.Font.GothamBold
+BarrierDelayBox.TextSize = 11
+BarrierDelayBox.Text = tostring(Config.BarrierDelay)
+BarrierDelayBox.Parent = MainFrame
+Instance.new("UICorner", BarrierDelayBox).CornerRadius = UDim.new(0, 4)
+
+BarrierDelayBox.FocusLost:Connect(function()
+    local val = tonumber(BarrierDelayBox.Text)
+    if val and val >= 0 then
+        Config.BarrierDelay = val
+        SaveConfig()
+    else
+        BarrierDelayBox.Text = tostring(Config.BarrierDelay)
+    end
+end)
+
 -- Rarity Toggles
 local ScrollRarity = Instance.new("ScrollingFrame")
-ScrollRarity.Size = UDim2.new(1, -20, 1, -215)
-ScrollRarity.Position = UDim2.new(0, 10, 0, 210)
+ScrollRarity.Size = UDim2.new(1, -20, 1, -270)
+ScrollRarity.Position = UDim2.new(0, 10, 0, 260)
 ScrollRarity.BackgroundTransparency = 1
 ScrollRarity.ScrollBarThickness = 4
 ScrollRarity.CanvasSize = UDim2.new(0, 0, 0, 350)
@@ -603,7 +796,7 @@ for _, rarity in ipairs(RarityOrder) do
 end
 
 -- ==========================================
--- MAIN AUTOMATION LOOP
+-- MAIN AUTOMATION LOOP (SMART DEPARTURE)
 -- ==========================================
 task.spawn(function()
     while task.wait(0.2) do
@@ -616,13 +809,54 @@ task.spawn(function()
             continue
         end
 
-        local targetEgg = GetBestTargetEgg()
+        -- 🛡️ KUNCI SINKRONISASI JAM SERVER
+        local isServerNight = CheckIsServerNight()
+        if isServerNight then
+            IsBarrierOpen = false
+        end
+
+        -- JIKA JAM SERVER MENYATAKAN MALAM ATAU BARRIER BELUM SELESAI HITUNG MUNDUR:
+        if isServerNight or not IsBarrierOpen then
+            if isServerNight then
+                SetStatus("🌙 Malam / Area Ditutup (Standby Safe Zone)")
+            end
+            
+            local distToSafe = (Vector3.new(hrp.Position.X, 0, hrp.Position.Z) - Vector3.new(Config.SafeArea.X, 0, Config.SafeArea.Z)).Magnitude
+            if distToSafe > 5 then
+                ToggleNoclip(true)
+                SmoothFly(Vector3.new(hrp.Position.X, Config.FlyHeight, hrp.Position.Z))
+                SmoothFly(Vector3.new(Config.SafeArea.X, Config.FlyHeight, Config.SafeArea.Z))
+                SmoothFly(Config.SafeArea)
+                ToggleNoclip(false)
+            end
+            task.wait(0.3)
+            continue
+        end
+
+        local targetData = GetBestTargetEgg()
         
-        if targetEgg then
-            local eggRarity = GetRarityText(targetEgg.AssetCategory)
+        if targetData then
+            if CheckIsServerNight() or not IsBarrierOpen then
+                continue
+            end
+
+            local targetEgg = targetData.Record
+            local eggRarity = targetData.Rarity
+            local eggCategory = targetData.Category
+            local weightStr = FormatKg(targetData.WeightKg)
             local carriedSuccessfully = false
 
-            SetStatus("Target: [" .. eggRarity .. "]...")
+            -- FORMAT STATUS DISPLAY
+            if eggRarity == "Divine" then
+                SetStatus("Target: [👑 DIVINE | " .. eggCategory .. " | " .. weightStr .. "]...")
+            elseif eggRarity == "Eternal" then
+                SetStatus("Target: [🌌 ETERNAL | " .. eggCategory .. " | " .. weightStr .. "]...")
+            elseif targetData.WeightKg >= Config.TitanWeight and Config.TitanWeight > 0 then
+                SetStatus("Target: [⚡ TITAN " .. weightStr .. " | " .. eggCategory .. "]...")
+            else
+                SetStatus("Target: [" .. eggRarity .. " | " .. eggCategory .. " | " .. weightStr .. "]...")
+            end
+
             ToggleNoclip(true)
 
             local safePos = Config.SafeArea
@@ -631,20 +865,29 @@ task.spawn(function()
             local eggPos = targetEgg.BottomCFrame.Position
             local flyEggPos = Vector3.new(eggPos.X, Config.FlyHeight, eggPos.Z)
 
-            -- 1. PASTIKAN MULAI DARI TITIK AMAN
-            local distToSafe = (Vector3.new(hrp.Position.X, 0, hrp.Position.Z) - Vector3.new(safePos.X, 0, safePos.Z)).Magnitude
-            if distToSafe > 5 then
-                if not SmoothFly(Vector3.new(hrp.Position.X, Config.FlyHeight, hrp.Position.Z)) then continue end
-                if not SmoothFly(flySafePos) then continue end
-                if not SmoothFly(safePos) then continue end
-            end
+            local currentPos = hrp.Position
 
-            -- 2. TERBANG MENUJU TITIK DI ATAS TELUR
-            if not SmoothFly(flySafePos) then continue end
-            if not SmoothFly(flyEggPos) then continue end
+            -- 🚀 LOGIKA PEMBERANGKATAN CERDAS (DIRECT-TO-TARGET)
+            if IsInFarmArea(currentPos) then
+                -- JIKA SUDAH DI DALAM LAPANGAN: Langsung naik ke FlyHeight lalu meluncur ke telur
+                local currentHoverPos = Vector3.new(currentPos.X, Config.FlyHeight, currentPos.Z)
+                if not SmoothFly(currentHoverPos) then continue end
+                if not SmoothFly(flyEggPos) then continue end
+            else
+                -- JIKA DI LUAR (BASE/SAFE ZONE): Berangkat via titik Safe Area
+                local distToSafe = (Vector3.new(currentPos.X, 0, currentPos.Z) - Vector3.new(safePos.X, 0, safePos.Z)).Magnitude
+                if distToSafe > 5 then
+                    if not SmoothFly(Vector3.new(currentPos.X, Config.FlyHeight, currentPos.Z)) then continue end
+                    if not SmoothFly(flySafePos) then continue end
+                    if not SmoothFly(safePos) then continue end
+                end
+
+                if not SmoothFly(flySafePos) then continue end
+                if not SmoothFly(flyEggPos) then continue end
+            end
             
             -- 3. TURUN KE POSISI TELUR
-            SetStatus("Mengambil [" .. eggRarity .. "]...")
+            SetStatus("Mengambil [" .. eggCategory .. " (" .. weightStr .. ")]...")
             local landEggPos = eggPos + Vector3.new(0, 3.5, 0)
             if not SmoothFly(landEggPos) then continue end
 
@@ -654,7 +897,6 @@ task.spawn(function()
             hrp.AssemblyAngularVelocity = Vector3.zero
             task.wait(0.25)
 
-            -- Verifikasi ketersediaan telur di sarang
             local snapshot = EggCmds.RequestAreaEggSnapshot()
             local eggStillValid = false
             if snapshot and snapshot.Records then
@@ -681,21 +923,20 @@ task.spawn(function()
                 end
             end
             
-            -- Blacklist UID agar tidak ditarget ulang
             IgnoredEggs[targetEgg.Uid] = tick() + 10
 
             -- 5. TERBANG PULANG KE SAFE AREA
-            SetStatus("Membawa [" .. eggRarity .. "] Pulang...")
+            SetStatus("Membawa [" .. eggCategory .. " (" .. weightStr .. ")] Pulang...")
             ToggleNoclip(true)
             if not SmoothFly(flyEggPos) then continue end
             if not SmoothFly(flySafePos) then continue end
             if not SmoothFly(safePos) then continue end
 
-            -- 6. VERIFIKASI CLAIM HANYA JIKA BAWA TELUR
+            -- 6. VERIFIKASI CLAIM
             ToggleNoclip(false)
             
             if carriedSuccessfully then
-                SetStatus("Claiming [" .. eggRarity .. "]...")
+                SetStatus("Claiming [" .. eggCategory .. "]...")
                 JustClaimed = false
                 local claimStart = tick()
                 
@@ -705,7 +946,7 @@ task.spawn(function()
                 
                 EggsStolenCount = EggsStolenCount + 1
                 UpdateCounterDisplay()
-                SetStatus("Sukses Curi [" .. eggRarity .. "]! (+1)")
+                SetStatus("Sukses Curi [" .. eggCategory .. " (" .. weightStr .. ")]! (+1)")
                 task.wait(0.5)
             else
                 SetStatus("Telur Gagal / Keduluan...")
