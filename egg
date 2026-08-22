@@ -1,5 +1,5 @@
 -- ==============================================================================
--- AUTO STEAL EGG (DUAL MODE: FLY / WALK BAC-BYPASS + TITAN HUNTER + LERP)
+-- AUTO STEAL EGG (ACTIVE ANTI-SKID BRAKE + TRUE 100% WALKSPEED + TITAN HUNTER)
 -- ==============================================================================
 
 local Players = game:GetService("Players")
@@ -62,9 +62,9 @@ local ConfigFile = "AutoSteal_Config.json"
 
 local Config = {
     Enabled = false,
-    MoveMode = "Walk",    -- "Fly" atau "Walk" (Default: Walk agar aman dari BAC-8516)
-    FlySpeed = 65,
-    FlyHeight = 75,
+    MoveMode = "Walk",    -- "Walk" (100% WalkSpeed Asli) atau "Fly" (CFrame Melayang)
+    FlySpeed = 100,       -- Kecepatan saat mode Fly
+    FlyHeight = 80,       -- Ketinggian saat mode Fly
     TitanWeight = 1000000, -- Default: 1 Juta Kg
     BarrierDelay = 2.5,   -- Default: 2.5 Detik jeda barrier
     SafeArea = Vector3.new(540.1, 71.4, -369.1),
@@ -182,6 +182,7 @@ local function IsInFarmArea(pos)
     return pos.X >= 549 and pos.Z >= minZ and pos.Z <= maxZ
 end
 
+-- Pengecekan status malam langsung dari jam server game
 local function CheckIsServerNight()
     local isNight = false
     pcall(function()
@@ -190,22 +191,6 @@ local function CheckIsServerNight()
         end
     end)
     return isNight
-end
-
--- Deteksi ketinggian tanah asli via Raycast untuk Mode Walk
-local function GetGroundHeight(x, z)
-    local rayOrigin = Vector3.new(x, 150, z)
-    local rayDirection = Vector3.new(0, -200, 0)
-    local raycastParams = RaycastParams.new()
-    raycastParams.FilterType = Enum.RaycastFilterType.Exclude
-    if LocalPlayer.Character then
-        raycastParams.FilterDescendantsInstances = { LocalPlayer.Character }
-    end
-    local result = Workspace:Raycast(rayOrigin, rayDirection, raycastParams)
-    if result then
-        return result.Position.Y + 3.0 -- Offset HRP pas di atas tanah
-    end
-    return 74.4 -- Fallback level tanah
 end
 
 EggCmds.AreaEggClaimed:Connect(function()
@@ -305,100 +290,116 @@ local function ForceStopAutomation()
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
     local hum = char and char:FindFirstChild("Humanoid")
     
+    if hum then
+        hum:Move(Vector3.zero)
+        hum.PlatformStand = false
+        hum:ChangeState(Enum.HumanoidStateType.GettingUp)
+    end
+    
     if hrp then
         hrp.AssemblyLinearVelocity = Vector3.zero
         hrp.AssemblyAngularVelocity = Vector3.zero
-    end
-    
-    if hum then
-        hum.PlatformStand = false
-        hum:ChangeState(Enum.HumanoidStateType.GettingUp)
     end
     
     SetStatus("FORCE STOPPED / RESET")
 end
 
 -- ==========================================
--- UNIFIED MOVEMENT ENGINE (FLY & WALK)
+-- MOVEMENT ENGINE: 1. TRUE WALK DENGAN REM CAKRAM AKTIF
 -- ==========================================
-local function SmoothMove(targetPos, speed)
+local function TrueWalkTo(targetPos, timeout)
+    local char = LocalPlayer.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    local hum = char and char:FindFirstChild("Humanoid")
+    if not hrp or not hum or hum.Health <= 0 then return false end
+
+    hum.PlatformStand = false
+    hum:ChangeState(Enum.HumanoidStateType.Running)
+    ToggleNoclip(false)
+
+    local maxTime = timeout or 20
+    local startTime = tick()
+    local stuckTimer = 0
+
+    while Config.Enabled and hum.Health > 0 and (tick() - startTime < maxTime) do
+        local dt = RunService.Heartbeat:Wait()
+        char = LocalPlayer.Character
+        hrp = char and char:FindFirstChild("HumanoidRootPart")
+        hum = char and char:FindFirstChild("Humanoid")
+        if not hrp or not hum or hum.Health <= 0 then return false end
+
+        local curPos = hrp.Position
+        local delta2D = Vector3.new(targetPos.X - curPos.X, 0, targetPos.Z - curPos.Z)
+        local distance2D = delta2D.Magnitude
+
+        -- 🛑 REM CAKRAM AKTIF: Berhenti mendadak tanpa bablas/melengpeng
+        if distance2D <= 4.5 then
+            hum:Move(Vector3.zero)
+            hrp.AssemblyLinearVelocity = Vector3.zero
+            hrp.AssemblyAngularVelocity = Vector3.zero
+            hrp.CFrame = CFrame.new(targetPos.X, curPos.Y, targetPos.Z)
+            task.wait(0.05)
+            hrp.AssemblyLinearVelocity = Vector3.zero
+            return true
+        end
+
+        hum:MoveTo(targetPos)
+
+        -- Anti-Nyangkut (Auto Jump jika terhalang)
+        local velocity2D = Vector3.new(hrp.AssemblyLinearVelocity.X, 0, hrp.AssemblyLinearVelocity.Z).Magnitude
+        if velocity2D < 5 and distance2D > 6 then
+            stuckTimer = stuckTimer + dt
+            if stuckTimer > 0.3 then
+                hum.Jump = true
+                stuckTimer = 0
+            end
+        else
+            stuckTimer = 0
+        end
+
+        -- Batal jika malam tiba
+        if CheckIsServerNight() or not IsBarrierOpen then
+            hum:Move(Vector3.zero)
+            hrp.AssemblyLinearVelocity = Vector3.zero
+            return false
+        end
+    end
+
+    if hum then hum:Move(Vector3.zero) end
+    if hrp then hrp.AssemblyLinearVelocity = Vector3.zero end
+    return Config.Enabled and (hum and hum.Health > 0)
+end
+
+-- ==========================================
+-- MOVEMENT ENGINE: 2. PURE CFRAME FLY (HEARTBEAT)
+-- ==========================================
+local function PureCFrameFly(targetPos, speed)
     local char = LocalPlayer.Character
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
     local hum = char and char:FindFirstChild("Humanoid")
     if not hrp or not hum or hum.Health <= 0 then return false end
 
     local currentSpeed = speed or Config.FlySpeed
-    local isWalk = (Config.MoveMode == "Walk")
     local startPos = hrp.Position
-    local totalDistance = (targetPos - startPos).Magnitude
-
-    if totalDistance < 0.5 then
-        hrp.CFrame = CFrame.new(targetPos)
-        hrp.AssemblyLinearVelocity = Vector3.zero
-        hrp.AssemblyAngularVelocity = Vector3.zero
-        return true
-    end
-
-    local duration = totalDistance / currentSpeed
+    local dist = (targetPos - startPos).Magnitude
+    local duration = dist / currentSpeed
     local elapsed = 0
-    local direction = (targetPos - startPos).Unit
-
-    if isWalk then
-        hum.PlatformStand = false
-        hum:ChangeState(Enum.HumanoidStateType.Running)
-    else
-        hum.PlatformStand = true
-        hum:ChangeState(Enum.HumanoidStateType.Physics)
-    end
 
     while elapsed < duration and Config.Enabled and hum.Health > 0 do
-        local dt = RunService.PreSimulation:Wait()
+        local dt = RunService.Heartbeat:Wait()
         char = LocalPlayer.Character
         hrp = char and char:FindFirstChild("HumanoidRootPart")
         hum = char and char:FindFirstChild("Humanoid")
-        if not hrp or not hum or hum.Health <= 0 then 
-            if hum then hum.PlatformStand = false end
-            return false 
-        end
+        if not hrp or not hum or hum.Health <= 0 then return false end
 
-        elapsed = math.min(elapsed + dt, duration)
-        local alpha = elapsed / duration
-        
-        local calculatedPos = startPos:Lerp(targetPos, alpha)
-
-        if isWalk then
-            -- MODE WALK: Kunci ketinggian menempel di atas tanah
-            local groundY = GetGroundHeight(calculatedPos.X, calculatedPos.Z)
-            calculatedPos = Vector3.new(calculatedPos.X, groundY, calculatedPos.Z)
-            
-            local moveDir = Vector3.new(direction.X, 0, direction.Z)
-            if moveDir.Magnitude > 0.001 then
-                hrp.CFrame = CFrame.new(calculatedPos, calculatedPos + moveDir)
-                hrp.AssemblyLinearVelocity = moveDir.Unit * currentSpeed
-            else
-                hrp.CFrame = CFrame.new(calculatedPos)
-            end
-        else
-            -- MODE FLY: Zero-gravity Lerp di udara
-            hrp.AssemblyLinearVelocity = direction * currentSpeed
-            if direction.Magnitude > 0.001 then
-                hrp.CFrame = CFrame.new(calculatedPos, calculatedPos + direction)
-            else
-                hrp.CFrame = CFrame.new(calculatedPos)
-            end
-        end
-
-        hrp.AssemblyAngularVelocity = Vector3.zero
+        elapsed = elapsed + dt
+        local alpha = math.min(elapsed / duration, 1)
+        local curPos = startPos:Lerp(targetPos, alpha)
+        hrp.CFrame = CFrame.new(curPos)
     end
 
     if hrp then
         hrp.CFrame = CFrame.new(targetPos)
-        hrp.AssemblyLinearVelocity = Vector3.zero
-        hrp.AssemblyAngularVelocity = Vector3.zero
-    end
-    
-    if hum then
-        hum.PlatformStand = false
     end
 
     return Config.Enabled and (hum and hum.Health > 0)
@@ -638,15 +639,15 @@ ForceStopBtn.MouseButton1Click:Connect(function()
     ForceStopAutomation()
 end)
 
--- Movement Mode Toggle Button (FLY / WALK)
+-- Movement Mode Toggle Button (FLY / WALK 100%)
 local function UpdateModeBtnDisplay()
     if ModeBtn then
         if Config.MoveMode == "Walk" then
             ModeBtn.BackgroundColor3 = Color3.fromRGB(220, 120, 40)
-            ModeBtn.Text = "MODE: WALK (TANAH - AMAN BAC)"
+            ModeBtn.Text = "MODE: WALK (100% SPEED ASLI)"
         else
             ModeBtn.BackgroundColor3 = Color3.fromRGB(50, 140, 220)
-            ModeBtn.Text = "MODE: FLY (UDARA)"
+            ModeBtn.Text = "MODE: FLY (CFRAME UDARA)"
         end
     end
 end
@@ -691,15 +692,15 @@ CounterLabel.TextSize = 11
 CounterLabel.TextXAlignment = Enum.TextXAlignment.Left
 CounterLabel.Parent = MainFrame
 
--- Speed TextBox
+-- Fly Speed TextBox
 local SpeedLabel = Instance.new("TextLabel")
 SpeedLabel.Size = UDim2.new(0.6, 0, 0, 24)
 SpeedLabel.Position = UDim2.new(0, 10, 0, 166)
 SpeedLabel.BackgroundTransparency = 1
-SpeedLabel.Text = "Speed:"
+SpeedLabel.Text = "Fly Speed (Fly Mode):"
 SpeedLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
 SpeedLabel.Font = Enum.Font.GothamSemibold
-SpeedLabel.TextSize = 12
+SpeedLabel.TextSize = 11
 SpeedLabel.TextXAlignment = Enum.TextXAlignment.Left
 SpeedLabel.Parent = MainFrame
 
@@ -883,15 +884,15 @@ task.spawn(function()
             
             local distToSafe = (Vector3.new(hrp.Position.X, 0, hrp.Position.Z) - Vector3.new(Config.SafeArea.X, 0, Config.SafeArea.Z)).Magnitude
             if distToSafe > 5 then
-                ToggleNoclip(true)
                 if Config.MoveMode == "Walk" then
-                    SmoothMove(Config.SafeArea)
+                    TrueWalkTo(Config.SafeArea, 10)
                 else
-                    SmoothMove(Vector3.new(hrp.Position.X, Config.FlyHeight, hrp.Position.Z))
-                    SmoothMove(Vector3.new(Config.SafeArea.X, Config.FlyHeight, Config.SafeArea.Z))
-                    SmoothMove(Config.SafeArea)
+                    ToggleNoclip(true)
+                    PureCFrameFly(Vector3.new(hrp.Position.X, Config.FlyHeight, hrp.Position.Z))
+                    PureCFrameFly(Vector3.new(Config.SafeArea.X, Config.FlyHeight, Config.SafeArea.Z))
+                    PureCFrameFly(Config.SafeArea)
+                    ToggleNoclip(false)
                 end
-                ToggleNoclip(false)
             end
             task.wait(0.3)
             continue
@@ -921,47 +922,43 @@ task.spawn(function()
                 SetStatus("Target: [" .. eggRarity .. " | " .. eggCategory .. " | " .. weightStr .. "]...")
             end
 
-            ToggleNoclip(true)
-
             local safePos = Config.SafeArea
             local eggPos = targetEgg.BottomCFrame.Position
             local currentPos = hrp.Position
-            local landEggPos = eggPos + Vector3.new(0, 3.5, 0)
 
-            -- 🚀 LOGIKA PERJALANAN (BERDASARKAN MODE)
+            -- 🚀 PROSES MENUJU KE TELUR
             if Config.MoveMode == "Walk" then
-                -- MODE WALK (JALAN TANAH / AMAN BAC):
-                -- Langsung lari di tanah menuju telur
-                if not SmoothMove(landEggPos) then continue end
+                -- MODE WALK: Lari sekencang peluru dengan Rem Cakram Aktif
+                if not TrueWalkTo(eggPos, 20) then continue end
             else
-                -- MODE FLY (LERP UDARA):
+                -- MODE FLY: Melayang CFrame di ketinggian FlyHeight
+                ToggleNoclip(true)
                 local flySafePos = Vector3.new(safePos.X, Config.FlyHeight, safePos.Z)
                 local flyEggPos = Vector3.new(eggPos.X, Config.FlyHeight, eggPos.Z)
 
                 if IsInFarmArea(currentPos) then
                     local currentHoverPos = Vector3.new(currentPos.X, Config.FlyHeight, currentPos.Z)
-                    if not SmoothMove(currentHoverPos) then continue end
-                    if not SmoothMove(flyEggPos) then continue end
+                    if not PureCFrameFly(currentHoverPos) then continue end
+                    if not PureCFrameFly(flyEggPos) then continue end
                 else
                     local distToSafe = (Vector3.new(currentPos.X, 0, currentPos.Z) - Vector3.new(safePos.X, 0, safePos.Z)).Magnitude
                     if distToSafe > 5 then
-                        if not SmoothMove(Vector3.new(currentPos.X, Config.FlyHeight, currentPos.Z)) then continue end
-                        if not SmoothMove(flySafePos) then continue end
-                        if not SmoothMove(safePos) then continue end
+                        if not PureCFrameFly(Vector3.new(currentPos.X, Config.FlyHeight, currentPos.Z)) then continue end
+                        if not PureCFrameFly(flySafePos) then continue end
+                        if not PureCFrameFly(safePos) then continue end
                     end
 
-                    if not SmoothMove(flySafePos) then continue end
-                    if not SmoothMove(flyEggPos) then continue end
+                    if not PureCFrameFly(flySafePos) then continue end
+                    if not PureCFrameFly(flyEggPos) then continue end
                 end
-                
+
+                local landEggPos = eggPos + Vector3.new(0, 3.5, 0)
                 SetStatus("Mengambil [" .. eggCategory .. " (" .. weightStr .. ")]...")
-                if not SmoothMove(landEggPos) then continue end
+                if not PureCFrameFly(landEggPos) then continue end
             end
 
-            -- 4. MENDARAT & AMBIL TELUR
+            -- 4. MENGAMBIL TELUR
             ToggleNoclip(false)
-            hrp.AssemblyLinearVelocity = Vector3.zero
-            hrp.AssemblyAngularVelocity = Vector3.zero
             task.wait(0.25)
 
             local snapshot = EggCmds.RequestAreaEggSnapshot()
@@ -992,18 +989,19 @@ task.spawn(function()
             
             IgnoredEggs[targetEgg.Uid] = tick() + 10
 
-            -- 5. KEMBALI KE SAFE AREA
+            -- 5. MEMBAWA TELUR PULANG KE SAFE AREA
             SetStatus("Membawa [" .. eggCategory .. " (" .. weightStr .. ")] Pulang...")
-            ToggleNoclip(true)
 
             if Config.MoveMode == "Walk" then
-                if not SmoothMove(safePos) then continue end
+                -- Lari kembali ke Safe Zone dengan Rem Cakram
+                if not TrueWalkTo(safePos, 20) then continue end
             else
+                ToggleNoclip(true)
                 local flyEggPos = Vector3.new(eggPos.X, Config.FlyHeight, eggPos.Z)
                 local flySafePos = Vector3.new(safePos.X, Config.FlyHeight, safePos.Z)
-                if not SmoothMove(flyEggPos) then continue end
-                if not SmoothMove(flySafePos) then continue end
-                if not SmoothMove(safePos) then continue end
+                if not PureCFrameFly(flyEggPos) then continue end
+                if not PureCFrameFly(flySafePos) then continue end
+                if not PureCFrameFly(safePos) then continue end
             end
 
             -- 6. VERIFIKASI CLAIM DI SAFE AREA
@@ -1033,15 +1031,15 @@ task.spawn(function()
             SetStatus("Mencari Telur...")
             local distToSafe = (Vector3.new(hrp.Position.X, 0, hrp.Position.Z) - Vector3.new(Config.SafeArea.X, 0, Config.SafeArea.Z)).Magnitude
             if distToSafe > 5 then
-                ToggleNoclip(true)
                 if Config.MoveMode == "Walk" then
-                    SmoothMove(Config.SafeArea)
+                    TrueWalkTo(Config.SafeArea, 10)
                 else
-                    SmoothMove(Vector3.new(hrp.Position.X, Config.FlyHeight, hrp.Position.Z))
-                    SmoothMove(Vector3.new(Config.SafeArea.X, Config.FlyHeight, Config.SafeArea.Z))
-                    SmoothMove(Config.SafeArea)
+                    ToggleNoclip(true)
+                    PureCFrameFly(Vector3.new(hrp.Position.X, Config.FlyHeight, hrp.Position.Z))
+                    PureCFrameFly(Vector3.new(Config.SafeArea.X, Config.FlyHeight, Config.SafeArea.Z))
+                    PureCFrameFly(Config.SafeArea)
+                    ToggleNoclip(false)
                 end
-                ToggleNoclip(false)
             end
         end
     end
