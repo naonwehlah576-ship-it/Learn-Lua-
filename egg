@@ -1,5 +1,5 @@
 -- ==============================================================================
--- AUTO STEAL EGG (ORIGINAL DETECTOR + SMOOTH FLIGHT ENGINE)
+-- AUTO STEAL EGG (SYMMETRIC FLIGHT PATH + GENERAL FLY HEIGHT)
 -- ==============================================================================
 
 local Players = game:GetService("Players")
@@ -12,7 +12,7 @@ local CoreGui = game:GetService("CoreGui")
 
 local LocalPlayer = Players.LocalPlayer
 
--- Mengambil modul game (PERSIS DARI SKRIP KAMU)
+-- Mengambil modul game
 local EggCmds = require(ReplicatedStorage.Library.Client.EggCmds)
 local AreaEggSlotIdentity = require(ReplicatedStorage.Library.Util.AreaEggSlotIdentity)
 local AssetsDirectory = require(ReplicatedStorage.Directory.Assets)
@@ -53,8 +53,7 @@ local ConfigFile = "AutoSteal_Config.json"
 local Config = {
     Enabled = false,
     FlySpeed = 65,
-    HoverY = 75,
-    ReturnHoverY = 100,
+    FlyHeight = 75, -- Ketinggian terbang umum (berangkat & pulang)
     SafeArea = Vector3.new(540.1, 71.4, -369.1),
     Rarities = {
         Common = false,
@@ -73,8 +72,7 @@ local function SaveConfig()
     if writefile then
         local dataToSave = {
             FlySpeed = Config.FlySpeed,
-            HoverY = Config.HoverY,
-            ReturnHoverY = Config.ReturnHoverY,
+            FlyHeight = Config.FlyHeight,
             Rarities = Config.Rarities
         }
         pcall(function()
@@ -90,8 +88,11 @@ local function LoadConfig()
             local decoded = HttpService:JSONDecode(raw)
             if decoded then
                 if decoded.FlySpeed then Config.FlySpeed = decoded.FlySpeed end
-                if decoded.HoverY then Config.HoverY = decoded.HoverY end
-                if decoded.ReturnHoverY then Config.ReturnHoverY = decoded.ReturnHoverY end
+                if decoded.FlyHeight then 
+                    Config.FlyHeight = decoded.FlyHeight 
+                elseif decoded.HoverY then
+                    Config.FlyHeight = decoded.HoverY
+                end
                 if decoded.Rarities then
                     for k, v in pairs(decoded.Rarities) do
                         if Config.Rarities[k] ~= nil then
@@ -107,7 +108,17 @@ end
 LoadConfig()
 
 -- ==========================================
--- NOCLIP SYSTEM
+-- EVENT CLAIM LISTENER
+-- ==========================================
+local JustClaimed = false
+local IgnoredEggs = {} -- Daftar cooldown UID agar tidak ditarget ulang
+
+EggCmds.AreaEggClaimed:Connect(function()
+    JustClaimed = true
+end)
+
+-- ==========================================
+-- NOCLIP SYSTEM & ANTI-FALL
 -- ==========================================
 local noclipConnection
 local function ToggleNoclip(state)
@@ -132,8 +143,19 @@ local function ToggleNoclip(state)
     end
 end
 
+local function SetupHumanoid(char)
+    local hum = char:WaitForChild("Humanoid", 5)
+    if hum then
+        hum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+        hum:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
+    end
+end
+
+if LocalPlayer.Character then SetupHumanoid(LocalPlayer.Character) end
+LocalPlayer.CharacterAdded:Connect(SetupHumanoid)
+
 -- ==========================================
--- SMOOTH FLIGHT ENGINE (PENGGANTI TWEEN & ANCHOR)
+-- SMOOTH FLIGHT ENGINE (BYPASS RUBBERBAND & ANTICHEAT)
 -- ==========================================
 local function SmoothFly(targetPos, speed)
     local char = LocalPlayer.Character
@@ -142,17 +164,14 @@ local function SmoothFly(targetPos, speed)
     if not hrp or not hum or hum.Health <= 0 then return false end
 
     local currentSpeed = speed or Config.FlySpeed
+    hum:ChangeState(Enum.HumanoidStateType.Physics)
 
     while Config.Enabled and hum.Health > 0 do
-        local dt = RunService.Heartbeat:Wait()
+        local dt = RunService.PreSimulation:Wait()
         char = LocalPlayer.Character
         hrp = char and char:FindFirstChild("HumanoidRootPart")
         hum = char and char:FindFirstChild("Humanoid")
         if not hrp or not hum or hum.Health <= 0 then return false end
-
-        -- Matikan physics falling / terlempar
-        hrp.AssemblyLinearVelocity = Vector3.zero
-        hrp.AssemblyAngularVelocity = Vector3.zero
 
         local currentPos = hrp.Position
         local delta = targetPos - currentPos
@@ -162,10 +181,18 @@ local function SmoothFly(targetPos, speed)
 
         if distance <= step or distance < 0.5 then
             hrp.CFrame = CFrame.new(targetPos)
+            hrp.AssemblyLinearVelocity = Vector3.zero
+            hrp.AssemblyAngularVelocity = Vector3.zero
             break
         else
-            local nextPos = currentPos + (delta.Unit * step)
-            hrp.CFrame = CFrame.new(nextPos)
+            local direction = delta.Unit
+            local nextPos = currentPos + (direction * step)
+            
+            -- SINKRONISASI VELOCITY: Menipu server agar pergerakan dianggap momentum legal
+            hrp.AssemblyLinearVelocity = direction * currentSpeed
+            hrp.AssemblyAngularVelocity = Vector3.zero
+            
+            hrp.CFrame = CFrame.new(nextPos, nextPos + direction)
         end
     end
 
@@ -178,7 +205,7 @@ local function SmoothFly(targetPos, speed)
 end
 
 -- ==========================================
--- LOGIC DETEKSI TELUR (PERSIS DARI SKRIP KAMU)
+-- LOGIC DETEKSI TELUR (DENGAN ANTI-RE-TARGET)
 -- ==========================================
 local function GetRarityText(category)
     local assetData = AssetsDirectory.Directory and AssetsDirectory.Directory[category]
@@ -192,13 +219,16 @@ local function GetBestTargetEgg()
     local snapshot = EggCmds.RequestAreaEggSnapshot()
     if not snapshot or not snapshot.Records then return nil end
 
+    local now = tick()
     local bestEgg = nil
     for _, record in ipairs(snapshot.Records) do
-        if record.State == "Slot" or record.State == "Dropped" then
-            local rarity = GetRarityText(record.AssetCategory)
-            if Config.Rarities[rarity] and record.BottomCFrame then
-                bestEgg = record
-                break
+        if not IgnoredEggs[record.Uid] or now > IgnoredEggs[record.Uid] then
+            if record.State == "Slot" or record.State == "Dropped" then
+                local rarity = GetRarityText(record.AssetCategory)
+                if Config.Rarities[rarity] and record.BottomCFrame then
+                    bestEgg = record
+                    break
+                end
             end
         end
     end
@@ -329,36 +359,36 @@ SpeedBox.FocusLost:Connect(function()
     end
 end)
 
--- Return Height TextBox
-local ReturnYLabel = Instance.new("TextLabel")
-ReturnYLabel.Size = UDim2.new(0.6, 0, 0, 25)
-ReturnYLabel.Position = UDim2.new(0, 10, 0, 115)
-ReturnYLabel.BackgroundTransparency = 1
-ReturnYLabel.Text = "Return Y Height:"
-ReturnYLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
-ReturnYLabel.Font = Enum.Font.GothamSemibold
-ReturnYLabel.TextSize = 13
-ReturnYLabel.TextXAlignment = Enum.TextXAlignment.Left
-ReturnYLabel.Parent = MainFrame
+-- General Fly Height TextBox
+local HeightLabel = Instance.new("TextLabel")
+HeightLabel.Size = UDim2.new(0.6, 0, 0, 25)
+HeightLabel.Position = UDim2.new(0, 10, 0, 115)
+HeightLabel.BackgroundTransparency = 1
+HeightLabel.Text = "Fly Height:"
+HeightLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+HeightLabel.Font = Enum.Font.GothamSemibold
+HeightLabel.TextSize = 13
+HeightLabel.TextXAlignment = Enum.TextXAlignment.Left
+HeightLabel.Parent = MainFrame
 
-local ReturnYBox = Instance.new("TextBox")
-ReturnYBox.Size = UDim2.new(0.4, -20, 0, 25)
-ReturnYBox.Position = UDim2.new(0.6, 10, 0, 115)
-ReturnYBox.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
-ReturnYBox.TextColor3 = Color3.fromRGB(255, 255, 255)
-ReturnYBox.Font = Enum.Font.GothamBold
-ReturnYBox.TextSize = 13
-ReturnYBox.Text = tostring(Config.ReturnHoverY)
-ReturnYBox.Parent = MainFrame
-Instance.new("UICorner", ReturnYBox).CornerRadius = UDim.new(0, 4)
+local HeightBox = Instance.new("TextBox")
+HeightBox.Size = UDim2.new(0.4, -20, 0, 25)
+HeightBox.Position = UDim2.new(0.6, 10, 0, 115)
+HeightBox.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
+HeightBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+HeightBox.Font = Enum.Font.GothamBold
+HeightBox.TextSize = 13
+HeightBox.Text = tostring(Config.FlyHeight)
+HeightBox.Parent = MainFrame
+Instance.new("UICorner", HeightBox).CornerRadius = UDim.new(0, 4)
 
-ReturnYBox.FocusLost:Connect(function()
-    local val = tonumber(ReturnYBox.Text)
+HeightBox.FocusLost:Connect(function()
+    local val = tonumber(HeightBox.Text)
     if val then
-        Config.ReturnHoverY = val
+        Config.FlyHeight = val
         SaveConfig()
     else
-        ReturnYBox.Text = tostring(Config.ReturnHoverY)
+        HeightBox.Text = tostring(Config.FlyHeight)
     end
 end)
 
@@ -396,7 +426,7 @@ for _, rarity in ipairs(RarityOrder) do
 end
 
 -- ==========================================
--- MAIN AUTOMATION LOOP
+-- MAIN AUTOMATION LOOP (SYMMETRIC ROUTE)
 -- ==========================================
 task.spawn(function()
     while task.wait(0.2) do
@@ -415,22 +445,22 @@ task.spawn(function()
             ToggleNoclip(true)
 
             local safePos = Config.SafeArea
-            local hoverSafePos = Vector3.new(safePos.X, Config.HoverY, safePos.Z)
+            local flySafePos = Vector3.new(safePos.X, Config.FlyHeight, safePos.Z)
 
             local eggPos = targetEgg.BottomCFrame.Position
-            local hoverEggPos = Vector3.new(eggPos.X, Config.HoverY, eggPos.Z)
+            local flyEggPos = Vector3.new(eggPos.X, Config.FlyHeight, eggPos.Z)
 
             -- 1. PASTIKAN MULAI DARI SAFE AREA
             local distToSafe = (Vector3.new(hrp.Position.X, 0, hrp.Position.Z) - Vector3.new(safePos.X, 0, safePos.Z)).Magnitude
             if distToSafe > 5 then
-                if not SmoothFly(Vector3.new(hrp.Position.X, Config.HoverY, hrp.Position.Z)) then continue end
-                if not SmoothFly(hoverSafePos) then continue end
+                if not SmoothFly(Vector3.new(hrp.Position.X, Config.FlyHeight, hrp.Position.Z)) then continue end
+                if not SmoothFly(flySafePos) then continue end
                 if not SmoothFly(safePos) then continue end
             end
 
-            -- 2. BERANGKAT MELUNCUR KE ATAS TELUR (Hover)
-            if not SmoothFly(hoverSafePos) then continue end
-            if not SmoothFly(hoverEggPos) then continue end
+            -- 2. BERANGKAT MELUNCUR KE ATAS TELUR
+            if not SmoothFly(flySafePos) then continue end
+            if not SmoothFly(flyEggPos) then continue end
             
             -- 3. TURUN KE POSISI TELUR DENGAN OFFSET Y +3.5 STUD
             local landEggPos = eggPos + Vector3.new(0, 3.5, 0)
@@ -462,26 +492,30 @@ task.spawn(function()
                 pcall(function()
                     EggCmds.RequestCarryAreaEgg(targetEgg.Uid, slotKey)
                 end)
+                -- Blacklist telur ini agar tidak ditarget ulang selama 10 detik
+                IgnoredEggs[targetEgg.Uid] = tick() + 10
             end
 
-            -- 5. KEMBALI KE SAFE AREA DENGAN RETURN HOVER Y
-            local returnHoverEggPos = Vector3.new(eggPos.X, Config.ReturnHoverY, eggPos.Z)
-            local returnHoverSafePos = Vector3.new(safePos.X, Config.ReturnHoverY, safePos.Z)
-
-            if not SmoothFly(returnHoverEggPos) then continue end
-            if not SmoothFly(returnHoverSafePos) then continue end
+            -- 5. KEMBALI KE SAFE AREA (JALUR SIMETRIS PERSIS SEPERTI BERANGKAT)
+            if not SmoothFly(flyEggPos) then continue end
+            if not SmoothFly(flySafePos) then continue end
             if not SmoothFly(safePos) then continue end
 
-            -- 6. CLAIM SELESAI DI SAFE AREA
+            -- 6. MENUNGGU STATUS CLAIM RESMI DI SAFE AREA
             ToggleNoclip(false)
-            task.wait(1.5)
+            JustClaimed = false
+            local claimStart = tick()
+            while not JustClaimed and (tick() - claimStart < 2.5) and Config.Enabled do
+                task.wait(0.1)
+            end
+            task.wait(0.4)
         else
             -- Status idle: kembali ke safe area jika di luar titik aman
             local distToSafe = (Vector3.new(hrp.Position.X, 0, hrp.Position.Z) - Vector3.new(Config.SafeArea.X, 0, Config.SafeArea.Z)).Magnitude
             if distToSafe > 5 then
                 ToggleNoclip(true)
-                SmoothFly(Vector3.new(hrp.Position.X, Config.HoverY, hrp.Position.Z))
-                SmoothFly(Vector3.new(Config.SafeArea.X, Config.HoverY, Config.SafeArea.Z))
+                SmoothFly(Vector3.new(hrp.Position.X, Config.FlyHeight, hrp.Position.Z))
+                SmoothFly(Vector3.new(Config.SafeArea.X, Config.FlyHeight, Config.SafeArea.Z))
                 SmoothFly(Config.SafeArea)
                 ToggleNoclip(false)
             end
