@@ -1,19 +1,61 @@
+-- ==============================================================================
+-- AUTO STEAL EGG (ORIGINAL BASE + SMART CLAIM & ANTI RE-TARGET + BYPASS RUBBERBAND)
+-- ==============================================================================
+
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local HttpService = game:GetService("HttpService")
+local Workspace = game:GetService("Workspace")
+local CoreGui = game:GetService("CoreGui")
 
 local LocalPlayer = Players.LocalPlayer
+
+-- Mengambil modul game
 local EggCmds = require(ReplicatedStorage.Library.Client.EggCmds)
+local AreaEggSlotIdentity = require(ReplicatedStorage.Library.Util.AreaEggSlotIdentity)
 local AssetsDirectory = require(ReplicatedStorage.Directory.Assets)
 
 -- ==========================================
--- CONFIGURATION & SETTINGS
+-- ANTI-TREADMILL BYPASS (Disable Raycast Query)
 -- ==========================================
+task.spawn(function()
+    local function disableTreadmillQuery(instance)
+        if instance:IsA("BasePart") then
+            instance.CanQuery = false
+        end
+    end
+
+    local treadmillFolder = Workspace:WaitForChild("__ClientTreadmillRenders", 5)
+    if treadmillFolder then
+        for _, part in ipairs(treadmillFolder:GetDescendants()) do
+            disableTreadmillQuery(part)
+        end
+        treadmillFolder.DescendantAdded:Connect(disableTreadmillQuery)
+    end
+
+    Workspace.ChildAdded:Connect(function(child)
+        if child.Name == "__ClientTreadmillRenders" then
+            for _, part in ipairs(child:GetDescendants()) do
+                disableTreadmillQuery(part)
+            end
+            child.DescendantAdded:Connect(disableTreadmillQuery)
+        end
+    end)
+end)
+
+-- ==========================================
+-- CONFIGURATION & AUTO SAVE/LOAD
+-- ==========================================
+local ConfigFile = "AutoSteal_Config.json"
+
 local Config = {
-    AutoSteal = false,
-    CustomSpeed = 35, -- Kecepatan jalan lu
-    SafeArea = Vector3.new(534, 72, -365),
+    Enabled = false,
+    FlySpeed = 65,
+    HoverY = 75,
+    ReturnHoverY = 100,
+    SafeArea = Vector3.new(540.1, 71.4, -369.1),
     Rarities = {
         Common = false,
         Uncommon = false,
@@ -22,108 +64,228 @@ local Config = {
         Legendary = false,
         Mythic = false,
         Secret = true,
-        Divine = true
+        Divine = true,
+        Eternal = true
     }
 }
 
+local function SaveConfig()
+    if writefile then
+        local dataToSave = {
+            FlySpeed = Config.FlySpeed,
+            HoverY = Config.HoverY,
+            ReturnHoverY = Config.ReturnHoverY,
+            Rarities = Config.Rarities
+        }
+        pcall(function()
+            writefile(ConfigFile, HttpService:JSONEncode(dataToSave))
+        end)
+    end
+end
+
+local function LoadConfig()
+    if readfile and isfile and isfile(ConfigFile) then
+        pcall(function()
+            local raw = readfile(ConfigFile)
+            local decoded = HttpService:JSONDecode(raw)
+            if decoded then
+                if decoded.FlySpeed then Config.FlySpeed = decoded.FlySpeed end
+                if decoded.HoverY then Config.HoverY = decoded.HoverY end
+                if decoded.ReturnHoverY then Config.ReturnHoverY = decoded.ReturnHoverY end
+                if decoded.Rarities then
+                    for k, v in pairs(decoded.Rarities) do
+                        if Config.Rarities[k] ~= nil then
+                            Config.Rarities[k] = v
+                        end
+                    end
+                end
+            end
+        end)
+    end
+end
+
+LoadConfig()
+
 -- ==========================================
--- MOVEMENT HELPER (WALK MODE)
+-- EVENT CLAIM LISTENER
 -- ==========================================
-local function WalkTo(targetPos)
+local JustClaimed = false
+local IgnoredEggs = {} -- Daftar cooldown UID agar tidak ditarget ulang
+
+EggCmds.AreaEggClaimed:Connect(function()
+    JustClaimed = true
+end)
+
+-- ==========================================
+-- NOCLIP SYSTEM & ANTI-FALL
+-- ==========================================
+local noclipConnection
+local function ToggleNoclip(state)
     local char = LocalPlayer.Character
-    if not char then return false end
-    local hum = char:FindFirstChildOfClass("Humanoid")
-    local hrp = char:FindFirstChild("HumanoidRootPart")
-    if not hum or not hrp then return false end
-
-    hum:MoveTo(targetPos)
-
-    local reached = false
-    local connection
-    connection = hum.MoveToFinished:Connect(function()
-        reached = true
-    end)
-
-    local startTime = tick()
-    while not reached and Config.AutoSteal do
-        task.wait(0.1)
-        if not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then break end
-        
-        -- Paksa WalkSpeed terus biar gak ditarik server
-        hum.WalkSpeed = Config.CustomSpeed
-        
-        -- Cek jarak murni tanpa sumbu Y
-        local currentDist = (Vector3.new(hrp.Position.X, 0, hrp.Position.Z) - Vector3.new(targetPos.X, 0, targetPos.Z)).Magnitude
-        if currentDist <= 3.5 then
-            break
+    if not char then return end
+    
+    if state then
+        if not noclipConnection then
+            noclipConnection = RunService.Stepped:Connect(function()
+                for _, part in pairs(char:GetDescendants()) do
+                    if part:IsA("BasePart") and part.CanCollide then
+                        part.CanCollide = false
+                    end
+                end
+            end)
         end
+    else
+        if noclipConnection then
+            noclipConnection:Disconnect()
+            noclipConnection = nil
+        end
+    end
+end
 
-        if tick() - startTime > 7 then
-            hum:MoveTo(targetPos)
-            startTime = tick()
+local function SetupHumanoid(char)
+    local hum = char:WaitForChild("Humanoid", 5)
+    if hum then
+        hum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+        hum:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
+    end
+end
+
+if LocalPlayer.Character then SetupHumanoid(LocalPlayer.Character) end
+LocalPlayer.CharacterAdded:Connect(SetupHumanoid)
+
+-- ==========================================
+-- SMOOTH FLIGHT ENGINE (BYPASS RUBBERBAND & ANTICHEAT)
+-- ==========================================
+local function SmoothFly(targetPos, speed)
+    local char = LocalPlayer.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    local hum = char and char:FindFirstChild("Humanoid")
+    if not hrp or not hum or hum.Health <= 0 then return false end
+
+    local currentSpeed = speed or Config.FlySpeed
+    hum:ChangeState(Enum.HumanoidStateType.Physics)
+
+    while Config.Enabled and hum.Health > 0 do
+        local dt = RunService.PreSimulation:Wait()
+        char = LocalPlayer.Character
+        hrp = char and char:FindFirstChild("HumanoidRootPart")
+        hum = char and char:FindFirstChild("Humanoid")
+        if not hrp or not hum or hum.Health <= 0 then return false end
+
+        local currentPos = hrp.Position
+        local delta = targetPos - currentPos
+        local distance = delta.Magnitude
+
+        local step = currentSpeed * dt
+
+        if distance <= step or distance < 0.5 then
+            hrp.CFrame = CFrame.new(targetPos)
+            hrp.AssemblyLinearVelocity = Vector3.zero
+            hrp.AssemblyAngularVelocity = Vector3.zero
+            break
+        else
+            local direction = delta.Unit
+            local nextPos = currentPos + (direction * step)
+            
+            -- SINKRONISASI VELOCITY: Menipu server agar pergerakan dianggap momentum legal
+            hrp.AssemblyLinearVelocity = direction * currentSpeed
+            hrp.AssemblyAngularVelocity = Vector3.zero
+            
+            hrp.CFrame = CFrame.new(nextPos, nextPos + direction)
         end
     end
 
-    if connection then connection:Disconnect() end
-    hum.WalkSpeed = 16 -- BALIK JADI NORMAL HUMANOID
-    return true
+    if hrp then
+        hrp.AssemblyLinearVelocity = Vector3.zero
+        hrp.AssemblyAngularVelocity = Vector3.zero
+    end
+
+    return Config.Enabled and (hum and hum.Health > 0)
+end
+
+-- ==========================================
+-- LOGIC DETEKSI TELUR (DENGAN ANTI-RE-TARGET)
+-- ==========================================
+local function GetRarityText(category)
+    local assetData = AssetsDirectory.Directory and AssetsDirectory.Directory[category]
+    if assetData and assetData.Rarity then
+        return typeof(assetData.Rarity) == "table" and (assetData.Rarity.Name or assetData.Rarity.DisplayName) or tostring(assetData.Rarity)
+    end
+    return "Unknown"
+end
+
+local function GetBestTargetEgg()
+    local snapshot = EggCmds.RequestAreaEggSnapshot()
+    if not snapshot or not snapshot.Records then return nil end
+
+    local now = tick()
+    local bestEgg = nil
+    for _, record in ipairs(snapshot.Records) do
+        -- Lewati telur yang baru saja diambil/masih cooldown
+        if not IgnoredEggs[record.Uid] or now > IgnoredEggs[record.Uid] then
+            if record.State == "Slot" or record.State == "Dropped" then
+                local rarity = GetRarityText(record.AssetCategory)
+                if Config.Rarities[rarity] and record.BottomCFrame then
+                    bestEgg = record
+                    break
+                end
+            end
+        end
+    end
+    return bestEgg
 end
 
 -- ==========================================
 -- GUI CREATION
 -- ==========================================
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "AutoStealGui_WalkProx"
+ScreenGui.Name = "AutoStealTweenGui"
 ScreenGui.ResetOnSpawn = false
-local existing = game:GetService("CoreGui"):FindFirstChild("AutoStealGui_WalkProx")
-if existing then existing:Destroy() end
-ScreenGui.Parent = game:GetService("CoreGui")
+if CoreGui:FindFirstChild(ScreenGui.Name) then CoreGui[ScreenGui.Name]:Destroy() end
+ScreenGui.Parent = CoreGui
 
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 300, 0, 420)
-MainFrame.Position = UDim2.new(0.5, -150, 0.5, -200)
-MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+MainFrame.Size = UDim2.new(0, 250, 0, 440)
+MainFrame.Position = UDim2.new(0.7, 0, 0.25, 0)
+MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
 MainFrame.BorderSizePixel = 0
-MainFrame.ClipsDescendants = true
 MainFrame.Parent = ScreenGui
 Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 8)
 
 local Topbar = Instance.new("Frame")
 Topbar.Size = UDim2.new(1, 0, 0, 30)
-Topbar.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+Topbar.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
 Topbar.Parent = MainFrame
 Instance.new("UICorner", Topbar).CornerRadius = UDim.new(0, 8)
 
 local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1, -60, 1, 0)
+Title.Size = UDim2.new(1, -30, 1, 0)
 Title.Position = UDim2.new(0, 10, 0, 0)
 Title.BackgroundTransparency = 1
-Title.Text = "🏃 Auto Steal (Walk + Prox)"
+Title.Text = "Auto Steal Egg"
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
 Title.Font = Enum.Font.GothamBold
-Title.TextSize = 13
+Title.TextSize = 14
 Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.Parent = Topbar
-
-local MinimizeBtn = Instance.new("TextButton")
-MinimizeBtn.Size = UDim2.new(0, 30, 0, 30)
-MinimizeBtn.Position = UDim2.new(1, -60, 0, 0)
-MinimizeBtn.BackgroundTransparency = 1
-MinimizeBtn.Text = "-"
-MinimizeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-MinimizeBtn.TextSize = 20
-MinimizeBtn.Parent = Topbar
 
 local CloseBtn = Instance.new("TextButton")
 CloseBtn.Size = UDim2.new(0, 30, 0, 30)
 CloseBtn.Position = UDim2.new(1, -30, 0, 0)
 CloseBtn.BackgroundTransparency = 1
 CloseBtn.Text = "X"
-CloseBtn.TextColor3 = Color3.fromRGB(255, 100, 100)
-CloseBtn.TextSize = 16
+CloseBtn.TextColor3 = Color3.fromRGB(255, 80, 80)
 CloseBtn.Font = Enum.Font.GothamBold
+CloseBtn.TextSize = 14
 CloseBtn.Parent = Topbar
 
+CloseBtn.MouseButton1Click:Connect(function()
+    Config.Enabled = false
+    ToggleNoclip(false)
+    ScreenGui:Destroy()
+end)
+
+-- Dragging Logic
 local dragging, dragInput, dragStart, startPos
 Topbar.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 then
@@ -145,19 +307,6 @@ UserInputService.InputEnded:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
 end)
 
-UserInputService.InputBegan:Connect(function(input, gpe)
-    if not gpe and input.KeyCode == Enum.KeyCode.RightControl then
-        MainFrame.Visible = not MainFrame.Visible
-    end
-end)
-
-local isMinimized = false
-MinimizeBtn.MouseButton1Click:Connect(function()
-    isMinimized = not isMinimized
-    MainFrame.Size = isMinimized and UDim2.new(0, 300, 0, 30) or UDim2.new(0, 300, 0, 420)
-end)
-CloseBtn.MouseButton1Click:Connect(function() ScreenGui:Destroy() end)
-
 local MasterToggle = Instance.new("TextButton")
 MasterToggle.Size = UDim2.new(1, -20, 0, 35)
 MasterToggle.Position = UDim2.new(0, 10, 0, 40)
@@ -169,178 +318,209 @@ MasterToggle.Parent = MainFrame
 Instance.new("UICorner", MasterToggle).CornerRadius = UDim.new(0, 6)
 
 MasterToggle.MouseButton1Click:Connect(function()
-    Config.AutoSteal = not Config.AutoSteal
-    MasterToggle.BackgroundColor3 = Config.AutoSteal and Color3.fromRGB(50, 200, 50) or Color3.fromRGB(200, 50, 50)
-    MasterToggle.Text = Config.AutoSteal and "AUTO STEAL: ON" or "AUTO STEAL: OFF"
+    Config.Enabled = not Config.Enabled
+    MasterToggle.BackgroundColor3 = Config.Enabled and Color3.fromRGB(50, 200, 50) or Color3.fromRGB(200, 50, 50)
+    MasterToggle.Text = Config.Enabled and "AUTO STEAL: ON" or "AUTO STEAL: OFF"
+    if not Config.Enabled then
+        ToggleNoclip(false)
+    end
 end)
 
+-- Speed TextBox
 local SpeedLabel = Instance.new("TextLabel")
 SpeedLabel.Size = UDim2.new(0.6, 0, 0, 25)
 SpeedLabel.Position = UDim2.new(0, 10, 0, 85)
 SpeedLabel.BackgroundTransparency = 1
-SpeedLabel.Text = "Custom WalkSpeed:"
+SpeedLabel.Text = "Fly Speed:"
 SpeedLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
-SpeedLabel.Font = Enum.Font.Gotham
-SpeedLabel.TextSize = 12 
+SpeedLabel.Font = Enum.Font.GothamSemibold
+SpeedLabel.TextSize = 13
 SpeedLabel.TextXAlignment = Enum.TextXAlignment.Left
 SpeedLabel.Parent = MainFrame
 
 local SpeedBox = Instance.new("TextBox")
-SpeedBox.Size = UDim2.new(0.3, 0, 0, 25)
-SpeedBox.Position = UDim2.new(0.6, 0, 0, 85)
+SpeedBox.Size = UDim2.new(0.4, -20, 0, 25)
+SpeedBox.Position = UDim2.new(0.6, 10, 0, 85)
 SpeedBox.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
-SpeedBox.TextColor3 = Color3.fromRGB(255, 215, 60)
-SpeedBox.Text = tostring(Config.CustomSpeed)
+SpeedBox.TextColor3 = Color3.fromRGB(255, 255, 255)
 SpeedBox.Font = Enum.Font.GothamBold
+SpeedBox.TextSize = 13
+SpeedBox.Text = tostring(Config.FlySpeed)
 SpeedBox.Parent = MainFrame
 Instance.new("UICorner", SpeedBox).CornerRadius = UDim.new(0, 4)
 
 SpeedBox.FocusLost:Connect(function()
     local val = tonumber(SpeedBox.Text)
-    if val and val > 0 then 
-        Config.CustomSpeed = val 
-    else 
-        SpeedBox.Text = tostring(Config.CustomSpeed) 
+    if val and val > 0 then
+        Config.FlySpeed = val
+        SaveConfig()
+    else
+        SpeedBox.Text = tostring(Config.FlySpeed)
     end
 end)
 
-local RarityFrame = Instance.new("ScrollingFrame")
-RarityFrame.Size = UDim2.new(1, -20, 1, -155)
-RarityFrame.Position = UDim2.new(0, 10, 0, 115)
-RarityFrame.BackgroundTransparency = 1
-RarityFrame.ScrollBarThickness = 4
-RarityFrame.Parent = MainFrame
+-- Return Height TextBox
+local ReturnYLabel = Instance.new("TextLabel")
+ReturnYLabel.Size = UDim2.new(0.6, 0, 0, 25)
+ReturnYLabel.Position = UDim2.new(0, 10, 0, 115)
+ReturnYLabel.BackgroundTransparency = 1
+ReturnYLabel.Text = "Return Y Height:"
+ReturnYLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+ReturnYLabel.Font = Enum.Font.GothamSemibold
+ReturnYLabel.TextSize = 13
+ReturnYLabel.TextXAlignment = Enum.TextXAlignment.Left
+ReturnYLabel.Parent = MainFrame
 
+local ReturnYBox = Instance.new("TextBox")
+ReturnYBox.Size = UDim2.new(0.4, -20, 0, 25)
+ReturnYBox.Position = UDim2.new(0.6, 10, 0, 115)
+ReturnYBox.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
+ReturnYBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+ReturnYBox.Font = Enum.Font.GothamBold
+ReturnYBox.TextSize = 13
+ReturnYBox.Text = tostring(Config.ReturnHoverY)
+ReturnYBox.Parent = MainFrame
+Instance.new("UICorner", ReturnYBox).CornerRadius = UDim.new(0, 4)
+
+ReturnYBox.FocusLost:Connect(function()
+    local val = tonumber(ReturnYBox.Text)
+    if val then
+        Config.ReturnHoverY = val
+        SaveConfig()
+    else
+        ReturnYBox.Text = tostring(Config.ReturnHoverY)
+    end
+end)
+
+-- Rarity Toggles
+local ScrollRarity = Instance.new("ScrollingFrame")
+ScrollRarity.Size = UDim2.new(1, -20, 1, -155)
+ScrollRarity.Position = UDim2.new(0, 10, 0, 150)
+ScrollRarity.BackgroundTransparency = 1
+ScrollRarity.ScrollBarThickness = 4
+ScrollRarity.CanvasSize = UDim2.new(0, 0, 0, 310)
+ScrollRarity.Parent = MainFrame
 local layout = Instance.new("UIListLayout")
 layout.Padding = UDim.new(0, 5)
-layout.Parent = RarityFrame
+layout.Parent = ScrollRarity
 
-local RarityOrder = {"Common", "Uncommon", "Rare", "Epic", "Legendary", "Mythic", "Secret", "Divine"}
-
+local RarityOrder = {"Common", "Uncommon", "Rare", "Epic", "Legendary", "Mythic", "Secret", "Divine", "Eternal"}
 for _, rarity in ipairs(RarityOrder) do
     if Config.Rarities[rarity] ~= nil then
         local btn = Instance.new("TextButton")
-        btn.Size = UDim2.new(1, -10, 0, 25)
+        btn.Size = UDim2.new(1, -10, 0, 30)
         btn.BackgroundColor3 = Config.Rarities[rarity] and Color3.fromRGB(50, 150, 200) or Color3.fromRGB(60, 60, 65)
         btn.Text = rarity
         btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-        btn.Font = Enum.Font.GothamBold
+        btn.Font = Enum.Font.GothamSemibold
         btn.TextSize = 12
-        btn.Parent = RarityFrame
+        btn.Parent = ScrollRarity
         Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
         
         btn.MouseButton1Click:Connect(function()
             Config.Rarities[rarity] = not Config.Rarities[rarity]
             btn.BackgroundColor3 = Config.Rarities[rarity] and Color3.fromRGB(50, 150, 200) or Color3.fromRGB(60, 60, 65)
+            SaveConfig()
         end)
     end
 end
 
 -- ==========================================
--- LIVE STATUS LOGGER
+-- MAIN AUTOMATION LOOP
 -- ==========================================
-local StatusLabel = Instance.new("TextLabel")
-StatusLabel.Size = UDim2.new(1, -20, 0, 25)
-StatusLabel.Position = UDim2.new(0, 10, 1, -30)
-StatusLabel.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
-StatusLabel.Text = "Status: Idle"
-StatusLabel.TextColor3 = Color3.fromRGB(255, 215, 0)
-StatusLabel.Font = Enum.Font.GothamBold
-StatusLabel.TextSize = 12
-StatusLabel.Parent = MainFrame
-Instance.new("UICorner", StatusLabel).CornerRadius = UDim.new(0, 4)
-
-local function UpdateStatus(msg)
-    StatusLabel.Text = "Status: " .. msg
-end
-
--- ==========================================
--- AUTO STEAL LOGIC
--- ==========================================
-local function GetRarity(category)
-    local assetData = AssetsDirectory.Directory and AssetsDirectory.Directory[category]
-    if assetData and assetData.Rarity then
-        return typeof(assetData.Rarity) == "table" and (assetData.Rarity.Name or assetData.Rarity.DisplayName) or tostring(assetData.Rarity)
-    end
-    return "Unknown"
-end
-
-local function GetTargetEgg()
-    local snapshot = EggCmds.RequestAreaEggSnapshot()
-    if not snapshot or not snapshot.Records then return nil end
-    
-    for _, record in ipairs(snapshot.Records) do
-        if record.State == "Slot" or record.State == "Dropped" then
-            local category = record.AssetCategory or "Unknown"
-            local rarity = GetRarity(category)
-            
-            if Config.Rarities[rarity] and record.BottomCFrame then
-                return record
-            end
-        end
-    end
-    return nil
-end
-
 task.spawn(function()
-    while task.wait(0.5) do
-        if not Config.AutoSteal then
-            UpdateStatus("Idle (Off)")
-            local char = LocalPlayer.Character
-            local hum = char and char:FindFirstChildOfClass("Humanoid")
-            if hum then hum.WalkSpeed = 16 end 
-            continue 
-        end
-        
+    while task.wait(0.2) do
         local char = LocalPlayer.Character
         local hrp = char and char:FindFirstChild("HumanoidRootPart")
-        if not hrp then continue end
-        
-        local currentPos = hrp.Position
-        
-        -- Balik ke Safe Area kalau jauh & gak ada target
-        if (Vector3.new(currentPos.X, 0, currentPos.Z) - Vector3.new(Config.SafeArea.X, 0, Config.SafeArea.Z)).Magnitude > 10 then
-            UpdateStatus("Pulang ke Safe Area...")
-            WalkTo(Config.SafeArea)
+        local humanoid = char and char:FindFirstChild("Humanoid")
+
+        if not Config.Enabled or not hrp or not humanoid or humanoid.Health <= 0 then
+            ToggleNoclip(false)
+            continue
         end
+
+        local targetEgg = GetBestTargetEgg()
         
-        UpdateStatus("Mencari Target Telur...")
-        local targetEgg = GetTargetEgg()
         if targetEgg then
+            ToggleNoclip(true)
+
+            local safePos = Config.SafeArea
+            local hoverSafePos = Vector3.new(safePos.X, Config.HoverY, safePos.Z)
+
             local eggPos = targetEgg.BottomCFrame.Position
+            local hoverEggPos = Vector3.new(eggPos.X, Config.HoverY, eggPos.Z)
+
+            -- 1. PASTIKAN MULAI DARI SAFE AREA
+            local distToSafe = (Vector3.new(hrp.Position.X, 0, hrp.Position.Z) - Vector3.new(safePos.X, 0, safePos.Z)).Magnitude
+            if distToSafe > 5 then
+                if not SmoothFly(Vector3.new(hrp.Position.X, Config.HoverY, hrp.Position.Z)) then continue end
+                if not SmoothFly(hoverSafePos) then continue end
+                if not SmoothFly(safePos) then continue end
+            end
+
+            -- 2. BERANGKAT MELUNCUR KE ATAS TELUR (Hover)
+            if not SmoothFly(hoverSafePos) then continue end
+            if not SmoothFly(hoverEggPos) then continue end
             
-            -- 1. Jalan normal ke telur
-            UpdateStatus("Jalan ke posisi telur...")
-            WalkTo(eggPos)
-            task.wait(0.2) 
-            
-            -- 2. Tembak ProximityPrompt fisik tanpa remote bypass
-            UpdateStatus("Mencoba nge-klik prompt Steal...")
-            local promptFired = false
-            for _, prompt in ipairs(workspace:GetDescendants()) do
-                if prompt:IsA("ProximityPrompt") and prompt.Enabled then
-                    local hostPart = prompt:FindFirstAncestorWhichIsA("BasePart")
-                    if hostPart and (hrp.Position - hostPart.Position).Magnitude <= 15 then
-                        if fireproximityprompt then
-                            fireproximityprompt(prompt, 1, true)
-                            promptFired = true
-                            UpdateStatus("Berhasil ditekan!")
-                            task.wait(prompt.HoldDuration + 0.2)
-                        end
+            -- 3. TURUN KE POSISI TELUR DENGAN OFFSET Y +3.5 STUD
+            local landEggPos = eggPos + Vector3.new(0, 3.5, 0)
+            if not SmoothFly(landEggPos) then continue end
+
+            -- 4. MENDARAT & RESET VELOCITY
+            hrp.AssemblyLinearVelocity = Vector3.zero
+            hrp.AssemblyAngularVelocity = Vector3.zero
+            task.wait(0.25)
+
+            -- Verifikasi ketersediaan telur
+            local snapshot = EggCmds.RequestAreaEggSnapshot()
+            local eggStillValid = false
+            if snapshot and snapshot.Records then
+                for _, rec in ipairs(snapshot.Records) do
+                    if rec.Uid == targetEgg.Uid and (rec.State == "Slot" or rec.State == "Dropped") then
+                        eggStillValid = true
                         break
                     end
                 end
             end
-            
-            if promptFired then
-                -- 3. Jalan balik bawa telur
-                UpdateStatus("Telur dapat! Pulang...")
-                WalkTo(Config.SafeArea)
-                UpdateStatus("Menaruh telur...")
-                task.wait(1)
-            else
-                UpdateStatus("Gagal nemu prompt fisik!")
-                task.wait(1)
+
+            if eggStillValid then
+                local slotKey = nil
+                if AreaEggSlotIdentity.IsFirstAreaUid(targetEgg.Uid) then
+                    slotKey = AreaEggSlotIdentity.BuildSlotKey(targetEgg.AreaId, targetEgg.NestId)
+                end
+                
+                pcall(function()
+                    EggCmds.RequestCarryAreaEgg(targetEgg.Uid, slotKey)
+                end)
+                -- Blacklist telur ini agar tidak ditarget ulang selama 10 detik
+                IgnoredEggs[targetEgg.Uid] = tick() + 10
+            end
+
+            -- 5. KEMBALI KE SAFE AREA DENGAN RETURN HOVER Y
+            local returnHoverEggPos = Vector3.new(eggPos.X, Config.ReturnHoverY, eggPos.Z)
+            local returnHoverSafePos = Vector3.new(safePos.X, Config.ReturnHoverY, safePos.Z)
+
+            if not SmoothFly(returnHoverEggPos) then continue end
+            if not SmoothFly(returnHoverSafePos) then continue end
+            if not SmoothFly(safePos) then continue end
+
+            -- 6. MENUNGGU STATUS CLAIM RESMI DI SAFE AREA
+            ToggleNoclip(false)
+            JustClaimed = false
+            local claimStart = tick()
+            while not JustClaimed and (tick() - claimStart < 2.5) and Config.Enabled do
+                task.wait(0.1)
+            end
+            task.wait(0.4)
+        else
+            -- Status idle: kembali ke safe area jika di luar titik aman
+            local distToSafe = (Vector3.new(hrp.Position.X, 0, hrp.Position.Z) - Vector3.new(Config.SafeArea.X, 0, Config.SafeArea.Z)).Magnitude
+            if distToSafe > 5 then
+                ToggleNoclip(true)
+                SmoothFly(Vector3.new(hrp.Position.X, Config.HoverY, hrp.Position.Z))
+                SmoothFly(Vector3.new(Config.SafeArea.X, Config.HoverY, Config.SafeArea.Z))
+                SmoothFly(Config.SafeArea)
+                ToggleNoclip(false)
             end
         end
     end
