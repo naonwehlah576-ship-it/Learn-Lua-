@@ -1,5 +1,5 @@
 -- ==============================================================================
--- AUTO STEAL EGG (ORIGINAL BASE + SMART CLAIM & ANTI RE-TARGET + BYPASS RUBBERBAND)
+-- AUTO STEAL EGG (ORIGINAL DETECTOR + SMOOTH FLIGHT ENGINE)
 -- ==============================================================================
 
 local Players = game:GetService("Players")
@@ -12,7 +12,7 @@ local CoreGui = game:GetService("CoreGui")
 
 local LocalPlayer = Players.LocalPlayer
 
--- Mengambil modul game
+-- Mengambil modul game (PERSIS DARI SKRIP KAMU)
 local EggCmds = require(ReplicatedStorage.Library.Client.EggCmds)
 local AreaEggSlotIdentity = require(ReplicatedStorage.Library.Util.AreaEggSlotIdentity)
 local AssetsDirectory = require(ReplicatedStorage.Directory.Assets)
@@ -107,17 +107,7 @@ end
 LoadConfig()
 
 -- ==========================================
--- EVENT CLAIM LISTENER
--- ==========================================
-local JustClaimed = false
-local IgnoredEggs = {} -- Daftar cooldown UID agar tidak ditarget ulang
-
-EggCmds.AreaEggClaimed:Connect(function()
-    JustClaimed = true
-end)
-
--- ==========================================
--- NOCLIP SYSTEM & ANTI-FALL
+-- NOCLIP SYSTEM
 -- ==========================================
 local noclipConnection
 local function ToggleNoclip(state)
@@ -142,19 +132,8 @@ local function ToggleNoclip(state)
     end
 end
 
-local function SetupHumanoid(char)
-    local hum = char:WaitForChild("Humanoid", 5)
-    if hum then
-        hum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
-        hum:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
-    end
-end
-
-if LocalPlayer.Character then SetupHumanoid(LocalPlayer.Character) end
-LocalPlayer.CharacterAdded:Connect(SetupHumanoid)
-
 -- ==========================================
--- SMOOTH FLIGHT ENGINE (BYPASS RUBBERBAND & ANTICHEAT)
+-- SMOOTH FLIGHT ENGINE (PENGGANTI TWEEN & ANCHOR)
 -- ==========================================
 local function SmoothFly(targetPos, speed)
     local char = LocalPlayer.Character
@@ -163,14 +142,17 @@ local function SmoothFly(targetPos, speed)
     if not hrp or not hum or hum.Health <= 0 then return false end
 
     local currentSpeed = speed or Config.FlySpeed
-    hum:ChangeState(Enum.HumanoidStateType.Physics)
 
     while Config.Enabled and hum.Health > 0 do
-        local dt = RunService.PreSimulation:Wait()
+        local dt = RunService.Heartbeat:Wait()
         char = LocalPlayer.Character
         hrp = char and char:FindFirstChild("HumanoidRootPart")
         hum = char and char:FindFirstChild("Humanoid")
         if not hrp or not hum or hum.Health <= 0 then return false end
+
+        -- Matikan physics falling / terlempar
+        hrp.AssemblyLinearVelocity = Vector3.zero
+        hrp.AssemblyAngularVelocity = Vector3.zero
 
         local currentPos = hrp.Position
         local delta = targetPos - currentPos
@@ -180,18 +162,10 @@ local function SmoothFly(targetPos, speed)
 
         if distance <= step or distance < 0.5 then
             hrp.CFrame = CFrame.new(targetPos)
-            hrp.AssemblyLinearVelocity = Vector3.zero
-            hrp.AssemblyAngularVelocity = Vector3.zero
             break
         else
-            local direction = delta.Unit
-            local nextPos = currentPos + (direction * step)
-            
-            -- SINKRONISASI VELOCITY: Menipu server agar pergerakan dianggap momentum legal
-            hrp.AssemblyLinearVelocity = direction * currentSpeed
-            hrp.AssemblyAngularVelocity = Vector3.zero
-            
-            hrp.CFrame = CFrame.new(nextPos, nextPos + direction)
+            local nextPos = currentPos + (delta.Unit * step)
+            hrp.CFrame = CFrame.new(nextPos)
         end
     end
 
@@ -204,7 +178,7 @@ local function SmoothFly(targetPos, speed)
 end
 
 -- ==========================================
--- LOGIC DETEKSI TELUR (DENGAN ANTI-RE-TARGET)
+-- LOGIC DETEKSI TELUR (PERSIS DARI SKRIP KAMU)
 -- ==========================================
 local function GetRarityText(category)
     local assetData = AssetsDirectory.Directory and AssetsDirectory.Directory[category]
@@ -218,17 +192,13 @@ local function GetBestTargetEgg()
     local snapshot = EggCmds.RequestAreaEggSnapshot()
     if not snapshot or not snapshot.Records then return nil end
 
-    local now = tick()
     local bestEgg = nil
     for _, record in ipairs(snapshot.Records) do
-        -- Lewati telur yang baru saja diambil/masih cooldown
-        if not IgnoredEggs[record.Uid] or now > IgnoredEggs[record.Uid] then
-            if record.State == "Slot" or record.State == "Dropped" then
-                local rarity = GetRarityText(record.AssetCategory)
-                if Config.Rarities[rarity] and record.BottomCFrame then
-                    bestEgg = record
-                    break
-                end
+        if record.State == "Slot" or record.State == "Dropped" then
+            local rarity = GetRarityText(record.AssetCategory)
+            if Config.Rarities[rarity] and record.BottomCFrame then
+                bestEgg = record
+                break
             end
         end
     end
@@ -492,8 +462,6 @@ task.spawn(function()
                 pcall(function()
                     EggCmds.RequestCarryAreaEgg(targetEgg.Uid, slotKey)
                 end)
-                -- Blacklist telur ini agar tidak ditarget ulang selama 10 detik
-                IgnoredEggs[targetEgg.Uid] = tick() + 10
             end
 
             -- 5. KEMBALI KE SAFE AREA DENGAN RETURN HOVER Y
@@ -504,14 +472,9 @@ task.spawn(function()
             if not SmoothFly(returnHoverSafePos) then continue end
             if not SmoothFly(safePos) then continue end
 
-            -- 6. MENUNGGU STATUS CLAIM RESMI DI SAFE AREA
+            -- 6. CLAIM SELESAI DI SAFE AREA
             ToggleNoclip(false)
-            JustClaimed = false
-            local claimStart = tick()
-            while not JustClaimed and (tick() - claimStart < 2.5) and Config.Enabled do
-                task.wait(0.1)
-            end
-            task.wait(0.4)
+            task.wait(1.5)
         else
             -- Status idle: kembali ke safe area jika di luar titik aman
             local distToSafe = (Vector3.new(hrp.Position.X, 0, hrp.Position.Z) - Vector3.new(Config.SafeArea.X, 0, Config.SafeArea.Z)).Magnitude
