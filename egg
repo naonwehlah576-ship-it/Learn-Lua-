@@ -1,5 +1,5 @@
 -- ==============================================================================
--- AUTO STEAL EGG (EMERGENCY FORCE STOP + LERP ENGINE + ANTI-AFK + COUNTER)
+-- AUTO STEAL EGG (SMART PRIORITY SYSTEM + COSMIC RARITY + LERP ENGINE)
 -- ==============================================================================
 
 local Players = game:GetService("Players")
@@ -71,10 +71,25 @@ local Config = {
         Epic = false,
         Legendary = false,
         Mythic = false,
+        Cosmic = true,
         Secret = true,
         Divine = true,
         Eternal = true
     }
+}
+
+-- Tingkatan Prioritas Kasta Rarity (Angka lebih besar = Prioritas Lebih Tinggi)
+local RarityPriority = {
+    ["Divine"] = 10,
+    ["Eternal"] = 9,
+    ["Secret"] = 8,
+    ["Cosmic"] = 7,
+    ["Mythic"] = 6,
+    ["Legendary"] = 5,
+    ["Epic"] = 4,
+    ["Rare"] = 3,
+    ["Uncommon"] = 2,
+    ["Common"] = 1
 }
 
 local function SaveConfig()
@@ -168,7 +183,6 @@ local function ToggleNoclip(state)
             noclipConnection = nil
         end
         
-        -- Kembalikan tabrakan fisik badan
         for _, part in pairs(char:GetDescendants()) do
             if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
                 part.CanCollide = true
@@ -199,13 +213,11 @@ LocalPlayer.CharacterAdded:Connect(SetupHumanoid)
 local function ForceStopAutomation()
     Config.Enabled = false
     
-    -- Update Toggle GUI
     if MasterToggle then
         MasterToggle.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
         MasterToggle.Text = "AUTO STEAL: OFF"
     end
     
-    -- Reset Noclip & Fisika Karakter
     ToggleNoclip(false)
     
     local char = LocalPlayer.Character
@@ -267,7 +279,6 @@ local function SmoothFly(targetPos, speed)
         
         local calculatedPos = startPos:Lerp(targetPos, alpha)
 
-        -- Velocity Sync Bypass
         hrp.AssemblyLinearVelocity = direction * currentSpeed
         hrp.AssemblyAngularVelocity = Vector3.zero
 
@@ -292,7 +303,7 @@ local function SmoothFly(targetPos, speed)
 end
 
 -- ==========================================
--- LOGIC DETEKSI TELUR
+-- LOGIC DETEKSI & SMART PRIORITY SELECTION
 -- ==========================================
 local function GetRarityText(category)
     local assetData = AssetsDirectory.Directory and AssetsDirectory.Directory[category]
@@ -306,20 +317,48 @@ local function GetBestTargetEgg()
     local snapshot = EggCmds.RequestAreaEggSnapshot()
     if not snapshot or not snapshot.Records then return nil end
 
+    local char = LocalPlayer.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    local myPos = hrp and hrp.Position or Config.SafeArea
+
     local now = tick()
-    local bestEgg = nil
+    local candidates = {}
+
+    -- Kumpulkan semua telur yang sesuai filter dan tidak cooldown
     for _, record in ipairs(snapshot.Records) do
         if not IgnoredEggs[record.Uid] or now > IgnoredEggs[record.Uid] then
             if record.State == "Slot" or record.State == "Dropped" then
                 local rarity = GetRarityText(record.AssetCategory)
                 if Config.Rarities[rarity] and record.BottomCFrame then
-                    bestEgg = record
-                    break
+                    local eggPos = record.BottomCFrame.Position
+                    local distance = (eggPos - myPos).Magnitude
+                    local priorityScore = RarityPriority[rarity] or 0
+
+                    table.insert(candidates, {
+                        Record = record,
+                        Rarity = rarity,
+                        Priority = priorityScore,
+                        Distance = distance
+                    })
                 end
             end
         end
     end
-    return bestEgg
+
+    if #candidates == 0 then return nil end
+
+    -- SORTING CERDAS: 
+    -- 1. Utamakan Rarity Tertinggi (Priority Terbesar)
+    -- 2. Jika Rarity sama, pilih Jarak Terdekat (Distance Terkecil)
+    table.sort(candidates, function(a, b)
+        if a.Priority ~= b.Priority then
+            return a.Priority > b.Priority
+        else
+            return a.Distance < b.Distance
+        end
+    end)
+
+    return candidates[1].Record
 end
 
 -- ==========================================
@@ -536,13 +575,13 @@ ScrollRarity.Size = UDim2.new(1, -20, 1, -215)
 ScrollRarity.Position = UDim2.new(0, 10, 0, 210)
 ScrollRarity.BackgroundTransparency = 1
 ScrollRarity.ScrollBarThickness = 4
-ScrollRarity.CanvasSize = UDim2.new(0, 0, 0, 310)
+ScrollRarity.CanvasSize = UDim2.new(0, 0, 0, 350)
 ScrollRarity.Parent = MainFrame
 local layout = Instance.new("UIListLayout")
 layout.Padding = UDim.new(0, 5)
 layout.Parent = ScrollRarity
 
-local RarityOrder = {"Common", "Uncommon", "Rare", "Epic", "Legendary", "Mythic", "Secret", "Divine", "Eternal"}
+local RarityOrder = {"Common", "Uncommon", "Rare", "Epic", "Legendary", "Mythic", "Cosmic", "Secret", "Divine", "Eternal"}
 for _, rarity in ipairs(RarityOrder) do
     if Config.Rarities[rarity] ~= nil then
         local btn = Instance.new("TextButton")
@@ -583,7 +622,7 @@ task.spawn(function()
             local eggRarity = GetRarityText(targetEgg.AssetCategory)
             local carriedSuccessfully = false
 
-            SetStatus("Terbang ke [" .. eggRarity .. "]...")
+            SetStatus("Target: [" .. eggRarity .. "]...")
             ToggleNoclip(true)
 
             local safePos = Config.SafeArea
@@ -646,7 +685,7 @@ task.spawn(function()
             IgnoredEggs[targetEgg.Uid] = tick() + 10
 
             -- 5. TERBANG PULANG KE SAFE AREA
-            SetStatus("Membawa Telur Pulang...")
+            SetStatus("Membawa [" .. eggRarity .. "] Pulang...")
             ToggleNoclip(true)
             if not SmoothFly(flyEggPos) then continue end
             if not SmoothFly(flySafePos) then continue end
@@ -656,7 +695,7 @@ task.spawn(function()
             ToggleNoclip(false)
             
             if carriedSuccessfully then
-                SetStatus("Claiming Telur...")
+                SetStatus("Claiming [" .. eggRarity .. "]...")
                 JustClaimed = false
                 local claimStart = tick()
                 
@@ -669,7 +708,7 @@ task.spawn(function()
                 SetStatus("Sukses Curi [" .. eggRarity .. "]! (+1)")
                 task.wait(0.5)
             else
-                SetStatus("Telur Gagal/Keduluan Orang...")
+                SetStatus("Telur Gagal / Keduluan...")
                 task.wait(0.3)
             end
             
