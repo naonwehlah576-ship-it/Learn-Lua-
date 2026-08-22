@@ -1,5 +1,5 @@
 -- ==============================================================================
--- AUTO STEAL EGG (ZERO-GRAVITY SAG LERP ENGINE + FLY HEIGHT LOCK)
+-- AUTO STEAL EGG (FIXED NOCLIP COLLISION RESTORE + LERP ENGINE)
 -- ==============================================================================
 
 local Players = game:GetService("Players")
@@ -53,7 +53,7 @@ local ConfigFile = "AutoSteal_Config.json"
 local Config = {
     Enabled = false,
     FlySpeed = 65,
-    FlyHeight = 75, -- Ketinggian terbang umum
+    FlyHeight = 75,
     SafeArea = Vector3.new(540.1, 71.4, -369.1),
     Rarities = {
         Common = false,
@@ -111,19 +111,20 @@ LoadConfig()
 -- EVENT CLAIM LISTENER
 -- ==========================================
 local JustClaimed = false
-local IgnoredEggs = {} -- Cooldown UID telur agar tidak ditarget ulang
+local IgnoredEggs = {}
 
 EggCmds.AreaEggClaimed:Connect(function()
     JustClaimed = true
 end)
 
 -- ==========================================
--- NOCLIP SYSTEM & ANTI-FALL
+-- NOCLIP SYSTEM (DENGAN RESTORE COLLISION LENGKAP)
 -- ==========================================
 local noclipConnection
 local function ToggleNoclip(state)
     local char = LocalPlayer.Character
     if not char then return end
+    local hum = char:FindFirstChild("Humanoid")
     
     if state then
         if not noclipConnection then
@@ -140,6 +141,18 @@ local function ToggleNoclip(state)
             noclipConnection:Disconnect()
             noclipConnection = nil
         end
+        
+        -- KEMBALIKAN TABRAKAN TUBUH AGAR TIDAK AMBLAS/TEMBUS TANAH
+        for _, part in pairs(char:GetDescendants()) do
+            if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+                part.CanCollide = true
+            end
+        end
+        
+        if hum then
+            hum.PlatformStand = false
+            hum:ChangeState(Enum.HumanoidStateType.GettingUp)
+        end
     end
 end
 
@@ -155,7 +168,7 @@ if LocalPlayer.Character then SetupHumanoid(LocalPlayer.Character) end
 LocalPlayer.CharacterAdded:Connect(SetupHumanoid)
 
 -- ==========================================
--- LERP FLIGHT ENGINE (ZERO-GRAVITY DIPPING + BYPASS)
+-- LERP FLIGHT ENGINE (ZERO SAG & BYPASS)
 -- ==========================================
 local function SmoothFly(targetPos, speed)
     local char = LocalPlayer.Character
@@ -178,7 +191,6 @@ local function SmoothFly(targetPos, speed)
     local elapsed = 0
     local direction = (targetPos - startPos).Unit
 
-    -- Mengunci ragdoll/kaki agar tidak terpengaruh animasi jatuh Roblox
     hum.PlatformStand = true
     hum:ChangeState(Enum.HumanoidStateType.Physics)
 
@@ -195,10 +207,9 @@ local function SmoothFly(targetPos, speed)
         elapsed = math.min(elapsed + dt, duration)
         local alpha = elapsed / duration
         
-        -- KALKULASI GARIS LURUS MURNI (Tidak terpengaruh gravitasi sama sekali)
         local calculatedPos = startPos:Lerp(targetPos, alpha)
 
-        -- Velocity Synchronization untuk Anti-Cheat
+        -- Velocity Sync Anti-Cheat Bypass
         hrp.AssemblyLinearVelocity = direction * currentSpeed
         hrp.AssemblyAngularVelocity = Vector3.zero
 
@@ -300,8 +311,6 @@ CloseBtn.Parent = Topbar
 CloseBtn.MouseButton1Click:Connect(function()
     Config.Enabled = false
     ToggleNoclip(false)
-    local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid")
-    if hum then hum.PlatformStand = false end
     ScreenGui:Destroy()
 end)
 
@@ -343,8 +352,6 @@ MasterToggle.MouseButton1Click:Connect(function()
     MasterToggle.Text = Config.Enabled and "AUTO STEAL: ON" or "AUTO STEAL: OFF"
     if not Config.Enabled then
         ToggleNoclip(false)
-        local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid")
-        if hum then hum.PlatformStand = false end
     end
 end)
 
@@ -472,7 +479,7 @@ task.spawn(function()
             local eggPos = targetEgg.BottomCFrame.Position
             local flyEggPos = Vector3.new(eggPos.X, Config.FlyHeight, eggPos.Z)
 
-            -- 1. PASTIKAN MULAI DARI SAFE AREA
+            -- 1. PASTIKAN MULAI DARI TITIK AMAN
             local distToSafe = (Vector3.new(hrp.Position.X, 0, hrp.Position.Z) - Vector3.new(safePos.X, 0, safePos.Z)).Magnitude
             if distToSafe > 5 then
                 if not SmoothFly(Vector3.new(hrp.Position.X, Config.FlyHeight, hrp.Position.Z)) then continue end
@@ -480,15 +487,16 @@ task.spawn(function()
                 if not SmoothFly(safePos) then continue end
             end
 
-            -- 2. BERANGKAT MELUNCUR KE ATAS TELUR (Horizontal Lock)
+            -- 2. BERANGKAT TERBANG KE ATAS TELUR
             if not SmoothFly(flySafePos) then continue end
             if not SmoothFly(flyEggPos) then continue end
             
-            -- 3. TURUN KE POSISI TELUR SECARA VERTIKAL
+            -- 3. TURUN KE POSISI TELUR
             local landEggPos = eggPos + Vector3.new(0, 3.5, 0)
             if not SmoothFly(landEggPos) then continue end
 
-            -- 4. MENDARAT & RESET KECEPATAN
+            -- 4. MATIKAN NOCLIP SEMENTARA AGAR BERPIJAK DI ATAS TANAH/TELUR
+            ToggleNoclip(false)
             hrp.AssemblyLinearVelocity = Vector3.zero
             hrp.AssemblyAngularVelocity = Vector3.zero
             task.wait(0.25)
@@ -517,14 +525,14 @@ task.spawn(function()
                 IgnoredEggs[targetEgg.Uid] = tick() + 10
             end
 
-            -- 5. KEMBALI KE SAFE AREA (NAIK DULU BARU MELUNCUR)
+            -- 5. AKTIFKAN NOCLIP KEMBALI DAN TERBANG PULANG
+            ToggleNoclip(true)
             if not SmoothFly(flyEggPos) then continue end
             if not SmoothFly(flySafePos) then continue end
             if not SmoothFly(safePos) then continue end
 
-            -- 6. MATIKAN NOCLIP & STANDBY STATUS CLAIM DI SAFE AREA
+            -- 6. MENDARAT DI SAFE AREA & MATIKAN NOCLIP TOTAL
             ToggleNoclip(false)
-            if humanoid then humanoid.PlatformStand = false end
             
             JustClaimed = false
             local claimStart = tick()
@@ -533,7 +541,7 @@ task.spawn(function()
             end
             task.wait(0.4)
         else
-            -- Idle: Jika di luar Safe Area, kembali ke titik aman
+            -- Idle: Pulang ke safe area jika melenceng
             local distToSafe = (Vector3.new(hrp.Position.X, 0, hrp.Position.Z) - Vector3.new(Config.SafeArea.X, 0, Config.SafeArea.Z)).Magnitude
             if distToSafe > 5 then
                 ToggleNoclip(true)
@@ -541,7 +549,6 @@ task.spawn(function()
                 SmoothFly(Vector3.new(Config.SafeArea.X, Config.FlyHeight, Config.SafeArea.Z))
                 SmoothFly(Config.SafeArea)
                 ToggleNoclip(false)
-                if humanoid then humanoid.PlatformStand = false end
             end
         end
     end
