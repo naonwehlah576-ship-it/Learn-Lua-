@@ -1,5 +1,5 @@
 -- ==============================================================================
--- AUTO STEAL EGG (SMART CLAIM VERIFICATION + LERP ENGINE + ANTI-AFK)
+-- AUTO STEAL EGG (EMERGENCY FORCE STOP + LERP ENGINE + ANTI-AFK + COUNTER)
 -- ==============================================================================
 
 local Players = game:GetService("Players")
@@ -125,6 +125,7 @@ local EggsStolenCount = 0
 
 local StatusLabel
 local CounterLabel
+local MasterToggle
 
 local function SetStatus(text)
     if StatusLabel then
@@ -191,6 +192,38 @@ end
 
 if LocalPlayer.Character then SetupHumanoid(LocalPlayer.Character) end
 LocalPlayer.CharacterAdded:Connect(SetupHumanoid)
+
+-- ==========================================
+-- EMERGENCY FORCE STOP FUNCTION
+-- ==========================================
+local function ForceStopAutomation()
+    Config.Enabled = false
+    
+    -- Update Toggle GUI
+    if MasterToggle then
+        MasterToggle.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+        MasterToggle.Text = "AUTO STEAL: OFF"
+    end
+    
+    -- Reset Noclip & Fisika Karakter
+    ToggleNoclip(false)
+    
+    local char = LocalPlayer.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    local hum = char and char:FindFirstChild("Humanoid")
+    
+    if hrp then
+        hrp.AssemblyLinearVelocity = Vector3.zero
+        hrp.AssemblyAngularVelocity = Vector3.zero
+    end
+    
+    if hum then
+        hum.PlatformStand = false
+        hum:ChangeState(Enum.HumanoidStateType.GettingUp)
+    end
+    
+    SetStatus("FORCE STOPPED / RESET")
+end
 
 -- ==========================================
 -- LERP FLIGHT ENGINE (ZERO SAG & BYPASS)
@@ -299,8 +332,8 @@ if CoreGui:FindFirstChild(ScreenGui.Name) then CoreGui[ScreenGui.Name]:Destroy()
 ScreenGui.Parent = CoreGui
 
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 250, 0, 480)
-MainFrame.Position = UDim2.new(0.7, 0, 0.22, 0)
+MainFrame.Size = UDim2.new(0, 250, 0, 510)
+MainFrame.Position = UDim2.new(0.7, 0, 0.20, 0)
 MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
 MainFrame.BorderSizePixel = 0
 MainFrame.Parent = ScreenGui
@@ -334,8 +367,7 @@ CloseBtn.TextSize = 14
 CloseBtn.Parent = Topbar
 
 CloseBtn.MouseButton1Click:Connect(function()
-    Config.Enabled = false
-    ToggleNoclip(false)
+    ForceStopAutomation()
     ScreenGui:Destroy()
 end)
 
@@ -368,13 +400,15 @@ UserInputService.InputEnded:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
 end)
 
-local MasterToggle = Instance.new("TextButton")
-MasterToggle.Size = UDim2.new(1, -20, 0, 35)
+-- Master Toggle Button
+MasterToggle = Instance.new("TextButton")
+MasterToggle.Size = UDim2.new(1, -20, 0, 32)
 MasterToggle.Position = UDim2.new(0, 10, 0, 38)
 MasterToggle.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
 MasterToggle.Text = "AUTO STEAL: OFF"
 MasterToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
 MasterToggle.Font = Enum.Font.GothamBold
+MasterToggle.TextSize = 13
 MasterToggle.Parent = MainFrame
 Instance.new("UICorner", MasterToggle).CornerRadius = UDim.new(0, 6)
 
@@ -390,10 +424,26 @@ MasterToggle.MouseButton1Click:Connect(function()
     end
 end)
 
+-- Emergency Force Stop Button
+local ForceStopBtn = Instance.new("TextButton")
+ForceStopBtn.Size = UDim2.new(1, -20, 0, 26)
+ForceStopBtn.Position = UDim2.new(0, 10, 0, 74)
+ForceStopBtn.BackgroundColor3 = Color3.fromRGB(150, 20, 20)
+ForceStopBtn.Text = "[ 🛑 FORCE STOP ]"
+ForceStopBtn.TextColor3 = Color3.fromRGB(255, 220, 220)
+ForceStopBtn.Font = Enum.Font.GothamBold
+ForceStopBtn.TextSize = 11
+ForceStopBtn.Parent = MainFrame
+Instance.new("UICorner", ForceStopBtn).CornerRadius = UDim.new(0, 6)
+
+ForceStopBtn.MouseButton1Click:Connect(function()
+    ForceStopAutomation()
+end)
+
 -- Status Info Label
 StatusLabel = Instance.new("TextLabel")
 StatusLabel.Size = UDim2.new(1, -20, 0, 18)
-StatusLabel.Position = UDim2.new(0, 10, 0, 78)
+StatusLabel.Position = UDim2.new(0, 10, 0, 105)
 StatusLabel.BackgroundTransparency = 1
 StatusLabel.Text = "Status: Idle"
 StatusLabel.TextColor3 = Color3.fromRGB(180, 200, 220)
@@ -405,7 +455,7 @@ StatusLabel.Parent = MainFrame
 -- Egg Stolen Counter Label
 CounterLabel = Instance.new("TextLabel")
 CounterLabel.Size = UDim2.new(1, -20, 0, 18)
-CounterLabel.Position = UDim2.new(0, 10, 0, 96)
+CounterLabel.Position = UDim2.new(0, 10, 0, 123)
 CounterLabel.BackgroundTransparency = 1
 CounterLabel.Text = "Eggs Stolen: 0"
 CounterLabel.TextColor3 = Color3.fromRGB(120, 230, 120)
@@ -417,7 +467,7 @@ CounterLabel.Parent = MainFrame
 -- Speed TextBox
 local SpeedLabel = Instance.new("TextLabel")
 SpeedLabel.Size = UDim2.new(0.6, 0, 0, 25)
-SpeedLabel.Position = UDim2.new(0, 10, 0, 120)
+SpeedLabel.Position = UDim2.new(0, 10, 0, 145)
 SpeedLabel.BackgroundTransparency = 1
 SpeedLabel.Text = "Fly Speed:"
 SpeedLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
@@ -428,7 +478,7 @@ SpeedLabel.Parent = MainFrame
 
 local SpeedBox = Instance.new("TextBox")
 SpeedBox.Size = UDim2.new(0.4, -20, 0, 25)
-SpeedBox.Position = UDim2.new(0.6, 10, 0, 120)
+SpeedBox.Position = UDim2.new(0.6, 10, 0, 145)
 SpeedBox.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
 SpeedBox.TextColor3 = Color3.fromRGB(255, 255, 255)
 SpeedBox.Font = Enum.Font.GothamBold
@@ -450,7 +500,7 @@ end)
 -- General Fly Height TextBox
 local HeightLabel = Instance.new("TextLabel")
 HeightLabel.Size = UDim2.new(0.6, 0, 0, 25)
-HeightLabel.Position = UDim2.new(0, 10, 0, 150)
+HeightLabel.Position = UDim2.new(0, 10, 0, 175)
 HeightLabel.BackgroundTransparency = 1
 HeightLabel.Text = "Fly Height:"
 HeightLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
@@ -461,7 +511,7 @@ HeightLabel.Parent = MainFrame
 
 local HeightBox = Instance.new("TextBox")
 HeightBox.Size = UDim2.new(0.4, -20, 0, 25)
-HeightBox.Position = UDim2.new(0.6, 10, 0, 150)
+HeightBox.Position = UDim2.new(0.6, 10, 0, 175)
 HeightBox.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
 HeightBox.TextColor3 = Color3.fromRGB(255, 255, 255)
 HeightBox.Font = Enum.Font.GothamBold
@@ -482,8 +532,8 @@ end)
 
 -- Rarity Toggles
 local ScrollRarity = Instance.new("ScrollingFrame")
-ScrollRarity.Size = UDim2.new(1, -20, 1, -190)
-ScrollRarity.Position = UDim2.new(0, 10, 0, 185)
+ScrollRarity.Size = UDim2.new(1, -20, 1, -215)
+ScrollRarity.Position = UDim2.new(0, 10, 0, 210)
 ScrollRarity.BackgroundTransparency = 1
 ScrollRarity.ScrollBarThickness = 4
 ScrollRarity.CanvasSize = UDim2.new(0, 0, 0, 310)
@@ -531,7 +581,7 @@ task.spawn(function()
         
         if targetEgg then
             local eggRarity = GetRarityText(targetEgg.AssetCategory)
-            local carriedSuccessfully = false -- Pelacak apakah kita benar-benar berhasil ambil telur
+            local carriedSuccessfully = false
 
             SetStatus("Terbang ke [" .. eggRarity .. "]...")
             ToggleNoclip(true)
@@ -610,12 +660,10 @@ task.spawn(function()
                 JustClaimed = false
                 local claimStart = tick()
                 
-                -- Tunggu sinyal claim resmi atau jeda aman mendarat
                 while not JustClaimed and (tick() - claimStart < 2.0) and Config.Enabled do
                     task.wait(0.1)
                 end
                 
-                -- SUKSES 100%: Tambahkan counter
                 EggsStolenCount = EggsStolenCount + 1
                 UpdateCounterDisplay()
                 SetStatus("Sukses Curi [" .. eggRarity .. "]! (+1)")
