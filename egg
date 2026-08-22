@@ -1,5 +1,5 @@
 -- ==============================================================================
--- AUTO STEAL EGG (FIXED NOCLIP COLLISION RESTORE + LERP ENGINE)
+-- AUTO STEAL EGG (LERP ENGINE + STATUS DISPLAY + COUNTER + ANTI-AFK)
 -- ==============================================================================
 
 local Players = game:GetService("Players")
@@ -9,6 +9,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local HttpService = game:GetService("HttpService")
 local Workspace = game:GetService("Workspace")
 local CoreGui = game:GetService("CoreGui")
+local VirtualUser = game:GetService("VirtualUser")
 
 local LocalPlayer = Players.LocalPlayer
 
@@ -16,6 +17,14 @@ local LocalPlayer = Players.LocalPlayer
 local EggCmds = require(ReplicatedStorage.Library.Client.EggCmds)
 local AreaEggSlotIdentity = require(ReplicatedStorage.Library.Util.AreaEggSlotIdentity)
 local AssetsDirectory = require(ReplicatedStorage.Directory.Assets)
+
+-- ==========================================
+-- ANTI-AFK SYSTEM (Mencegah Disconnect 20 Menit)
+-- ==========================================
+LocalPlayer.Idled:Connect(function()
+    VirtualUser:CaptureController()
+    VirtualUser:ClickButton2(Vector2.zero)
+end)
 
 -- ==========================================
 -- ANTI-TREADMILL BYPASS (Disable Raycast Query)
@@ -108,17 +117,32 @@ end
 LoadConfig()
 
 -- ==========================================
--- EVENT CLAIM LISTENER
+-- EVENT CLAIM & TRACKER
 -- ==========================================
 local JustClaimed = false
 local IgnoredEggs = {}
+local EggsStolenCount = 0
+
+-- Dideklarasikan nanti untuk di-update dari event
+local StatusLabel
+local CounterLabel
+
+local function SetStatus(text)
+    if StatusLabel then
+        StatusLabel.Text = "Status: " .. text
+    end
+end
 
 EggCmds.AreaEggClaimed:Connect(function()
     JustClaimed = true
+    EggsStolenCount = EggsStolenCount + 1
+    if CounterLabel then
+        CounterLabel.Text = "Eggs Stolen: " .. tostring(EggsStolenCount)
+    end
 end)
 
 -- ==========================================
--- NOCLIP SYSTEM (DENGAN RESTORE COLLISION LENGKAP)
+-- NOCLIP SYSTEM (COLLISION RESTORATION)
 -- ==========================================
 local noclipConnection
 local function ToggleNoclip(state)
@@ -142,7 +166,7 @@ local function ToggleNoclip(state)
             noclipConnection = nil
         end
         
-        -- KEMBALIKAN TABRAKAN TUBUH AGAR TIDAK AMBLAS/TEMBUS TANAH
+        -- Kembalikan tabrakan fisik agar karakter tidak amblas ke tanah
         for _, part in pairs(char:GetDescendants()) do
             if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
                 part.CanCollide = true
@@ -274,8 +298,8 @@ if CoreGui:FindFirstChild(ScreenGui.Name) then CoreGui[ScreenGui.Name]:Destroy()
 ScreenGui.Parent = CoreGui
 
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 250, 0, 440)
-MainFrame.Position = UDim2.new(0.7, 0, 0.25, 0)
+MainFrame.Size = UDim2.new(0, 250, 0, 480)
+MainFrame.Position = UDim2.new(0.7, 0, 0.22, 0)
 MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
 MainFrame.BorderSizePixel = 0
 MainFrame.Parent = ScreenGui
@@ -291,10 +315,10 @@ local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(1, -30, 1, 0)
 Title.Position = UDim2.new(0, 10, 0, 0)
 Title.BackgroundTransparency = 1
-Title.Text = "Auto Steal Egg"
+Title.Text = "Auto Steal Egg [RCtrl]"
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
 Title.Font = Enum.Font.GothamBold
-Title.TextSize = 14
+Title.TextSize = 13
 Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.Parent = Topbar
 
@@ -312,6 +336,13 @@ CloseBtn.MouseButton1Click:Connect(function()
     Config.Enabled = false
     ToggleNoclip(false)
     ScreenGui:Destroy()
+end)
+
+-- Keybind Toggle Hide UI (RightControl)
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if not gameProcessed and input.KeyCode == Enum.KeyCode.RightControl then
+        MainFrame.Visible = not MainFrame.Visible
+    end
 end)
 
 -- Dragging Logic
@@ -338,7 +369,7 @@ end)
 
 local MasterToggle = Instance.new("TextButton")
 MasterToggle.Size = UDim2.new(1, -20, 0, 35)
-MasterToggle.Position = UDim2.new(0, 10, 0, 40)
+MasterToggle.Position = UDim2.new(0, 10, 0, 38)
 MasterToggle.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
 MasterToggle.Text = "AUTO STEAL: OFF"
 MasterToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -352,13 +383,40 @@ MasterToggle.MouseButton1Click:Connect(function()
     MasterToggle.Text = Config.Enabled and "AUTO STEAL: ON" or "AUTO STEAL: OFF"
     if not Config.Enabled then
         ToggleNoclip(false)
+        SetStatus("Off / Dimatikan")
+    else
+        SetStatus("Mencari Telur...")
     end
 end)
+
+-- Status Info Label
+StatusLabel = Instance.new("TextLabel")
+StatusLabel.Size = UDim2.new(1, -20, 0, 18)
+StatusLabel.Position = UDim2.new(0, 10, 0, 78)
+StatusLabel.BackgroundTransparency = 1
+StatusLabel.Text = "Status: Idle"
+StatusLabel.TextColor3 = Color3.fromRGB(180, 200, 220)
+StatusLabel.Font = Enum.Font.GothamMedium
+StatusLabel.TextSize = 11
+StatusLabel.TextXAlignment = Enum.TextXAlignment.Left
+StatusLabel.Parent = MainFrame
+
+-- Egg Stolen Counter Label
+CounterLabel = Instance.new("TextLabel")
+CounterLabel.Size = UDim2.new(1, -20, 0, 18)
+CounterLabel.Position = UDim2.new(0, 10, 0, 96)
+CounterLabel.BackgroundTransparency = 1
+CounterLabel.Text = "Eggs Stolen: 0"
+CounterLabel.TextColor3 = Color3.fromRGB(120, 230, 120)
+CounterLabel.Font = Enum.Font.GothamBold
+CounterLabel.TextSize = 11
+CounterLabel.TextXAlignment = Enum.TextXAlignment.Left
+CounterLabel.Parent = MainFrame
 
 -- Speed TextBox
 local SpeedLabel = Instance.new("TextLabel")
 SpeedLabel.Size = UDim2.new(0.6, 0, 0, 25)
-SpeedLabel.Position = UDim2.new(0, 10, 0, 85)
+SpeedLabel.Position = UDim2.new(0, 10, 0, 120)
 SpeedLabel.BackgroundTransparency = 1
 SpeedLabel.Text = "Fly Speed:"
 SpeedLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
@@ -369,7 +427,7 @@ SpeedLabel.Parent = MainFrame
 
 local SpeedBox = Instance.new("TextBox")
 SpeedBox.Size = UDim2.new(0.4, -20, 0, 25)
-SpeedBox.Position = UDim2.new(0.6, 10, 0, 85)
+SpeedBox.Position = UDim2.new(0.6, 10, 0, 120)
 SpeedBox.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
 SpeedBox.TextColor3 = Color3.fromRGB(255, 255, 255)
 SpeedBox.Font = Enum.Font.GothamBold
@@ -391,7 +449,7 @@ end)
 -- General Fly Height TextBox
 local HeightLabel = Instance.new("TextLabel")
 HeightLabel.Size = UDim2.new(0.6, 0, 0, 25)
-HeightLabel.Position = UDim2.new(0, 10, 0, 115)
+HeightLabel.Position = UDim2.new(0, 10, 0, 150)
 HeightLabel.BackgroundTransparency = 1
 HeightLabel.Text = "Fly Height:"
 HeightLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
@@ -402,7 +460,7 @@ HeightLabel.Parent = MainFrame
 
 local HeightBox = Instance.new("TextBox")
 HeightBox.Size = UDim2.new(0.4, -20, 0, 25)
-HeightBox.Position = UDim2.new(0.6, 10, 0, 115)
+HeightBox.Position = UDim2.new(0.6, 10, 0, 150)
 HeightBox.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
 HeightBox.TextColor3 = Color3.fromRGB(255, 255, 255)
 HeightBox.Font = Enum.Font.GothamBold
@@ -423,8 +481,8 @@ end)
 
 -- Rarity Toggles
 local ScrollRarity = Instance.new("ScrollingFrame")
-ScrollRarity.Size = UDim2.new(1, -20, 1, -155)
-ScrollRarity.Position = UDim2.new(0, 10, 0, 150)
+ScrollRarity.Size = UDim2.new(1, -20, 1, -190)
+ScrollRarity.Position = UDim2.new(0, 10, 0, 185)
 ScrollRarity.BackgroundTransparency = 1
 ScrollRarity.ScrollBarThickness = 4
 ScrollRarity.CanvasSize = UDim2.new(0, 0, 0, 310)
@@ -471,6 +529,8 @@ task.spawn(function()
         local targetEgg = GetBestTargetEgg()
         
         if targetEgg then
+            local eggRarity = GetRarityText(targetEgg.AssetCategory)
+            SetStatus("Terbang ke [" .. eggRarity .. "]...")
             ToggleNoclip(true)
 
             local safePos = Config.SafeArea
@@ -487,15 +547,16 @@ task.spawn(function()
                 if not SmoothFly(safePos) then continue end
             end
 
-            -- 2. BERANGKAT TERBANG KE ATAS TELUR
+            -- 2. TERBANG MENUJU TITIK DI ATAS TELUR
             if not SmoothFly(flySafePos) then continue end
             if not SmoothFly(flyEggPos) then continue end
             
             -- 3. TURUN KE POSISI TELUR
+            SetStatus("Mengambil Telur...")
             local landEggPos = eggPos + Vector3.new(0, 3.5, 0)
             if not SmoothFly(landEggPos) then continue end
 
-            -- 4. MATIKAN NOCLIP SEMENTARA AGAR BERPIJAK DI ATAS TANAH/TELUR
+            -- 4. MATIKAN NOCLIP AGAR MENAPAK
             ToggleNoclip(false)
             hrp.AssemblyLinearVelocity = Vector3.zero
             hrp.AssemblyAngularVelocity = Vector3.zero
@@ -525,13 +586,15 @@ task.spawn(function()
                 IgnoredEggs[targetEgg.Uid] = tick() + 10
             end
 
-            -- 5. AKTIFKAN NOCLIP KEMBALI DAN TERBANG PULANG
+            -- 5. TERBANG PULANG KE SAFE AREA
+            SetStatus("Kembali ke Safe Area...")
             ToggleNoclip(true)
             if not SmoothFly(flyEggPos) then continue end
             if not SmoothFly(flySafePos) then continue end
             if not SmoothFly(safePos) then continue end
 
-            -- 6. MENDARAT DI SAFE AREA & MATIKAN NOCLIP TOTAL
+            -- 6. MENDARAT DI SAFE AREA & STANDBY CLAIM
+            SetStatus("Menunggu Claim...")
             ToggleNoclip(false)
             
             JustClaimed = false
@@ -540,8 +603,10 @@ task.spawn(function()
                 task.wait(0.1)
             end
             task.wait(0.4)
+            SetStatus("Standby / Mencari Telur...")
         else
-            -- Idle: Pulang ke safe area jika melenceng
+            -- Status Idle / Reset jika melenceng
+            SetStatus("Mencari Telur...")
             local distToSafe = (Vector3.new(hrp.Position.X, 0, hrp.Position.Z) - Vector3.new(Config.SafeArea.X, 0, Config.SafeArea.Z)).Magnitude
             if distToSafe > 5 then
                 ToggleNoclip(true)
