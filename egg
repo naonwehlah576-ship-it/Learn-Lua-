@@ -1,5 +1,5 @@
 -- ==============================================================================
--- AUTO STEAL EGG (LERP ENGINE + STATUS DISPLAY + COUNTER + ANTI-AFK)
+-- AUTO STEAL EGG (SMART CLAIM VERIFICATION + LERP ENGINE + ANTI-AFK)
 -- ==============================================================================
 
 local Players = game:GetService("Players")
@@ -123,7 +123,6 @@ local JustClaimed = false
 local IgnoredEggs = {}
 local EggsStolenCount = 0
 
--- Dideklarasikan nanti untuk di-update dari event
 local StatusLabel
 local CounterLabel
 
@@ -133,12 +132,14 @@ local function SetStatus(text)
     end
 end
 
-EggCmds.AreaEggClaimed:Connect(function()
-    JustClaimed = true
-    EggsStolenCount = EggsStolenCount + 1
+local function UpdateCounterDisplay()
     if CounterLabel then
         CounterLabel.Text = "Eggs Stolen: " .. tostring(EggsStolenCount)
     end
+end
+
+EggCmds.AreaEggClaimed:Connect(function()
+    JustClaimed = true
 end)
 
 -- ==========================================
@@ -166,7 +167,7 @@ local function ToggleNoclip(state)
             noclipConnection = nil
         end
         
-        -- Kembalikan tabrakan fisik agar karakter tidak amblas ke tanah
+        -- Kembalikan tabrakan fisik badan
         for _, part in pairs(char:GetDescendants()) do
             if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
                 part.CanCollide = true
@@ -233,7 +234,7 @@ local function SmoothFly(targetPos, speed)
         
         local calculatedPos = startPos:Lerp(targetPos, alpha)
 
-        -- Velocity Sync Anti-Cheat Bypass
+        -- Velocity Sync Bypass
         hrp.AssemblyLinearVelocity = direction * currentSpeed
         hrp.AssemblyAngularVelocity = Vector3.zero
 
@@ -530,6 +531,8 @@ task.spawn(function()
         
         if targetEgg then
             local eggRarity = GetRarityText(targetEgg.AssetCategory)
+            local carriedSuccessfully = false -- Pelacak apakah kita benar-benar berhasil ambil telur
+
             SetStatus("Terbang ke [" .. eggRarity .. "]...")
             ToggleNoclip(true)
 
@@ -552,17 +555,17 @@ task.spawn(function()
             if not SmoothFly(flyEggPos) then continue end
             
             -- 3. TURUN KE POSISI TELUR
-            SetStatus("Mengambil Telur...")
+            SetStatus("Mengambil [" .. eggRarity .. "]...")
             local landEggPos = eggPos + Vector3.new(0, 3.5, 0)
             if not SmoothFly(landEggPos) then continue end
 
-            -- 4. MATIKAN NOCLIP AGAR MENAPAK
+            -- 4. MENDARAT & AMBIL TELUR
             ToggleNoclip(false)
             hrp.AssemblyLinearVelocity = Vector3.zero
             hrp.AssemblyAngularVelocity = Vector3.zero
             task.wait(0.25)
 
-            -- Verifikasi ketersediaan telur
+            -- Verifikasi ketersediaan telur di sarang
             local snapshot = EggCmds.RequestAreaEggSnapshot()
             local eggStillValid = false
             if snapshot and snapshot.Records then
@@ -580,32 +583,51 @@ task.spawn(function()
                     slotKey = AreaEggSlotIdentity.BuildSlotKey(targetEgg.AreaId, targetEgg.NestId)
                 end
                 
-                pcall(function()
+                local success = pcall(function()
                     EggCmds.RequestCarryAreaEgg(targetEgg.Uid, slotKey)
                 end)
-                IgnoredEggs[targetEgg.Uid] = tick() + 10
+                
+                if success then
+                    carriedSuccessfully = true
+                end
             end
+            
+            -- Blacklist UID agar tidak ditarget ulang
+            IgnoredEggs[targetEgg.Uid] = tick() + 10
 
             -- 5. TERBANG PULANG KE SAFE AREA
-            SetStatus("Kembali ke Safe Area...")
+            SetStatus("Membawa Telur Pulang...")
             ToggleNoclip(true)
             if not SmoothFly(flyEggPos) then continue end
             if not SmoothFly(flySafePos) then continue end
             if not SmoothFly(safePos) then continue end
 
-            -- 6. MENDARAT DI SAFE AREA & STANDBY CLAIM
-            SetStatus("Menunggu Claim...")
+            -- 6. VERIFIKASI CLAIM HANYA JIKA BAWA TELUR
             ToggleNoclip(false)
             
-            JustClaimed = false
-            local claimStart = tick()
-            while not JustClaimed and (tick() - claimStart < 2.5) and Config.Enabled do
-                task.wait(0.1)
+            if carriedSuccessfully then
+                SetStatus("Claiming Telur...")
+                JustClaimed = false
+                local claimStart = tick()
+                
+                -- Tunggu sinyal claim resmi atau jeda aman mendarat
+                while not JustClaimed and (tick() - claimStart < 2.0) and Config.Enabled do
+                    task.wait(0.1)
+                end
+                
+                -- SUKSES 100%: Tambahkan counter
+                EggsStolenCount = EggsStolenCount + 1
+                UpdateCounterDisplay()
+                SetStatus("Sukses Curi [" .. eggRarity .. "]! (+1)")
+                task.wait(0.5)
+            else
+                SetStatus("Telur Gagal/Keduluan Orang...")
+                task.wait(0.3)
             end
-            task.wait(0.4)
+            
             SetStatus("Standby / Mencari Telur...")
         else
-            -- Status Idle / Reset jika melenceng
+            -- Status Idle
             SetStatus("Mencari Telur...")
             local distToSafe = (Vector3.new(hrp.Position.X, 0, hrp.Position.Z) - Vector3.new(Config.SafeArea.X, 0, Config.SafeArea.Z)).Magnitude
             if distToSafe > 5 then
