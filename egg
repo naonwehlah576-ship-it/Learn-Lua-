@@ -1,5 +1,5 @@
 -- ==============================================================================
--- AUTO STEAL EGG (DIRECT-TO-TARGET + BOUNDS DETECTION + TITAN HUNTER + LERP)
+-- AUTO STEAL EGG (DUAL MODE: FLY / WALK BAC-BYPASS + TITAN HUNTER + LERP)
 -- ==============================================================================
 
 local Players = game:GetService("Players")
@@ -62,6 +62,7 @@ local ConfigFile = "AutoSteal_Config.json"
 
 local Config = {
     Enabled = false,
+    MoveMode = "Walk",    -- "Fly" atau "Walk" (Default: Walk agar aman dari BAC-8516)
     FlySpeed = 65,
     FlyHeight = 75,
     TitanWeight = 1000000, -- Default: 1 Juta Kg
@@ -98,6 +99,7 @@ local RarityPriority = {
 local function SaveConfig()
     if writefile then
         local dataToSave = {
+            MoveMode = Config.MoveMode,
             FlySpeed = Config.FlySpeed,
             FlyHeight = Config.FlyHeight,
             TitanWeight = Config.TitanWeight,
@@ -116,6 +118,7 @@ local function LoadConfig()
             local raw = readfile(ConfigFile)
             local decoded = HttpService:JSONDecode(raw)
             if decoded then
+                if decoded.MoveMode then Config.MoveMode = decoded.MoveMode end
                 if decoded.FlySpeed then Config.FlySpeed = decoded.FlySpeed end
                 if decoded.FlyHeight then Config.FlyHeight = decoded.FlyHeight end
                 if decoded.TitanWeight then Config.TitanWeight = decoded.TitanWeight end
@@ -145,6 +148,7 @@ local IsBarrierOpen = true
 local StatusLabel
 local CounterLabel
 local MasterToggle
+local ModeBtn
 
 local function SetStatus(text)
     pcall(function()
@@ -172,14 +176,12 @@ local function FormatKg(num)
     end
 end
 
--- Deteksi apakah posisi berada di dalam lapangan farm telur
 local function IsInFarmArea(pos)
     local minZ = -431
     local maxZ = -296
     return pos.X >= 549 and pos.Z >= minZ and pos.Z <= maxZ
 end
 
--- Pengecekan status malam langsung dari jam server game
 local function CheckIsServerNight()
     local isNight = false
     pcall(function()
@@ -188,6 +190,22 @@ local function CheckIsServerNight()
         end
     end)
     return isNight
+end
+
+-- Deteksi ketinggian tanah asli via Raycast untuk Mode Walk
+local function GetGroundHeight(x, z)
+    local rayOrigin = Vector3.new(x, 150, z)
+    local rayDirection = Vector3.new(0, -200, 0)
+    local raycastParams = RaycastParams.new()
+    raycastParams.FilterType = Enum.RaycastFilterType.Exclude
+    if LocalPlayer.Character then
+        raycastParams.FilterDescendantsInstances = { LocalPlayer.Character }
+    end
+    local result = Workspace:Raycast(rayOrigin, rayDirection, raycastParams)
+    if result then
+        return result.Position.Y + 3.0 -- Offset HRP pas di atas tanah
+    end
+    return 74.4 -- Fallback level tanah
 end
 
 EggCmds.AreaEggClaimed:Connect(function()
@@ -220,7 +238,7 @@ EggCmds.AreaEggRareSpawnsPresented:Connect(function()
 end)
 
 -- ==========================================
--- NOCLIP SYSTEM & ANTI-PUSHBACK BYPASS
+-- NOCLIP SYSTEM
 -- ==========================================
 local noclipConnection
 local function ToggleNoclip(state)
@@ -263,13 +281,6 @@ local function SetupCharacter(char)
         hum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
         hum:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
     end
-    
-    task.spawn(function()
-        local badScript = char:WaitForChild("AntiCollisionHighSeedPushBack", 3)
-        if badScript then
-            badScript:Destroy()
-        end
-    end)
 end
 
 if LocalPlayer.Character then SetupCharacter(LocalPlayer.Character) end
@@ -308,15 +319,16 @@ local function ForceStopAutomation()
 end
 
 -- ==========================================
--- LERP FLIGHT ENGINE (ZERO SAG & BYPASS)
+-- UNIFIED MOVEMENT ENGINE (FLY & WALK)
 -- ==========================================
-local function SmoothFly(targetPos, speed)
+local function SmoothMove(targetPos, speed)
     local char = LocalPlayer.Character
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
     local hum = char and char:FindFirstChild("Humanoid")
     if not hrp or not hum or hum.Health <= 0 then return false end
 
     local currentSpeed = speed or Config.FlySpeed
+    local isWalk = (Config.MoveMode == "Walk")
     local startPos = hrp.Position
     local totalDistance = (targetPos - startPos).Magnitude
 
@@ -331,8 +343,13 @@ local function SmoothFly(targetPos, speed)
     local elapsed = 0
     local direction = (targetPos - startPos).Unit
 
-    hum.PlatformStand = true
-    hum:ChangeState(Enum.HumanoidStateType.Physics)
+    if isWalk then
+        hum.PlatformStand = false
+        hum:ChangeState(Enum.HumanoidStateType.Running)
+    else
+        hum.PlatformStand = true
+        hum:ChangeState(Enum.HumanoidStateType.Physics)
+    end
 
     while elapsed < duration and Config.Enabled and hum.Health > 0 do
         local dt = RunService.PreSimulation:Wait()
@@ -349,14 +366,29 @@ local function SmoothFly(targetPos, speed)
         
         local calculatedPos = startPos:Lerp(targetPos, alpha)
 
-        hrp.AssemblyLinearVelocity = direction * currentSpeed
-        hrp.AssemblyAngularVelocity = Vector3.zero
-
-        if direction.Magnitude > 0.001 then
-            hrp.CFrame = CFrame.new(calculatedPos, calculatedPos + direction)
+        if isWalk then
+            -- MODE WALK: Kunci ketinggian menempel di atas tanah
+            local groundY = GetGroundHeight(calculatedPos.X, calculatedPos.Z)
+            calculatedPos = Vector3.new(calculatedPos.X, groundY, calculatedPos.Z)
+            
+            local moveDir = Vector3.new(direction.X, 0, direction.Z)
+            if moveDir.Magnitude > 0.001 then
+                hrp.CFrame = CFrame.new(calculatedPos, calculatedPos + moveDir)
+                hrp.AssemblyLinearVelocity = moveDir.Unit * currentSpeed
+            else
+                hrp.CFrame = CFrame.new(calculatedPos)
+            end
         else
-            hrp.CFrame = CFrame.new(calculatedPos)
+            -- MODE FLY: Zero-gravity Lerp di udara
+            hrp.AssemblyLinearVelocity = direction * currentSpeed
+            if direction.Magnitude > 0.001 then
+                hrp.CFrame = CFrame.new(calculatedPos, calculatedPos + direction)
+            else
+                hrp.CFrame = CFrame.new(calculatedPos)
+            end
         end
+
+        hrp.AssemblyAngularVelocity = Vector3.zero
     end
 
     if hrp then
@@ -498,8 +530,8 @@ ScreenGui.ResetOnSpawn = false
 ScreenGui.Parent = SafeParent
 
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 250, 0, 575)
-MainFrame.Position = UDim2.new(0.7, 0, 0.16, 0)
+MainFrame.Size = UDim2.new(0, 250, 0, 605)
+MainFrame.Position = UDim2.new(0.7, 0, 0.15, 0)
 MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
 MainFrame.BorderSizePixel = 0
 MainFrame.Parent = ScreenGui
@@ -568,8 +600,8 @@ end)
 
 -- Master Toggle Button
 MasterToggle = Instance.new("TextButton")
-MasterToggle.Size = UDim2.new(1, -20, 0, 32)
-MasterToggle.Position = UDim2.new(0, 10, 0, 38)
+MasterToggle.Size = UDim2.new(1, -20, 0, 30)
+MasterToggle.Position = UDim2.new(0, 10, 0, 36)
 MasterToggle.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
 MasterToggle.Text = "AUTO STEAL: OFF"
 MasterToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -592,8 +624,8 @@ end)
 
 -- Emergency Force Stop Button
 local ForceStopBtn = Instance.new("TextButton")
-ForceStopBtn.Size = UDim2.new(1, -20, 0, 26)
-ForceStopBtn.Position = UDim2.new(0, 10, 0, 74)
+ForceStopBtn.Size = UDim2.new(1, -20, 0, 24)
+ForceStopBtn.Position = UDim2.new(0, 10, 0, 70)
 ForceStopBtn.BackgroundColor3 = Color3.fromRGB(150, 20, 20)
 ForceStopBtn.Text = "[ 🛑 FORCE STOP ]"
 ForceStopBtn.TextColor3 = Color3.fromRGB(255, 220, 220)
@@ -606,10 +638,39 @@ ForceStopBtn.MouseButton1Click:Connect(function()
     ForceStopAutomation()
 end)
 
+-- Movement Mode Toggle Button (FLY / WALK)
+local function UpdateModeBtnDisplay()
+    if ModeBtn then
+        if Config.MoveMode == "Walk" then
+            ModeBtn.BackgroundColor3 = Color3.fromRGB(220, 120, 40)
+            ModeBtn.Text = "MODE: WALK (TANAH - AMAN BAC)"
+        else
+            ModeBtn.BackgroundColor3 = Color3.fromRGB(50, 140, 220)
+            ModeBtn.Text = "MODE: FLY (UDARA)"
+        end
+    end
+end
+
+ModeBtn = Instance.new("TextButton")
+ModeBtn.Size = UDim2.new(1, -20, 0, 24)
+ModeBtn.Position = UDim2.new(0, 10, 0, 98)
+ModeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+ModeBtn.Font = Enum.Font.GothamBold
+ModeBtn.TextSize = 11
+ModeBtn.Parent = MainFrame
+Instance.new("UICorner", ModeBtn).CornerRadius = UDim.new(0, 6)
+UpdateModeBtnDisplay()
+
+ModeBtn.MouseButton1Click:Connect(function()
+    Config.MoveMode = (Config.MoveMode == "Walk") and "Fly" or "Walk"
+    UpdateModeBtnDisplay()
+    SaveConfig()
+end)
+
 -- Status Info Label
 StatusLabel = Instance.new("TextLabel")
 StatusLabel.Size = UDim2.new(1, -20, 0, 18)
-StatusLabel.Position = UDim2.new(0, 10, 0, 105)
+StatusLabel.Position = UDim2.new(0, 10, 0, 126)
 StatusLabel.BackgroundTransparency = 1
 StatusLabel.Text = "Status: Idle"
 StatusLabel.TextColor3 = Color3.fromRGB(180, 200, 220)
@@ -621,7 +682,7 @@ StatusLabel.Parent = MainFrame
 -- Egg Stolen Counter Label
 CounterLabel = Instance.new("TextLabel")
 CounterLabel.Size = UDim2.new(1, -20, 0, 18)
-CounterLabel.Position = UDim2.new(0, 10, 0, 123)
+CounterLabel.Position = UDim2.new(0, 10, 0, 144)
 CounterLabel.BackgroundTransparency = 1
 CounterLabel.Text = "Eggs Stolen: 0"
 CounterLabel.TextColor3 = Color3.fromRGB(120, 230, 120)
@@ -633,9 +694,9 @@ CounterLabel.Parent = MainFrame
 -- Speed TextBox
 local SpeedLabel = Instance.new("TextLabel")
 SpeedLabel.Size = UDim2.new(0.6, 0, 0, 24)
-SpeedLabel.Position = UDim2.new(0, 10, 0, 145)
+SpeedLabel.Position = UDim2.new(0, 10, 0, 166)
 SpeedLabel.BackgroundTransparency = 1
-SpeedLabel.Text = "Fly Speed:"
+SpeedLabel.Text = "Speed:"
 SpeedLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
 SpeedLabel.Font = Enum.Font.GothamSemibold
 SpeedLabel.TextSize = 12
@@ -644,7 +705,7 @@ SpeedLabel.Parent = MainFrame
 
 local SpeedBox = Instance.new("TextBox")
 SpeedBox.Size = UDim2.new(0.4, -20, 0, 24)
-SpeedBox.Position = UDim2.new(0.6, 10, 0, 145)
+SpeedBox.Position = UDim2.new(0.6, 10, 0, 166)
 SpeedBox.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
 SpeedBox.TextColor3 = Color3.fromRGB(255, 255, 255)
 SpeedBox.Font = Enum.Font.GothamBold
@@ -666,18 +727,18 @@ end)
 -- Fly Height TextBox
 local HeightLabel = Instance.new("TextLabel")
 HeightLabel.Size = UDim2.new(0.6, 0, 0, 24)
-HeightLabel.Position = UDim2.new(0, 10, 0, 173)
+HeightLabel.Position = UDim2.new(0, 10, 0, 194)
 HeightLabel.BackgroundTransparency = 1
-HeightLabel.Text = "Fly Height:"
+HeightLabel.Text = "Fly Height (Fly Mode):"
 HeightLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
 HeightLabel.Font = Enum.Font.GothamSemibold
-HeightLabel.TextSize = 12
+HeightLabel.TextSize = 11
 HeightLabel.TextXAlignment = Enum.TextXAlignment.Left
 HeightLabel.Parent = MainFrame
 
 local HeightBox = Instance.new("TextBox")
 HeightBox.Size = UDim2.new(0.4, -20, 0, 24)
-HeightBox.Position = UDim2.new(0.6, 10, 0, 173)
+HeightBox.Position = UDim2.new(0.6, 10, 0, 194)
 HeightBox.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
 HeightBox.TextColor3 = Color3.fromRGB(255, 255, 255)
 HeightBox.Font = Enum.Font.GothamBold
@@ -699,7 +760,7 @@ end)
 -- Titan Weight Override TextBox
 local TitanLabel = Instance.new("TextLabel")
 TitanLabel.Size = UDim2.new(0.6, 0, 0, 24)
-TitanLabel.Position = UDim2.new(0, 10, 0, 201)
+TitanLabel.Position = UDim2.new(0, 10, 0, 222)
 TitanLabel.BackgroundTransparency = 1
 TitanLabel.Text = "Steal Any >= (Kg):"
 TitanLabel.TextColor3 = Color3.fromRGB(255, 215, 0)
@@ -710,7 +771,7 @@ TitanLabel.Parent = MainFrame
 
 local TitanBox = Instance.new("TextBox")
 TitanBox.Size = UDim2.new(0.4, -20, 0, 24)
-TitanBox.Position = UDim2.new(0.6, 10, 0, 201)
+TitanBox.Position = UDim2.new(0.6, 10, 0, 222)
 TitanBox.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
 TitanBox.TextColor3 = Color3.fromRGB(255, 215, 0)
 TitanBox.Font = Enum.Font.GothamBold
@@ -732,7 +793,7 @@ end)
 -- Barrier Delay TextBox
 local BarrierDelayLabel = Instance.new("TextLabel")
 BarrierDelayLabel.Size = UDim2.new(0.6, 0, 0, 24)
-BarrierDelayLabel.Position = UDim2.new(0, 10, 0, 229)
+BarrierDelayLabel.Position = UDim2.new(0, 10, 0, 250)
 BarrierDelayLabel.BackgroundTransparency = 1
 BarrierDelayLabel.Text = "Barrier Delay (s):"
 BarrierDelayLabel.TextColor3 = Color3.fromRGB(135, 206, 250)
@@ -743,7 +804,7 @@ BarrierDelayLabel.Parent = MainFrame
 
 local BarrierDelayBox = Instance.new("TextBox")
 BarrierDelayBox.Size = UDim2.new(0.4, -20, 0, 24)
-BarrierDelayBox.Position = UDim2.new(0.6, 10, 0, 229)
+BarrierDelayBox.Position = UDim2.new(0.6, 10, 0, 250)
 BarrierDelayBox.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
 BarrierDelayBox.TextColor3 = Color3.fromRGB(135, 206, 250)
 BarrierDelayBox.Font = Enum.Font.GothamBold
@@ -764,8 +825,8 @@ end)
 
 -- Rarity Toggles
 local ScrollRarity = Instance.new("ScrollingFrame")
-ScrollRarity.Size = UDim2.new(1, -20, 1, -270)
-ScrollRarity.Position = UDim2.new(0, 10, 0, 260)
+ScrollRarity.Size = UDim2.new(1, -20, 1, -290)
+ScrollRarity.Position = UDim2.new(0, 10, 0, 280)
 ScrollRarity.BackgroundTransparency = 1
 ScrollRarity.ScrollBarThickness = 4
 ScrollRarity.CanvasSize = UDim2.new(0, 0, 0, 350)
@@ -796,7 +857,7 @@ for _, rarity in ipairs(RarityOrder) do
 end
 
 -- ==========================================
--- MAIN AUTOMATION LOOP (SMART DEPARTURE)
+-- MAIN AUTOMATION LOOP
 -- ==========================================
 task.spawn(function()
     while task.wait(0.2) do
@@ -809,13 +870,12 @@ task.spawn(function()
             continue
         end
 
-        -- 🛡️ KUNCI SINKRONISASI JAM SERVER
         local isServerNight = CheckIsServerNight()
         if isServerNight then
             IsBarrierOpen = false
         end
 
-        -- JIKA JAM SERVER MENYATAKAN MALAM ATAU BARRIER BELUM SELESAI HITUNG MUNDUR:
+        -- JIKA MALAM ATAU BARRIER BELUM BUKA:
         if isServerNight or not IsBarrierOpen then
             if isServerNight then
                 SetStatus("🌙 Malam / Area Ditutup (Standby Safe Zone)")
@@ -824,9 +884,13 @@ task.spawn(function()
             local distToSafe = (Vector3.new(hrp.Position.X, 0, hrp.Position.Z) - Vector3.new(Config.SafeArea.X, 0, Config.SafeArea.Z)).Magnitude
             if distToSafe > 5 then
                 ToggleNoclip(true)
-                SmoothFly(Vector3.new(hrp.Position.X, Config.FlyHeight, hrp.Position.Z))
-                SmoothFly(Vector3.new(Config.SafeArea.X, Config.FlyHeight, Config.SafeArea.Z))
-                SmoothFly(Config.SafeArea)
+                if Config.MoveMode == "Walk" then
+                    SmoothMove(Config.SafeArea)
+                else
+                    SmoothMove(Vector3.new(hrp.Position.X, Config.FlyHeight, hrp.Position.Z))
+                    SmoothMove(Vector3.new(Config.SafeArea.X, Config.FlyHeight, Config.SafeArea.Z))
+                    SmoothMove(Config.SafeArea)
+                end
                 ToggleNoclip(false)
             end
             task.wait(0.3)
@@ -860,36 +924,39 @@ task.spawn(function()
             ToggleNoclip(true)
 
             local safePos = Config.SafeArea
-            local flySafePos = Vector3.new(safePos.X, Config.FlyHeight, safePos.Z)
-
             local eggPos = targetEgg.BottomCFrame.Position
-            local flyEggPos = Vector3.new(eggPos.X, Config.FlyHeight, eggPos.Z)
-
             local currentPos = hrp.Position
-
-            -- 🚀 LOGIKA PEMBERANGKATAN CERDAS (DIRECT-TO-TARGET)
-            if IsInFarmArea(currentPos) then
-                -- JIKA SUDAH DI DALAM LAPANGAN: Langsung naik ke FlyHeight lalu meluncur ke telur
-                local currentHoverPos = Vector3.new(currentPos.X, Config.FlyHeight, currentPos.Z)
-                if not SmoothFly(currentHoverPos) then continue end
-                if not SmoothFly(flyEggPos) then continue end
-            else
-                -- JIKA DI LUAR (BASE/SAFE ZONE): Berangkat via titik Safe Area
-                local distToSafe = (Vector3.new(currentPos.X, 0, currentPos.Z) - Vector3.new(safePos.X, 0, safePos.Z)).Magnitude
-                if distToSafe > 5 then
-                    if not SmoothFly(Vector3.new(currentPos.X, Config.FlyHeight, currentPos.Z)) then continue end
-                    if not SmoothFly(flySafePos) then continue end
-                    if not SmoothFly(safePos) then continue end
-                end
-
-                if not SmoothFly(flySafePos) then continue end
-                if not SmoothFly(flyEggPos) then continue end
-            end
-            
-            -- 3. TURUN KE POSISI TELUR
-            SetStatus("Mengambil [" .. eggCategory .. " (" .. weightStr .. ")]...")
             local landEggPos = eggPos + Vector3.new(0, 3.5, 0)
-            if not SmoothFly(landEggPos) then continue end
+
+            -- 🚀 LOGIKA PERJALANAN (BERDASARKAN MODE)
+            if Config.MoveMode == "Walk" then
+                -- MODE WALK (JALAN TANAH / AMAN BAC):
+                -- Langsung lari di tanah menuju telur
+                if not SmoothMove(landEggPos) then continue end
+            else
+                -- MODE FLY (LERP UDARA):
+                local flySafePos = Vector3.new(safePos.X, Config.FlyHeight, safePos.Z)
+                local flyEggPos = Vector3.new(eggPos.X, Config.FlyHeight, eggPos.Z)
+
+                if IsInFarmArea(currentPos) then
+                    local currentHoverPos = Vector3.new(currentPos.X, Config.FlyHeight, currentPos.Z)
+                    if not SmoothMove(currentHoverPos) then continue end
+                    if not SmoothMove(flyEggPos) then continue end
+                else
+                    local distToSafe = (Vector3.new(currentPos.X, 0, currentPos.Z) - Vector3.new(safePos.X, 0, safePos.Z)).Magnitude
+                    if distToSafe > 5 then
+                        if not SmoothMove(Vector3.new(currentPos.X, Config.FlyHeight, currentPos.Z)) then continue end
+                        if not SmoothMove(flySafePos) then continue end
+                        if not SmoothMove(safePos) then continue end
+                    end
+
+                    if not SmoothMove(flySafePos) then continue end
+                    if not SmoothMove(flyEggPos) then continue end
+                end
+                
+                SetStatus("Mengambil [" .. eggCategory .. " (" .. weightStr .. ")]...")
+                if not SmoothMove(landEggPos) then continue end
+            end
 
             -- 4. MENDARAT & AMBIL TELUR
             ToggleNoclip(false)
@@ -925,14 +992,21 @@ task.spawn(function()
             
             IgnoredEggs[targetEgg.Uid] = tick() + 10
 
-            -- 5. TERBANG PULANG KE SAFE AREA
+            -- 5. KEMBALI KE SAFE AREA
             SetStatus("Membawa [" .. eggCategory .. " (" .. weightStr .. ")] Pulang...")
             ToggleNoclip(true)
-            if not SmoothFly(flyEggPos) then continue end
-            if not SmoothFly(flySafePos) then continue end
-            if not SmoothFly(safePos) then continue end
 
-            -- 6. VERIFIKASI CLAIM
+            if Config.MoveMode == "Walk" then
+                if not SmoothMove(safePos) then continue end
+            else
+                local flyEggPos = Vector3.new(eggPos.X, Config.FlyHeight, eggPos.Z)
+                local flySafePos = Vector3.new(safePos.X, Config.FlyHeight, safePos.Z)
+                if not SmoothMove(flyEggPos) then continue end
+                if not SmoothMove(flySafePos) then continue end
+                if not SmoothMove(safePos) then continue end
+            end
+
+            -- 6. VERIFIKASI CLAIM DI SAFE AREA
             ToggleNoclip(false)
             
             if carriedSuccessfully then
@@ -960,9 +1034,13 @@ task.spawn(function()
             local distToSafe = (Vector3.new(hrp.Position.X, 0, hrp.Position.Z) - Vector3.new(Config.SafeArea.X, 0, Config.SafeArea.Z)).Magnitude
             if distToSafe > 5 then
                 ToggleNoclip(true)
-                SmoothFly(Vector3.new(hrp.Position.X, Config.FlyHeight, hrp.Position.Z))
-                SmoothFly(Vector3.new(Config.SafeArea.X, Config.FlyHeight, Config.SafeArea.Z))
-                SmoothFly(Config.SafeArea)
+                if Config.MoveMode == "Walk" then
+                    SmoothMove(Config.SafeArea)
+                else
+                    SmoothMove(Vector3.new(hrp.Position.X, Config.FlyHeight, hrp.Position.Z))
+                    SmoothMove(Vector3.new(Config.SafeArea.X, Config.FlyHeight, Config.SafeArea.Z))
+                    SmoothMove(Config.SafeArea)
+                end
                 ToggleNoclip(false)
             end
         end
