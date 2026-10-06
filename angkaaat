@@ -1,0 +1,883 @@
+-- ========================================================
+-- AUTO LIFT, SCAVENGER, REBIRTH, TRAIN & HYPER CLICK
+-- DILENGKAPI FITUR ANTI-STUCK (2 MENIT AUTO RE-TELEPORT)
+-- ========================================================
+
+if not game:IsLoaded() then
+    game.Loaded:Wait()
+end
+
+local Players = game:GetService("Players")
+local lp = Players.LocalPlayer or Players.PlayerAdded:Wait()
+local char = lp.Character or lp.CharacterAdded:Wait()
+char:WaitForChild("HumanoidRootPart", 15)
+
+local mouse = lp:GetMouse()
+local CoreGui = game:GetService("CoreGui")
+local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local HttpService = game:GetService("HttpService")
+local VirtualUser = game:GetService("VirtualUser")
+local VirtualInputManager = game:GetService("VirtualInputManager")
+
+local CONFIG_FILE = "StageScavenger_Config.json"
+
+-- Konfigurasi Default
+local config = {
+    running = false,
+    autoRebirth = false,
+    autoTrain = false,
+    autoClick = false,
+    autoExecute = false,
+    trainPos = "23.7, 123.4, -851.4",
+    clickPos = "0.0, 0.0, 0.0",
+    targetStage = 10,
+    itemCapacity = 7,
+    customSpeed = 111,
+    pickupMode = "Teleport"
+}
+
+-- Parser Koordinat
+local function parseCoords(str, default)
+    default = default or Vector3.zero
+    if not str then return default end
+    local x, y, z = string.match(str, "([%-%d%.]+)%s*,%s*([%-%d%.]+)%s*,%s*([%-%d%.]+)")
+    if x and y and z then
+        return Vector3.new(tonumber(x) or default.X, tonumber(y) or default.Y, tonumber(z) or default.Z)
+    end
+    return default
+end
+
+-- Save & Load Config
+local function saveConfig()
+    pcall(function()
+        if writefile then
+            local data = {
+                running = config.running,
+                autoRebirth = config.autoRebirth,
+                autoTrain = config.autoTrain,
+                autoClick = config.autoClick,
+                autoExecute = config.autoExecute,
+                trainPos = config.trainPos,
+                clickPos = config.clickPos,
+                targetStage = config.targetStage,
+                itemCapacity = config.itemCapacity,
+                customSpeed = config.customSpeed,
+                pickupMode = config.pickupMode
+            }
+            writefile(CONFIG_FILE, HttpService:JSONEncode(data))
+        end
+    end)
+end
+
+local function loadConfig()
+    pcall(function()
+        if isfile and readfile and isfile(CONFIG_FILE) then
+            local decoded = HttpService:JSONDecode(readfile(CONFIG_FILE))
+            if decoded then
+                if decoded.running ~= nil then config.running = decoded.running end
+                if decoded.autoRebirth ~= nil then config.autoRebirth = decoded.autoRebirth end
+                if decoded.autoTrain ~= nil then config.autoTrain = decoded.autoTrain end
+                if decoded.autoClick ~= nil then config.autoClick = decoded.autoClick end
+                if decoded.autoExecute ~= nil then config.autoExecute = decoded.autoExecute end
+                if decoded.trainPos ~= nil then config.trainPos = decoded.trainPos end
+                if decoded.clickPos ~= nil then config.clickPos = decoded.clickPos end
+                if decoded.targetStage ~= nil then config.targetStage = decoded.targetStage end
+                if decoded.itemCapacity ~= nil then config.itemCapacity = decoded.itemCapacity end
+                if decoded.customSpeed ~= nil then config.customSpeed = decoded.customSpeed end
+                if decoded.pickupMode ~= nil then config.pickupMode = decoded.pickupMode end
+            end
+        end
+    end)
+end
+
+loadConfig()
+
+-- Maintain WalkSpeed
+RunService.Stepped:Connect(function()
+    if config.running then
+        local hum = lp.Character and lp.Character:FindFirstChild("Humanoid")
+        if hum and hum.WalkSpeed ~= config.customSpeed then
+            hum.WalkSpeed = config.customSpeed
+        end
+    end
+end)
+
+-- 1. SISTEM AUTO REBIRTH
+local function checkAndExecuteRebirth()
+    if not config.autoRebirth then return end
+
+    local ready = false
+    pcall(function()
+        local btn = lp.PlayerGui.MainUI.Left.Buttons:FindFirstChild("Rebirth")
+        if btn then
+            local arrow = btn:FindFirstChild("Arrow")
+            local progress = btn:FindFirstChild("Progress")
+            if (arrow and arrow.Visible) or (progress and progress.Text == "100%") then
+                ready = true
+            end
+        end
+    end)
+
+    if ready then
+        pcall(function()
+            local Shared = ReplicatedStorage:WaitForChild("Shared")
+            local SharedUtils = require(Shared:WaitForChild("SharedUtils"))
+            local remote = SharedUtils.GetRemote("PerformRebirth")
+            if remote then
+                remote:FireServer()
+            end
+        end)
+    end
+end
+
+task.spawn(function()
+    while true do
+        task.wait(1)
+        checkAndExecuteRebirth()
+    end
+end)
+
+-- 2. BACKGROUND LOOP AUTO TRAIN
+task.spawn(function()
+    while true do
+        if config.autoTrain and not config.running then
+            local myChar = lp.Character
+            local hrp = myChar and myChar:FindFirstChild("HumanoidRootPart")
+            if hrp then
+                local target = parseCoords(config.trainPos, Vector3.new(23.7, 123.4, -851.4))
+                if (hrp.Position - target).Magnitude > 4 then
+                    hrp.AssemblyLinearVelocity = Vector3.zero
+                    hrp.AssemblyAngularVelocity = Vector3.zero
+                    hrp.CFrame = CFrame.new(target)
+                end
+            end
+        end
+        task.wait(0.5)
+    end
+end)
+
+-- 3. BACKGROUND LOOP AUTO CLICK (HYBRID VIRTUAL INPUT)
+local function performClick(screenVec, target3D)
+    if typeof(fireclickdetector) == "function" and target3D then
+        local cam = workspace.CurrentCamera
+        if cam then
+            local ray = cam:ViewportPointToRay(screenVec.X, screenVec.Y)
+            local raycastParams = RaycastParams.new()
+            raycastParams.FilterType = RaycastFilterType.Exclude
+            raycastParams.FilterDescendantsInstances = {lp.Character}
+            local hit = workspace:Raycast(ray.Origin, ray.Direction * 1000, raycastParams)
+            if hit and hit.Instance then
+                local detector = hit.Instance:FindFirstChildWhichIsA("ClickDetector") or hit.Instance.Parent:FindFirstChildWhichIsA("ClickDetector")
+                if detector then
+                    fireclickdetector(detector)
+                    return
+                end
+            end
+        end
+    end
+
+    VirtualInputManager:SendMouseButtonEvent(screenVec.X, screenVec.Y, 0, true, game, 1)
+    VirtualInputManager:SendMouseButtonEvent(screenVec.X, screenVec.Y, 0, false, game, 1)
+    VirtualUser:Button1Down(screenVec)
+    VirtualUser:Button1Up(screenVec)
+end
+
+RunService.RenderStepped:Connect(function()
+    if config.autoClick then
+        local target3D = parseCoords(config.clickPos, Vector3.zero)
+        local cam = workspace.CurrentCamera
+        if cam then
+            local screenPoint, onScreen = cam:WorldToViewportPoint(target3D)
+            if onScreen then
+                local screenVec = Vector2.new(screenPoint.X, screenPoint.Y)
+                performClick(screenVec, target3D)
+            end
+        end
+    end
+end)
+
+-- 4. PARSER HARGA
+local function parsePrice(str)
+    if not str then return 0 end
+    local clean = string.gsub(str, "[%$,%s]", "")
+    local val, unit = string.match(clean, "^([%d%.]+)(%a?)$")
+    if not val then return 0 end
+    val = tonumber(val) or 0
+    unit = string.upper(unit or "")
+    if unit == "K" then return val * 1e3
+    elseif unit == "M" then return val * 1e6
+    elseif unit == "B" then return val * 1e9
+    elseif unit == "T" then return val * 1e12
+    end
+    return val
+end
+
+local function getPromptPos(prompt)
+    if not prompt then return nil end
+    local p = prompt.Parent
+    if p:IsA("BasePart") then return p.Position
+    elseif p:IsA("Attachment") then return p.WorldPosition
+    elseif p:IsA("Model") and p.PrimaryPart then return p.PrimaryPart.Position
+    else
+        local bp = p:FindFirstChildWhichIsA("BasePart", true)
+        if bp then return bp.Position end
+    end
+    return nil
+end
+
+-- 5. NAVIGASI TELEPORT & WALK
+local function teleportTo(position)
+    local myChar = lp.Character
+    local hrp = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    if hrp then
+        hrp.AssemblyLinearVelocity = Vector3.zero
+        hrp.AssemblyAngularVelocity = Vector3.zero
+        hrp.CFrame = CFrame.new(position + Vector3.new(0, 1.2, 0))
+        task.wait(0.28)
+        return true
+    end
+    return false
+end
+
+local function walkTo(position, timeout)
+    timeout = timeout or 20
+    local myChar = lp.Character
+    local hrp = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    local hum = myChar and myChar:FindFirstChild("Humanoid")
+    if not hrp or not hum then return false end
+
+    hum.WalkSpeed = config.customSpeed
+    hum:MoveTo(position)
+    local start = os.clock()
+    while config.running and (os.clock() - start < timeout) do
+        local dist = (Vector3.new(hrp.Position.X, 0, hrp.Position.Z) - Vector3.new(position.X, 0, position.Z)).Magnitude
+        if dist <= 4 then return true end
+        hum:MoveTo(position)
+        task.wait(0.15)
+    end
+    return false
+end
+
+-- 6. PROXIMITY INTERACTION
+local function pickupPrompt(prompt)
+    if not prompt or not prompt.Enabled then return end
+    local prev = prompt.HoldDuration
+    prompt.HoldDuration = 0
+    if typeof(fireproximityprompt) == "function" then
+        fireproximityprompt(prompt)
+    end
+    prompt:InputHoldBegin()
+    task.wait(0.05)
+    prompt:InputHoldEnd()
+    prompt.HoldDuration = prev
+end
+
+-- 7. RETURN TO SPAWN
+local function returnToSpawn()
+    pcall(function()
+        local btn = lp.PlayerGui.MainUI.Top.TeleportContainer.Spawn
+        if typeof(firesignal) == "function" then
+            firesignal(btn.Activated)
+        elseif typeof(getconnections) == "function" then
+            for _, c in ipairs(getconnections(btn.Activated)) do c:Fire() end
+            for _, c in ipairs(getconnections(btn.MouseButton1Click)) do c:Fire() end
+        end
+    end)
+    task.wait(1)
+end
+
+-- 8. SCANNING HARTA
+local function scanTopTreasures(maxStage, limit)
+    local list = {}
+    local stagesFolder = workspace:FindFirstChild("Map") and workspace.Map:FindFirstChild("Stages")
+    if not stagesFolder then return list end
+
+    for s = 1, maxStage do
+        local st = stagesFolder:FindFirstChild("Stage" .. s)
+        if st then
+            for _, obj in ipairs(st:GetChildren()) do
+                if obj:IsA("Model") then
+                    local earn = obj:FindFirstChild("InfoGUI", true)
+                    earn = earn and earn:FindFirstChild("Earnings", true)
+                    if earn and earn:IsA("TextLabel") then
+                        local price = parsePrice(earn.Text or earn.ContentText)
+                        local prompt = obj:FindFirstChildWhichIsA("ProximityPrompt", true)
+                        local targetPos = getPromptPos(prompt) or (obj.PrimaryPart and obj.PrimaryPart.Position) or obj:GetPivot().Position
+                        if prompt and price > 0 then
+                            table.insert(list, {
+                                model = obj,
+                                price = price,
+                                prompt = prompt,
+                                pos = targetPos,
+                                name = obj.Name
+                            })
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    table.sort(list, function(a, b) return a.price > b.price end)
+
+    local res = {}
+    for i = 1, math.min(limit, #list) do
+        table.insert(res, list[i])
+    end
+    return res
+end
+
+-- 9. LOOP UTAMA BOT (DENGAN 2 MENIT ANTI-STUCK TIMEOUT)
+local function executeFarm(updateStatus)
+    while config.running do
+        local stagesFolder = workspace:FindFirstChild("Map") and workspace.Map:FindFirstChild("Stages")
+        if not stagesFolder then break end
+
+        -- FASE 1: Buka Stage Berurutan
+        for s = 1, config.targetStage do
+            if not config.running then break end
+            local st = stagesFolder:FindFirstChild("Stage" .. s)
+            if st then
+                local stone = st:FindFirstChild("Stone" .. s)
+                if stone then
+                    updateStatus("Stage " .. s .. ": TP ke LIFT...")
+                    local stand = st:FindFirstChild("LiftZone") or st:FindFirstChild("LuckInfo")
+                    if stand then
+                        teleportTo(stand.Position)
+                        task.wait(0.3)
+                    end
+
+                    local myHrp = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
+                    local lockPos = myHrp and myHrp.Position
+
+                    updateStatus("Stage " .. s .. ": Mengangkat batu...")
+                    
+                    -- Timer Anti-Stuck 2 Menit (120 Detik)
+                    local stoneStartTime = os.clock()
+                    local STONE_TIMEOUT = 120 
+
+                    while config.running and st:FindFirstChild("Stone" .. s) do
+                        -- Cek apakah sudah stuck lebih dari 2 menit
+                        if (os.clock() - stoneStartTime) >= STONE_TIMEOUT then
+                            updateStatus("Stage " .. s .. ": Stuck 2m! Re-teleport...")
+                            if stand then
+                                teleportTo(stand.Position)
+                                task.wait(0.3)
+                                myHrp = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
+                                lockPos = myHrp and myHrp.Position
+                            end
+                            stoneStartTime = os.clock() -- Reset timer stuck
+                        end
+
+                        -- Kunci posisi agar tidak terlempar/terdorong
+                        local curHrp = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
+                        if lockPos and curHrp and (curHrp.Position - lockPos).Magnitude > 15 then
+                            curHrp.CFrame = CFrame.new(lockPos)
+                            curHrp.AssemblyLinearVelocity = Vector3.zero
+                        end
+                        task.wait(0.5)
+                    end
+                    updateStatus("Stage " .. s .. " Terbuka!")
+                    task.wait(0.3)
+                end
+            end
+        end
+
+        if not config.running then break end
+
+        -- FASE 2: Scan Barang Termahal
+        updateStatus("Scanning barang termahal...")
+        local targets = scanTopTreasures(config.targetStage, config.itemCapacity)
+        updateStatus("Ditemukan " .. #targets .. " barang.")
+
+        -- FASE 3: Ambil Barang
+        for idx, item in ipairs(targets) do
+            if not config.running then break end
+            
+            if item.model and item.model.Parent and item.prompt and item.prompt.Parent then
+                updateStatus("Ambil [" .. idx .. "/" .. #targets .. "] " .. item.name)
+
+                if config.pickupMode == "Teleport" then
+                    teleportTo(item.pos)
+                else
+                    walkTo(item.pos, 15)
+                end
+
+                local tries = 0
+                while config.running and item.model and item.model.Parent and tries < 5 do
+                    pickupPrompt(item.prompt)
+                    task.wait(0.25)
+                    tries = tries + 1
+                end
+            end
+        end
+
+        if not config.running then break end
+
+        -- FASE 4: Balik Spawn
+        updateStatus("Kembali ke Spawn...")
+        returnToSpawn()
+        task.wait(2)
+    end
+    updateStatus("Status: Berhenti (OFF)")
+end
+
+-- ========================================================
+-- 10. GUI INTERFACE
+-- ========================================================
+if CoreGui:FindFirstChild("StageScavengerGui") then
+    CoreGui.StageScavengerGui:Destroy()
+end
+if lp:FindFirstChild("PlayerGui") and lp.PlayerGui:FindFirstChild("StageScavengerGui") then
+    lp.PlayerGui.StageScavengerGui:Destroy()
+end
+
+local sg = Instance.new("ScreenGui")
+sg.Name = "StageScavengerGui"
+sg.ResetOnSpawn = false
+
+if syn and syn.protect_gui then
+    syn.protect_gui(sg)
+    sg.Parent = CoreGui
+elseif gethui then
+    sg.Parent = gethui()
+else
+    local ok = pcall(function() sg.Parent = CoreGui end)
+    if not ok then sg.Parent = lp:WaitForChild("PlayerGui") end
+end
+
+local NORMAL_HEIGHT = 380
+local win = Instance.new("Frame", sg)
+win.Size = UDim2.new(0, 230, 0, NORMAL_HEIGHT)
+win.Position = UDim2.new(0.05, 0, 0.15, 0)
+win.BackgroundColor3 = Color3.fromRGB(24, 26, 32)
+win.BorderSizePixel = 0
+win.Active = true
+win.Draggable = true
+Instance.new("UICorner", win).CornerRadius = UDim.new(0, 8)
+
+local topBar = Instance.new("Frame", win)
+topBar.Size = UDim2.new(1, 0, 0, 32)
+topBar.BackgroundColor3 = Color3.fromRGB(34, 37, 46)
+topBar.BorderSizePixel = 0
+Instance.new("UICorner", topBar).CornerRadius = UDim.new(0, 8)
+
+local title = Instance.new("TextLabel", topBar)
+title.Size = UDim2.new(1, -65, 1, 0)
+title.Position = UDim2.new(0, 10, 0, 0)
+title.BackgroundTransparency = 1
+title.Font = Enum.Font.GothamBold
+title.TextSize = 12
+title.TextColor3 = Color3.fromRGB(240, 240, 240)
+title.TextXAlignment = Enum.TextXAlignment.Left
+title.Text = "Auto Farm & Rebirth"
+
+local minBtn = Instance.new("TextButton", topBar)
+minBtn.Size = UDim2.new(0, 24, 0, 24)
+minBtn.Position = UDim2.new(1, -52, 0, 4)
+minBtn.BackgroundColor3 = Color3.fromRGB(48, 52, 64)
+minBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+minBtn.Text = "-"
+minBtn.Font = Enum.Font.GothamBold
+Instance.new("UICorner", minBtn).CornerRadius = UDim.new(0, 4)
+
+local closeBtn = Instance.new("TextButton", topBar)
+closeBtn.Size = UDim2.new(0, 24, 0, 24)
+closeBtn.Position = UDim2.new(1, -26, 0, 4)
+closeBtn.BackgroundColor3 = Color3.fromRGB(180, 50, 50)
+closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+closeBtn.Text = "X"
+closeBtn.Font = Enum.Font.GothamBold
+Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 4)
+
+local body = Instance.new("Frame", win)
+body.Size = UDim2.new(1, -16, 0, 335)
+body.Position = UDim2.new(0, 8, 0, 38)
+body.BackgroundTransparency = 1
+
+-- 1. Stage Dropdown
+local stageBtn = Instance.new("TextButton", body)
+stageBtn.Size = UDim2.new(1, 0, 0, 26)
+stageBtn.Position = UDim2.new(0, 0, 0, 0)
+stageBtn.BackgroundColor3 = Color3.fromRGB(38, 42, 52)
+stageBtn.TextColor3 = Color3.fromRGB(230, 230, 230)
+stageBtn.Font = Enum.Font.GothamMedium
+stageBtn.TextSize = 11
+stageBtn.Text = "Target Stage: " .. config.targetStage .. "  ▼"
+Instance.new("UICorner", stageBtn).CornerRadius = UDim.new(0, 6)
+
+local dropScroll = Instance.new("ScrollingFrame", win)
+dropScroll.Size = UDim2.new(1, -16, 0, 110)
+dropScroll.Position = UDim2.new(0, 8, 0, 68)
+dropScroll.BackgroundColor3 = Color3.fromRGB(28, 30, 38)
+dropScroll.BorderSizePixel = 0
+dropScroll.Visible = false
+dropScroll.ZIndex = 20
+dropScroll.CanvasSize = UDim2.new(0, 0, 0, 15 * 24)
+Instance.new("UICorner", dropScroll).CornerRadius = UDim.new(0, 6)
+
+for i = 1, 15 do
+    local opt = Instance.new("TextButton", dropScroll)
+    opt.Size = UDim2.new(1, 0, 0, 24)
+    opt.Position = UDim2.new(0, 0, 0, (i - 1) * 24)
+    opt.BackgroundTransparency = 1
+    opt.TextColor3 = Color3.fromRGB(220, 220, 220)
+    opt.Font = Enum.Font.Gotham
+    opt.TextSize = 11
+    opt.Text = "Stage " .. i
+    opt.ZIndex = 21
+    opt.MouseButton1Click:Connect(function()
+        config.targetStage = i
+        stageBtn.Text = "Target Stage: " .. i .. "  ▼"
+        dropScroll.Visible = false
+        saveConfig()
+    end)
+end
+
+stageBtn.MouseButton1Click:Connect(function()
+    dropScroll.Visible = not dropScroll.Visible
+end)
+
+-- 2. Items & Speed
+local itemBox = Instance.new("TextBox", body)
+itemBox.Size = UDim2.new(0.48, 0, 0, 26)
+itemBox.Position = UDim2.new(0, 0, 0, 32)
+itemBox.BackgroundColor3 = Color3.fromRGB(38, 42, 52)
+itemBox.TextColor3 = Color3.fromRGB(230, 230, 230)
+itemBox.Font = Enum.Font.GothamMedium
+itemBox.TextSize = 11
+itemBox.Text = "Items: " .. config.itemCapacity
+Instance.new("UICorner", itemBox).CornerRadius = UDim.new(0, 6)
+
+itemBox.FocusLost:Connect(function()
+    local val = tonumber(string.match(itemBox.Text, "%d+"))
+    if val and val > 0 then 
+        config.itemCapacity = math.floor(val) 
+        saveConfig()
+    end
+    itemBox.Text = "Items: " .. config.itemCapacity
+end)
+
+local speedBox = Instance.new("TextBox", body)
+speedBox.Size = UDim2.new(0.48, 0, 0, 26)
+speedBox.Position = UDim2.new(0.52, 0, 0, 32)
+speedBox.BackgroundColor3 = Color3.fromRGB(38, 42, 52)
+speedBox.TextColor3 = Color3.fromRGB(230, 230, 230)
+speedBox.Font = Enum.Font.GothamMedium
+speedBox.TextSize = 11
+speedBox.Text = "Speed: " .. config.customSpeed
+Instance.new("UICorner", speedBox).CornerRadius = UDim.new(0, 6)
+
+speedBox.FocusLost:Connect(function()
+    local val = tonumber(string.match(speedBox.Text, "%d+"))
+    if val and val > 0 then 
+        config.customSpeed = math.floor(val) 
+        saveConfig()
+    end
+    speedBox.Text = "Speed: " .. config.customSpeed
+end)
+
+-- 3. Pickup Mode
+local modeBtn = Instance.new("TextButton", body)
+modeBtn.Size = UDim2.new(1, 0, 0, 26)
+modeBtn.Position = UDim2.new(0, 0, 0, 64)
+modeBtn.Font = Enum.Font.GothamBold
+modeBtn.TextSize = 11
+Instance.new("UICorner", modeBtn).CornerRadius = UDim.new(0, 6)
+
+local function updateModeUI()
+    if config.pickupMode == "Teleport" then
+        modeBtn.Text = "Pickup Mode: Teleport ⚡"
+        modeBtn.BackgroundColor3 = Color3.fromRGB(110, 60, 160)
+        modeBtn.TextColor3 = Color3.fromRGB(240, 240, 240)
+    else
+        modeBtn.Text = "Pickup Mode: Walk 🚶"
+        modeBtn.BackgroundColor3 = Color3.fromRGB(48, 54, 70)
+        modeBtn.TextColor3 = Color3.fromRGB(240, 240, 240)
+    end
+end
+updateModeUI()
+
+modeBtn.MouseButton1Click:Connect(function()
+    if config.pickupMode == "Walk" then
+        config.pickupMode = "Teleport"
+    else
+        config.pickupMode = "Walk"
+    end
+    updateModeUI()
+    saveConfig()
+end)
+
+-- 4. Auto Rebirth & Auto Exec
+local rebirthBtn = Instance.new("TextButton", body)
+rebirthBtn.Size = UDim2.new(0.48, 0, 0, 26)
+rebirthBtn.Position = UDim2.new(0, 0, 0, 96)
+rebirthBtn.Font = Enum.Font.GothamBold
+rebirthBtn.TextSize = 10
+Instance.new("UICorner", rebirthBtn).CornerRadius = UDim.new(0, 6)
+
+local function updateRebirthUI()
+    if config.autoRebirth then
+        rebirthBtn.Text = "Rebirth: ON 🔄"
+        rebirthBtn.BackgroundColor3 = Color3.fromRGB(35, 120, 150)
+        rebirthBtn.TextColor3 = Color3.fromRGB(240, 240, 240)
+    else
+        rebirthBtn.Text = "Rebirth: OFF ❌"
+        rebirthBtn.BackgroundColor3 = Color3.fromRGB(60, 65, 75)
+        rebirthBtn.TextColor3 = Color3.fromRGB(240, 240, 240)
+    end
+end
+updateRebirthUI()
+
+rebirthBtn.MouseButton1Click:Connect(function()
+    config.autoRebirth = not config.autoRebirth
+    updateRebirthUI()
+    saveConfig()
+end)
+
+local autoExecBtn = Instance.new("TextButton", body)
+autoExecBtn.Size = UDim2.new(0.48, 0, 0, 26)
+autoExecBtn.Position = UDim2.new(0.52, 0, 0, 96)
+autoExecBtn.Font = Enum.Font.GothamBold
+autoExecBtn.TextSize = 10
+Instance.new("UICorner", autoExecBtn).CornerRadius = UDim.new(0, 6)
+
+local function updateAutoExecUI()
+    if config.autoExecute then
+        autoExecBtn.Text = "AutoExec: ON 🚀"
+        autoExecBtn.BackgroundColor3 = Color3.fromRGB(150, 90, 35)
+        autoExecBtn.TextColor3 = Color3.fromRGB(240, 240, 240)
+    else
+        autoExecBtn.Text = "AutoExec: OFF ❌"
+        autoExecBtn.BackgroundColor3 = Color3.fromRGB(60, 65, 75)
+        autoExecBtn.TextColor3 = Color3.fromRGB(240, 240, 240)
+    end
+end
+updateAutoExecUI()
+
+autoExecBtn.MouseButton1Click:Connect(function()
+    config.autoExecute = not config.autoExecute
+    updateAutoExecUI()
+    saveConfig()
+end)
+
+-- 5. Auto Train + Posisi + Set Pos Button
+local trainBtn = Instance.new("TextButton", body)
+trainBtn.Size = UDim2.new(0.35, 0, 0, 26)
+trainBtn.Position = UDim2.new(0, 0, 0, 128)
+trainBtn.Font = Enum.Font.GothamBold
+trainBtn.TextSize = 10
+Instance.new("UICorner", trainBtn).CornerRadius = UDim.new(0, 6)
+
+local function updateTrainUI()
+    if config.autoTrain then
+        trainBtn.Text = "Train: ON 🏋️"
+        trainBtn.BackgroundColor3 = Color3.fromRGB(35, 150, 90)
+        trainBtn.TextColor3 = Color3.fromRGB(240, 240, 240)
+    else
+        trainBtn.Text = "Train: OFF ❌"
+        trainBtn.BackgroundColor3 = Color3.fromRGB(60, 65, 75)
+        trainBtn.TextColor3 = Color3.fromRGB(240, 240, 240)
+    end
+end
+updateTrainUI()
+
+trainBtn.MouseButton1Click:Connect(function()
+    config.autoTrain = not config.autoTrain
+    updateTrainUI()
+    saveConfig()
+end)
+
+local trainPosBox = Instance.new("TextBox", body)
+trainPosBox.Size = UDim2.new(0.42, 0, 0, 26)
+trainPosBox.Position = UDim2.new(0.37, 0, 0, 128)
+trainPosBox.BackgroundColor3 = Color3.fromRGB(38, 42, 52)
+trainPosBox.TextColor3 = Color3.fromRGB(230, 230, 230)
+trainPosBox.Font = Enum.Font.GothamMedium
+trainPosBox.TextSize = 9
+trainPosBox.Text = config.trainPos
+trainPosBox.PlaceholderText = "X, Y, Z"
+Instance.new("UICorner", trainPosBox).CornerRadius = UDim.new(0, 6)
+
+trainPosBox.FocusLost:Connect(function()
+    local x, y, z = string.match(trainPosBox.Text, "([%-%d%.]+)%s*,%s*([%-%d%.]+)%s*,%s*([%-%d%.]+)")
+    if x and y and z then
+        config.trainPos = string.format("%.1f, %.1f, %.1f", tonumber(x) or 0, tonumber(y) or 0, tonumber(z) or 0)
+    end
+    trainPosBox.Text = config.trainPos
+    saveConfig()
+end)
+
+local setTrainPosBtn = Instance.new("TextButton", body)
+setTrainPosBtn.Size = UDim2.new(0.19, 0, 0, 26)
+setTrainPosBtn.Position = UDim2.new(0.81, 0, 0, 128)
+setTrainPosBtn.BackgroundColor3 = Color3.fromRGB(48, 54, 70)
+setTrainPosBtn.TextColor3 = Color3.fromRGB(220, 220, 220)
+setTrainPosBtn.Font = Enum.Font.GothamBold
+setTrainPosBtn.TextSize = 9
+setTrainPosBtn.Text = "Set"
+Instance.new("UICorner", setTrainPosBtn).CornerRadius = UDim.new(0, 6)
+
+setTrainPosBtn.MouseButton1Click:Connect(function()
+    local myChar = lp.Character
+    local hrp = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    if hrp then
+        local p = hrp.Position
+        config.trainPos = string.format("%.1f, %.1f, %.1f", p.X, p.Y, p.Z)
+        trainPosBox.Text = config.trainPos
+        saveConfig()
+    end
+end)
+
+-- 6. Auto Click + Posisi + Pick Click Pos
+local clickBtn = Instance.new("TextButton", body)
+clickBtn.Size = UDim2.new(0.35, 0, 0, 26)
+clickBtn.Position = UDim2.new(0, 0, 0, 160)
+clickBtn.Font = Enum.Font.GothamBold
+clickBtn.TextSize = 10
+Instance.new("UICorner", clickBtn).CornerRadius = UDim.new(0, 6)
+
+local function updateClickUI()
+    if config.autoClick then
+        clickBtn.Text = "Click: ON 🖱️"
+        clickBtn.BackgroundColor3 = Color3.fromRGB(35, 150, 90)
+        clickBtn.TextColor3 = Color3.fromRGB(240, 240, 240)
+    else
+        clickBtn.Text = "Click: OFF ❌"
+        clickBtn.BackgroundColor3 = Color3.fromRGB(60, 65, 75)
+        clickBtn.TextColor3 = Color3.fromRGB(240, 240, 240)
+    end
+end
+updateClickUI()
+
+clickBtn.MouseButton1Click:Connect(function()
+    config.autoClick = not config.autoClick
+    updateClickUI()
+    saveConfig()
+end)
+
+local clickPosBox = Instance.new("TextBox", body)
+clickPosBox.Size = UDim2.new(0.42, 0, 0, 26)
+clickPosBox.Position = UDim2.new(0.37, 0, 0, 160)
+clickPosBox.BackgroundColor3 = Color3.fromRGB(38, 42, 52)
+clickPosBox.TextColor3 = Color3.fromRGB(230, 230, 230)
+clickPosBox.Font = Enum.Font.GothamMedium
+clickPosBox.TextSize = 9
+clickPosBox.Text = config.clickPos
+clickPosBox.PlaceholderText = "X, Y, Z"
+Instance.new("UICorner", clickPosBox).CornerRadius = UDim.new(0, 6)
+
+clickPosBox.FocusLost:Connect(function()
+    local x, y, z = string.match(clickPosBox.Text, "([%-%d%.]+)%s*,%s*([%-%d%.]+)%s*,%s*([%-%d%.]+)")
+    if x and y and z then
+        config.clickPos = string.format("%.1f, %.1f, %.1f", tonumber(x) or 0, tonumber(y) or 0, tonumber(z) or 0)
+    end
+    clickPosBox.Text = config.clickPos
+    saveConfig()
+end)
+
+local pickClickPosBtn = Instance.new("TextButton", body)
+pickClickPosBtn.Size = UDim2.new(0.19, 0, 0, 26)
+pickClickPosBtn.Position = UDim2.new(0.81, 0, 0, 160)
+pickClickPosBtn.BackgroundColor3 = Color3.fromRGB(48, 54, 70)
+pickClickPosBtn.TextColor3 = Color3.fromRGB(220, 220, 220)
+pickClickPosBtn.Font = Enum.Font.GothamBold
+pickClickPosBtn.TextSize = 9
+pickClickPosBtn.Text = "Pick"
+Instance.new("UICorner", pickClickPosBtn).CornerRadius = UDim.new(0, 6)
+
+local isPicking = false
+local pickConn = nil
+
+pickClickPosBtn.MouseButton1Click:Connect(function()
+    if isPicking then return end
+    isPicking = true
+    pickClickPosBtn.Text = "Click!"
+    pickClickPosBtn.BackgroundColor3 = Color3.fromRGB(180, 120, 40)
+
+    pickConn = mouse.Button1Down:Connect(function()
+        local hitPos = mouse.Hit and mouse.Hit.Position
+        if hitPos then
+            config.clickPos = string.format("%.1f, %.1f, %.1f", hitPos.X, hitPos.Y, hitPos.Z)
+            clickPosBox.Text = config.clickPos
+            saveConfig()
+        end
+        pickClickPosBtn.Text = "Pick"
+        pickClickPosBtn.BackgroundColor3 = Color3.fromRGB(48, 54, 70)
+        isPicking = false
+        if pickConn then
+            pickConn:Disconnect()
+            pickConn = nil
+        end
+    end)
+end)
+
+-- 7. Status Label
+local statusLabel = Instance.new("TextLabel", body)
+statusLabel.Size = UDim2.new(1, 0, 0, 20)
+statusLabel.Position = UDim2.new(0, 0, 0, 192)
+statusLabel.BackgroundTransparency = 1
+statusLabel.Font = Enum.Font.Gotham
+statusLabel.TextSize = 11
+statusLabel.TextColor3 = Color3.fromRGB(160, 165, 180)
+statusLabel.Text = config.running and "Status: Farming..." or "Status: Siap"
+
+-- 8. Start / Stop Button
+local toggleBtn = Instance.new("TextButton", body)
+toggleBtn.Size = UDim2.new(1, 0, 0, 32)
+toggleBtn.Position = UDim2.new(0, 0, 0, 218)
+toggleBtn.BackgroundColor3 = config.running and Color3.fromRGB(180, 50, 50) or Color3.fromRGB(46, 139, 87)
+toggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+toggleBtn.Font = Enum.Font.GothamBold
+toggleBtn.TextSize = 13
+toggleBtn.Text = config.running and "STOP FARM" or "START FARM"
+Instance.new("UICorner", toggleBtn).CornerRadius = UDim.new(0, 6)
+
+local function updateStatusText(txt)
+    statusLabel.Text = txt
+end
+
+local function toggleFarm()
+    config.running = not config.running
+    saveConfig()
+
+    if config.running then
+        toggleBtn.Text = "STOP FARM"
+        toggleBtn.BackgroundColor3 = Color3.fromRGB(180, 50, 50)
+        task.spawn(function()
+            executeFarm(updateStatusText)
+        end)
+    else
+        toggleBtn.Text = "START FARM"
+        toggleBtn.BackgroundColor3 = Color3.fromRGB(46, 139, 87)
+        updateStatusText("Status: Berhenti (OFF)")
+    end
+end
+
+toggleBtn.MouseButton1Click:Connect(toggleFarm)
+
+-- Minimize & Close
+local isMin = false
+minBtn.MouseButton1Click:Connect(function()
+    isMin = not isMin
+    body.Visible = not isMin
+    dropScroll.Visible = false
+    win.Size = if isMin then UDim2.new(0, 230, 0, 32) else UDim2.new(0, 230, 0, NORMAL_HEIGHT)
+end)
+
+closeBtn.MouseButton1Click:Connect(function()
+    if pickConn then
+        pickConn:Disconnect()
+        pickConn = nil
+    end
+    sg:Destroy()
+end)
+
+-- Resume farming otomatis
+if config.running then
+    task.spawn(function()
+        task.wait(0.5)
+        executeFarm(updateStatusText)
+    end)
+end
