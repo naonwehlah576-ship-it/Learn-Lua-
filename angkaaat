@@ -1,6 +1,6 @@
 -- ========================================================
--- AUTO LIFT, SCAVENGER, REBIRTH, TRAIN & HYPER CLICK
--- DILENGKAPI FITUR ANTI-STUCK (2 MENIT AUTO RE-TELEPORT)
+-- AUTO LIFT, SCAVENGER, REBIRTH, TRAIN, CLICK & AUTO SELL
+-- DILENGKAPI SILENT AUTO-SELL INTERVAL & AUTO-SAVE CONFIG
 -- ========================================================
 
 if not game:IsLoaded() then
@@ -29,6 +29,8 @@ local config = {
     autoTrain = false,
     autoClick = false,
     autoExecute = false,
+    autoSell = false,
+    sellInterval = 50, -- Default interval 50 detik
     trainPos = "23.7, 123.4, -851.4",
     clickPos = "0.0, 0.0, 0.0",
     targetStage = 10,
@@ -58,6 +60,8 @@ local function saveConfig()
                 autoTrain = config.autoTrain,
                 autoClick = config.autoClick,
                 autoExecute = config.autoExecute,
+                autoSell = config.autoSell,
+                sellInterval = config.sellInterval,
                 trainPos = config.trainPos,
                 clickPos = config.clickPos,
                 targetStage = config.targetStage,
@@ -80,6 +84,8 @@ local function loadConfig()
                 if decoded.autoTrain ~= nil then config.autoTrain = decoded.autoTrain end
                 if decoded.autoClick ~= nil then config.autoClick = decoded.autoClick end
                 if decoded.autoExecute ~= nil then config.autoExecute = decoded.autoExecute end
+                if decoded.autoSell ~= nil then config.autoSell = decoded.autoSell end
+                if decoded.sellInterval ~= nil then config.sellInterval = decoded.sellInterval end
                 if decoded.trainPos ~= nil then config.trainPos = decoded.trainPos end
                 if decoded.clickPos ~= nil then config.clickPos = decoded.clickPos end
                 if decoded.targetStage ~= nil then config.targetStage = decoded.targetStage end
@@ -103,7 +109,55 @@ RunService.Stepped:Connect(function()
     end
 end)
 
--- 1. SISTEM AUTO REBIRTH
+-- 1. SISTEM SILENT AUTO SELL
+local function executeSilentSell()
+    pcall(function()
+        local Shared = ReplicatedStorage:WaitForChild("Shared")
+        local SharedUtils = require(Shared:WaitForChild("SharedUtils"))
+        local ItemUtils = require(Shared:WaitForChild("Modules"):WaitForChild("ItemUtils"))
+        
+        local PlayerScripts = lp:WaitForChild("PlayerScripts")
+        local ClientModules = PlayerScripts:WaitForChild("ClientModules")
+        local DataAggregation = require(ClientModules:WaitForChild("DataAggregation"))
+        
+        local replica = DataAggregation.WaitForReplica()
+        if not replica or not replica.Data then return end
+
+        local inventory = replica.Data.Inventory or {}
+        local equippedUUID = replica.Data.EquippedPrimaryUUID
+        local itemsToSell = {}
+
+        for _, item in ipairs(inventory) do
+            if type(item) == "table" and item.UUID then
+                local isEquipped = (typeof(equippedUUID) == "string" and equippedUUID ~= "" and item.UUID == equippedUUID)
+                if not isEquipped and ItemUtils.IsSellable(item) then
+                    table.insert(itemsToSell, item)
+                end
+            end
+        end
+
+        if #itemsToSell > 0 then
+            local sellRemote = SharedUtils.GetRemote("SellItems")
+            if sellRemote then
+                sellRemote:FireServer(itemsToSell)
+            end
+        end
+    end)
+end
+
+-- Background Loop Auto Sell Interval
+task.spawn(function()
+    while true do
+        if config.autoSell then
+            executeSilentSell()
+        end
+        local waitTime = tonumber(config.sellInterval) or 50
+        if waitTime < 1 then waitTime = 1 end
+        task.wait(waitTime)
+    end
+end)
+
+-- 2. SISTEM AUTO REBIRTH
 local function checkAndExecuteRebirth()
     if not config.autoRebirth then return end
 
@@ -138,7 +192,7 @@ task.spawn(function()
     end
 end)
 
--- 2. BACKGROUND LOOP AUTO TRAIN
+-- 3. BACKGROUND LOOP AUTO TRAIN
 task.spawn(function()
     while true do
         if config.autoTrain and not config.running then
@@ -157,7 +211,7 @@ task.spawn(function()
     end
 end)
 
--- 3. BACKGROUND LOOP AUTO CLICK (HYBRID VIRTUAL INPUT)
+-- 4. BACKGROUND LOOP AUTO CLICK (HYBRID VIRTUAL INPUT)
 local function performClick(screenVec, target3D)
     if typeof(fireclickdetector) == "function" and target3D then
         local cam = workspace.CurrentCamera
@@ -197,7 +251,7 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- 4. PARSER HARGA
+-- 5. PARSER HARGA
 local function parsePrice(str)
     if not str then return 0 end
     local clean = string.gsub(str, "[%$,%s]", "")
@@ -226,7 +280,7 @@ local function getPromptPos(prompt)
     return nil
 end
 
--- 5. NAVIGASI TELEPORT & WALK
+-- 6. NAVIGASI TELEPORT & WALK
 local function teleportTo(position)
     local myChar = lp.Character
     local hrp = myChar and myChar:FindFirstChild("HumanoidRootPart")
@@ -259,7 +313,7 @@ local function walkTo(position, timeout)
     return false
 end
 
--- 6. PROXIMITY INTERACTION
+-- 7. PROXIMITY INTERACTION
 local function pickupPrompt(prompt)
     if not prompt or not prompt.Enabled then return end
     local prev = prompt.HoldDuration
@@ -273,7 +327,7 @@ local function pickupPrompt(prompt)
     prompt.HoldDuration = prev
 end
 
--- 7. RETURN TO SPAWN
+-- 8. RETURN TO SPAWN
 local function returnToSpawn()
     pcall(function()
         local btn = lp.PlayerGui.MainUI.Top.TeleportContainer.Spawn
@@ -287,7 +341,7 @@ local function returnToSpawn()
     task.wait(1)
 end
 
--- 8. SCANNING HARTA
+-- 9. SCANNING HARTA
 local function scanTopTreasures(maxStage, limit)
     local list = {}
     local stagesFolder = workspace:FindFirstChild("Map") and workspace.Map:FindFirstChild("Stages")
@@ -328,7 +382,7 @@ local function scanTopTreasures(maxStage, limit)
     return res
 end
 
--- 9. LOOP UTAMA BOT (DENGAN 2 MENIT ANTI-STUCK TIMEOUT)
+-- 10. LOOP UTAMA BOT
 local function executeFarm(updateStatus)
     while config.running do
         local stagesFolder = workspace:FindFirstChild("Map") and workspace.Map:FindFirstChild("Stages")
@@ -353,12 +407,10 @@ local function executeFarm(updateStatus)
 
                     updateStatus("Stage " .. s .. ": Mengangkat batu...")
                     
-                    -- Timer Anti-Stuck 2 Menit (120 Detik)
                     local stoneStartTime = os.clock()
                     local STONE_TIMEOUT = 120 
 
                     while config.running and st:FindFirstChild("Stone" .. s) do
-                        -- Cek apakah sudah stuck lebih dari 2 menit
                         if (os.clock() - stoneStartTime) >= STONE_TIMEOUT then
                             updateStatus("Stage " .. s .. ": Stuck 2m! Re-teleport...")
                             if stand then
@@ -367,10 +419,9 @@ local function executeFarm(updateStatus)
                                 myHrp = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
                                 lockPos = myHrp and myHrp.Position
                             end
-                            stoneStartTime = os.clock() -- Reset timer stuck
+                            stoneStartTime = os.clock()
                         end
 
-                        -- Kunci posisi agar tidak terlempar/terdorong
                         local curHrp = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
                         if lockPos and curHrp and (curHrp.Position - lockPos).Magnitude > 15 then
                             curHrp.CFrame = CFrame.new(lockPos)
@@ -424,7 +475,7 @@ local function executeFarm(updateStatus)
 end
 
 -- ========================================================
--- 10. GUI INTERFACE
+-- 11. GUI INTERFACE (WITH AUTO-SELL CONTROLS)
 -- ========================================================
 if CoreGui:FindFirstChild("StageScavengerGui") then
     CoreGui.StageScavengerGui:Destroy()
@@ -447,10 +498,10 @@ else
     if not ok then sg.Parent = lp:WaitForChild("PlayerGui") end
 end
 
-local NORMAL_HEIGHT = 380
+local NORMAL_HEIGHT = 412
 local win = Instance.new("Frame", sg)
 win.Size = UDim2.new(0, 230, 0, NORMAL_HEIGHT)
-win.Position = UDim2.new(0.05, 0, 0.15, 0)
+win.Position = UDim2.new(0.05, 0, 0.12, 0)
 win.BackgroundColor3 = Color3.fromRGB(24, 26, 32)
 win.BorderSizePixel = 0
 win.Active = true
@@ -492,7 +543,7 @@ closeBtn.Font = Enum.Font.GothamBold
 Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 4)
 
 local body = Instance.new("Frame", win)
-body.Size = UDim2.new(1, -16, 0, 335)
+body.Size = UDim2.new(1, -16, 0, 370)
 body.Position = UDim2.new(0, 8, 0, 38)
 body.BackgroundTransparency = 1
 
@@ -662,10 +713,59 @@ autoExecBtn.MouseButton1Click:Connect(function()
     saveConfig()
 end)
 
--- 5. Auto Train + Posisi + Set Pos Button
+-- 5. Auto Sell (Toggle & Interval Input)
+local sellBtn = Instance.new("TextButton", body)
+sellBtn.Size = UDim2.new(0.48, 0, 0, 26)
+sellBtn.Position = UDim2.new(0, 0, 0, 128)
+sellBtn.Font = Enum.Font.GothamBold
+sellBtn.TextSize = 10
+Instance.new("UICorner", sellBtn).CornerRadius = UDim.new(0, 6)
+
+local function updateSellUI()
+    if config.autoSell then
+        sellBtn.Text = "Sell: ON 💰"
+        sellBtn.BackgroundColor3 = Color3.fromRGB(45, 130, 95)
+        sellBtn.TextColor3 = Color3.fromRGB(240, 240, 240)
+    else
+        sellBtn.Text = "Sell: OFF ❌"
+        sellBtn.BackgroundColor3 = Color3.fromRGB(60, 65, 75)
+        sellBtn.TextColor3 = Color3.fromRGB(240, 240, 240)
+    end
+end
+updateSellUI()
+
+sellBtn.MouseButton1Click:Connect(function()
+    config.autoSell = not config.autoSell
+    updateSellUI()
+    saveConfig()
+end)
+
+local sellIntervalBox = Instance.new("TextBox", body)
+sellIntervalBox.Size = UDim2.new(0.48, 0, 0, 26)
+sellIntervalBox.Position = UDim2.new(0.52, 0, 0, 128)
+sellIntervalBox.BackgroundColor3 = Color3.fromRGB(38, 42, 52)
+sellIntervalBox.TextColor3 = Color3.fromRGB(230, 230, 230)
+sellIntervalBox.Font = Enum.Font.GothamMedium
+sellIntervalBox.TextSize = 10
+sellIntervalBox.Text = config.sellInterval .. "s"
+sellIntervalBox.PlaceholderText = "Waktu (Detik)"
+Instance.new("UICorner", sellIntervalBox).CornerRadius = UDim.new(0, 6)
+
+sellIntervalBox.FocusLost:Connect(function()
+    local val = tonumber(string.match(sellIntervalBox.Text, "%d+"))
+    if val and val > 0 then
+        config.sellInterval = math.floor(val)
+    else
+        config.sellInterval = 50
+    end
+    sellIntervalBox.Text = config.sellInterval .. "s"
+    saveConfig()
+end)
+
+-- 6. Auto Train + Posisi + Set Pos Button
 local trainBtn = Instance.new("TextButton", body)
 trainBtn.Size = UDim2.new(0.35, 0, 0, 26)
-trainBtn.Position = UDim2.new(0, 0, 0, 128)
+trainBtn.Position = UDim2.new(0, 0, 0, 160)
 trainBtn.Font = Enum.Font.GothamBold
 trainBtn.TextSize = 10
 Instance.new("UICorner", trainBtn).CornerRadius = UDim.new(0, 6)
@@ -691,7 +791,7 @@ end)
 
 local trainPosBox = Instance.new("TextBox", body)
 trainPosBox.Size = UDim2.new(0.42, 0, 0, 26)
-trainPosBox.Position = UDim2.new(0.37, 0, 0, 128)
+trainPosBox.Position = UDim2.new(0.37, 0, 0, 160)
 trainPosBox.BackgroundColor3 = Color3.fromRGB(38, 42, 52)
 trainPosBox.TextColor3 = Color3.fromRGB(230, 230, 230)
 trainPosBox.Font = Enum.Font.GothamMedium
@@ -711,7 +811,7 @@ end)
 
 local setTrainPosBtn = Instance.new("TextButton", body)
 setTrainPosBtn.Size = UDim2.new(0.19, 0, 0, 26)
-setTrainPosBtn.Position = UDim2.new(0.81, 0, 0, 128)
+setTrainPosBtn.Position = UDim2.new(0.81, 0, 0, 160)
 setTrainPosBtn.BackgroundColor3 = Color3.fromRGB(48, 54, 70)
 setTrainPosBtn.TextColor3 = Color3.fromRGB(220, 220, 220)
 setTrainPosBtn.Font = Enum.Font.GothamBold
@@ -730,10 +830,10 @@ setTrainPosBtn.MouseButton1Click:Connect(function()
     end
 end)
 
--- 6. Auto Click + Posisi + Pick Click Pos
+-- 7. Auto Click + Posisi + Pick Click Pos
 local clickBtn = Instance.new("TextButton", body)
 clickBtn.Size = UDim2.new(0.35, 0, 0, 26)
-clickBtn.Position = UDim2.new(0, 0, 0, 160)
+clickBtn.Position = UDim2.new(0, 0, 0, 192)
 clickBtn.Font = Enum.Font.GothamBold
 clickBtn.TextSize = 10
 Instance.new("UICorner", clickBtn).CornerRadius = UDim.new(0, 6)
@@ -759,7 +859,7 @@ end)
 
 local clickPosBox = Instance.new("TextBox", body)
 clickPosBox.Size = UDim2.new(0.42, 0, 0, 26)
-clickPosBox.Position = UDim2.new(0.37, 0, 0, 160)
+clickPosBox.Position = UDim2.new(0.37, 0, 0, 192)
 clickPosBox.BackgroundColor3 = Color3.fromRGB(38, 42, 52)
 clickPosBox.TextColor3 = Color3.fromRGB(230, 230, 230)
 clickPosBox.Font = Enum.Font.GothamMedium
@@ -779,7 +879,7 @@ end)
 
 local pickClickPosBtn = Instance.new("TextButton", body)
 pickClickPosBtn.Size = UDim2.new(0.19, 0, 0, 26)
-pickClickPosBtn.Position = UDim2.new(0.81, 0, 0, 160)
+pickClickPosBtn.Position = UDim2.new(0.81, 0, 0, 192)
 pickClickPosBtn.BackgroundColor3 = Color3.fromRGB(48, 54, 70)
 pickClickPosBtn.TextColor3 = Color3.fromRGB(220, 220, 220)
 pickClickPosBtn.Font = Enum.Font.GothamBold
@@ -813,20 +913,20 @@ pickClickPosBtn.MouseButton1Click:Connect(function()
     end)
 end)
 
--- 7. Status Label
+-- 8. Status Label
 local statusLabel = Instance.new("TextLabel", body)
 statusLabel.Size = UDim2.new(1, 0, 0, 20)
-statusLabel.Position = UDim2.new(0, 0, 0, 192)
+statusLabel.Position = UDim2.new(0, 0, 0, 224)
 statusLabel.BackgroundTransparency = 1
 statusLabel.Font = Enum.Font.Gotham
 statusLabel.TextSize = 11
 statusLabel.TextColor3 = Color3.fromRGB(160, 165, 180)
 statusLabel.Text = config.running and "Status: Farming..." or "Status: Siap"
 
--- 8. Start / Stop Button
+-- 9. Start / Stop Button
 local toggleBtn = Instance.new("TextButton", body)
 toggleBtn.Size = UDim2.new(1, 0, 0, 32)
-toggleBtn.Position = UDim2.new(0, 0, 0, 218)
+toggleBtn.Position = UDim2.new(0, 0, 0, 250)
 toggleBtn.BackgroundColor3 = config.running and Color3.fromRGB(180, 50, 50) or Color3.fromRGB(46, 139, 87)
 toggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 toggleBtn.Font = Enum.Font.GothamBold
@@ -874,7 +974,7 @@ closeBtn.MouseButton1Click:Connect(function()
     sg:Destroy()
 end)
 
--- Resume farming otomatis
+-- Resume farming otomatis jika state running tersimpan sebagai true
 if config.running then
     task.spawn(function()
         task.wait(0.5)
