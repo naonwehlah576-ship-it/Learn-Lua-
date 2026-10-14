@@ -451,6 +451,8 @@ local function triggerFastRollPrompt()
             end
         end
     end
+end
+
 local function stepAutoSell(isManual)
     pcall(function()
         local data = replica.Data
