@@ -455,9 +455,164 @@ local function stepTower()
     end)
 end
 
-local function stepEquipBest()
+local RarityWeights = {
+    ["Godly"] = 100000000,
+    ["Secret"] = 10000000,
+    ["Mythical"] = 1000000,
+    ["Legendary"] = 100000,
+    ["Epic"] = 10000,
+    ["Rare"] = 1000,
+    ["Uncommon"] = 100,
+    ["Common"] = 10,
+}
+
+local function getUnitPowerScore(uData)
+    if not uData then return 0 end
+    local uDef = UnitConfig and UnitConfig[uData.UnitId]
+    local rarity = (uDef and uDef.Rarity) or "Common"
+    local baseWeight = RarityWeights[rarity] or 10
+    local basePrice = (uDef and uDef.Price) or 10
+    local lvl = uData.Level or uData.Lvl or 1
+    local dps = (uDef and (uDef.DPS or uDef.BaseDPS)) or basePrice
+    
+    if UpgradeConfig and UpgradeConfig.DPSForLevel then
+        local calcDps = UpgradeConfig.DPSForLevel(dps, lvl)
+        return (baseWeight * 10) + calcDps
+    end
+    return (baseWeight * 10) + (dps * (1 + (lvl - 1) * 0.333))
+end
+
+local function stepEquipBest(isManual)
     pcall(function()
-        replica:FireServer("TowerEquipBest")
+        local data = replica.Data
+        if not data or not data.OwnedUnits then return end
+
+        local owned = data.OwnedUnits
+        local placed = data.PlacedUnits or {}
+        local unlocked = data.UnlockedSquares or {}
+        local unlockedFloors = data.UnlockedFloors or 1
+
+        -- 1. Kumpulkan seluruh slot pad yang sudah terbuka di plot base
+        local openSlots = {}
+        for f = 1, unlockedFloors do
+            local fl = unlocked[f]
+            if type(fl) == "table" then
+                for s, isUnlocked in pairs(fl) do
+                    if isUnlocked == true then
+                        local curOwnedId = placed[f] and placed[f][s]
+                        table.insert(openSlots, {
+                            floorIndex = f,
+                            squareIndex = s,
+                            currentOwnedId = curOwnedId,
+                            currentPower = (curOwnedId and owned[curOwnedId] and getUnitPowerScore(owned[curOwnedId])) or 0
+                        })
+                    end
+                end
+            end
+        end
+
+        if #openSlots == 0 then return end
+
+        -- 2. Kumpulkan seluruh hero milik player & urutkan dari yang terkuat
+        local allOwned = {}
+        for oId, uData in pairs(owned) do
+            if uData and uData.UnitId then
+                table.insert(allOwned, {
+                    ownedId = oId,
+                    data = uData,
+                    power = getUnitPowerScore(uData)
+                })
+            end
+        end
+
+        table.sort(allOwned, function(a, b)
+            return a.power > b.power
+        end)
+
+        -- 3. Ambil top N hero terbaik sesuai jumlah pad yang terbuka
+        local targetCount = math.min(#allOwned, #openSlots)
+        local topHeroes = {}
+        local topHeroesSet = {}
+        for i = 1, targetCount do
+            table.insert(topHeroes, allOwned[i])
+            topHeroesSet[allOwned[i].ownedId] = true
+        end
+
+        -- 4. Cari pad yang belum terisi hero terbaik
+        local alreadyPlacedSet = {}
+        local slotsToFill = {}
+
+        for _, slot in ipairs(openSlots) do
+            if slot.currentOwnedId and topHeroesSet[slot.currentOwnedId] and not alreadyPlacedSet[slot.currentOwnedId] then
+                alreadyPlacedSet[slot.currentOwnedId] = true
+            else
+                table.insert(slotsToFill, slot)
+            end
+        end
+
+        local heroesToPlace = {}
+        for _, hero in ipairs(topHeroes) do
+            if not alreadyPlacedSet[hero.ownedId] then
+                table.insert(heroesToPlace, hero)
+            end
+        end
+
+        -- 5. Pasang hero terbaik ke pad yang membutuhkan
+        local countPlaced = 0
+        for i = 1, math.min(#heroesToPlace, #slotsToFill) do
+            local slot = slotsToFill[i]
+            local hero = heroesToPlace[i]
+
+            -- Copot unit lama jika ada
+            if slot.currentOwnedId then
+                pcall(function()
+                    replica:FireServer("RequestRemoveUnit", { ["FloorIndex"] = slot.floorIndex, ["SquareIndex"] = slot.squareIndex })
+                    replica:FireServer("RequestPickupUnit", { ["FloorIndex"] = slot.floorIndex, ["SquareIndex"] = slot.squareIndex })
+                end)
+                task.wait(0.08)
+            end
+
+            -- Set item held lalu pasang ke pad
+            pcall(function()
+                replica:FireServer("SetHeldItem", { ["Kind"] = "Unit", ["Id"] = hero.ownedId })
+            end)
+            task.wait(0.06)
+
+            pcall(function()
+                replica:FireServer("RequestPlaceUnit", {
+                    ["FloorIndex"] = slot.floorIndex,
+                    ["SquareIndex"] = slot.squareIndex,
+                    ["OwnedUnitId"] = hero.ownedId
+                })
+            end)
+            countPlaced = countPlaced + 1
+            task.wait(0.1)
+        end
+
+        -- Lepas pegangan di tangan
+        pcall(function()
+            replica:FireServer("SetHeldItem", {})
+        end)
+
+        -- Tembak juga remote native & klik button UI jika ada
+        pcall(function() replica:FireServer("TowerEquipBest") end)
+        pcall(function() replica:FireServer("EquipBest") end)
+        pcall(function()
+            for _, g in ipairs(parentGui:GetDescendants()) do
+                if (g:IsA("TextButton") or g:IsA("ImageButton")) and g.Visible then
+                    local n = g.Name:lower()
+                    local t = (g:IsA("TextButton") and g.Text:lower()) or ""
+                    if n:find("equipbest") or n:find("equip_best") or t:find("equip best") or t:find("auto equip") then
+                        pcall(firesignal, g.Activated)
+                        pcall(firesignal, g.MouseButton1Click)
+                    end
+                end
+            end
+        end)
+
+        if isManual then
+            print(string.format("⚔️ [Auto Equip Best] Berhasil memasang %d hero terkuat ke pad base!", countPlaced))
+        end
     end)
 end
 
@@ -1044,7 +1199,7 @@ end)
 
 addToggle(pageHero, "Auto Upgrade Placed Heroes", "Upgrade hero di pad prioritas termurah dulu agar naik merata", "autoUpgradeHeroes")
 addToggle(pageHero, "Auto Equip Best Units", "Equip team terbaik otomatis tiap 5 detik", "autoEquipBest")
-addAction(pageHero, "Equip Best Sekarang", "Equip Best", Colors.Accent, stepEquipBest)
+addAction(pageHero, "Equip Best Sekarang", "Equip Best", Colors.Accent, function() stepEquipBest(true) end)
 addAction(pageHero, "Upgrade Hero Termurah 1x", "Upgrade", Colors.Green, stepHeroUpgrade)
 
 -- ----------------------------------------------------------------------------
