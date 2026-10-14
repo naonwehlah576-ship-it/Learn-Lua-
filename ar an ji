@@ -115,7 +115,7 @@ local settings = {
     autoRebirth = false,
     autoRebirthRush = false,
     rebirthRushMinutes = 5,
-    targetRebirthCost = "1T",
+    targetRebirthCost = "1.1T",
     
     -- Hero / Pad Upgrades & Auto Sell
     autoUpgradeHeroes = false,
@@ -848,20 +848,52 @@ local function getDetectedRebirthCost()
     local detectedCost = 0
     local detectedStr = nil
 
-    -- 1. Scan PlayerGui secara presisi untuk label progress bar "$104B/$1.1T" (Ambil target di belakang garis miring!)
+    -- 1. Prioritaskan Setting Manual User jika ada dan BUKAN "AUTO"!
+    -- Jika user isi 1.1T atau 1T di UI, 100% PASTI PAKAI ANGKA INI!
+    local manualTxt = settings.targetRebirthCost
+    if manualTxt and manualTxt ~= "" and manualTxt:upper() ~= "AUTO" then
+        local parsedManual = parseCostString(manualTxt)
+        if parsedManual and parsedManual > 0 then
+            return parsedManual, manualTxt
+        end
+    end
+
+    -- 2. Jika user isi "AUTO" atau manual kosong:
+    -- Cari dari PlayerGui HANYA di dalam container yang bernama "rebirth"
     local pGui = LocalPlayer:FindFirstChild("PlayerGui")
     if pGui then
         for _, lbl in ipairs(pGui:GetDescendants()) do
             if (lbl:IsA("TextLabel") or lbl:IsA("TextButton")) and lbl.Visible then
-                local t = lbl.Text
-                if t and t:find("/") and (t:find("%$") or t:find("[%d]+[KkMmBbTt]")) then
-                    local _, targetPart = t:match("([^/]+)%s*/%s*([^/]+)")
-                    if targetPart then
-                        local parsed = parseCostString(targetPart)
-                        if parsed and parsed > 1000 then
-                            detectedCost = parsed
-                            detectedStr = targetPart:gsub("%s+", "")
-                            return detectedCost, detectedStr
+                -- WAJIB berada di dalam container/frame Rebirth! (Mencegah salah baca bar Boss/Tower/Quest)
+                local isInsideRebirth = false
+                local cur = lbl
+                while cur and cur ~= pGui and cur ~= game do
+                    local n = cur.Name:lower()
+                    if n:find("rebirth") then
+                        isInsideRebirth = true
+                        break
+                    end
+                    cur = cur.Parent
+                end
+
+                if isInsideRebirth then
+                    local t = lbl.Text
+                    if t and t:find("/") then
+                        -- Format bar rebirth: "$104B/$1.1T"
+                        local curPart, targetPart = t:match("%$([%d%.]+%s*[KkMmBbTt]?)%s*/%s*%$([%d%.]+%s*[KkMmBbTt]?)")
+                        if not targetPart then
+                            local _, t2 = t:match("([^/]+)%s*/%s*([^/]+)")
+                            if t2 and (t2:find("%$") or t2:find("[%d]+[KkMmBbTt]")) then
+                                targetPart = t2
+                            end
+                        end
+                        if targetPart then
+                            local parsed = parseCostString(targetPart)
+                            if parsed and parsed > 1000 then
+                                detectedCost = parsed
+                                detectedStr = targetPart:gsub("%s+", "")
+                                return detectedCost, detectedStr
+                            end
                         end
                     end
                 end
@@ -869,7 +901,7 @@ local function getDetectedRebirthCost()
         end
     end
 
-    -- 2. Cek replica.Data jika ada
+    -- 3. Cek replica.Data jika ada
     local data = replica.Data
     if data then
         if data.RebirthCost and tonumber(data.RebirthCost) and tonumber(data.RebirthCost) > 1000 then
@@ -882,7 +914,7 @@ local function getDetectedRebirthCost()
         end
     end
 
-    -- 3. Cek dari RebirthConfig jika ada
+    -- 4. Cek dari RebirthConfig jika ada
     if RebirthConfig then
         local curRebirth = (data and (data.Rebirths or data.Rebirth)) or LocalPlayer:GetAttribute("Rebirths") or 0
         local c = nil
@@ -896,9 +928,8 @@ local function getDetectedRebirthCost()
         end
     end
 
-    -- 4. Fallback ke manual input user jika ada
-    local fallback = parseCostString(settings.targetRebirthCost or "1.1T")
-    return (fallback > 0 and fallback) or 1.1e12, tostring(settings.targetRebirthCost or "1.1T")
+    -- 5. Fallback default
+    return 1.1e12, "1.1T"
 end
 
 local function checkAndStepRebirthRush()
@@ -1538,7 +1569,7 @@ rCostLbl.Font = Enum.Font.GothamMedium
 rCostLbl.TextSize = 10.5
 rCostLbl.TextColor3 = Colors.Text
 rCostLbl.TextXAlignment = Enum.TextXAlignment.Left
-rCostLbl.Text = "Target Biaya Rebirth (misal 1T):"
+rCostLbl.Text = "Target Biaya Rebirth (1.1T / AUTO):"
 rCostLbl.Parent = rCostCard
 
 local rCostBox = Instance.new("TextBox")
@@ -1548,17 +1579,22 @@ rCostBox.BackgroundColor3 = Colors.Panel
 rCostBox.Font = Enum.Font.GothamBold
 rCostBox.TextSize = 10.5
 rCostBox.TextColor3 = Colors.Gold
-rCostBox.Text = tostring(settings.targetRebirthCost or "1T")
+rCostBox.Text = tostring(settings.targetRebirthCost or "1.1T")
 rCostBox.Parent = rCostCard
 Instance.new("UICorner", rCostBox).CornerRadius = UDim.new(0, 6)
 
 rCostBox.FocusLost:Connect(function()
     local txt = rCostBox.Text:gsub("%s+", "")
-    if txt ~= "" and parseCostString(txt) > 0 then
+    if txt:upper() == "AUTO" then
+        settings.targetRebirthCost = "AUTO"
+        rCostBox.Text = "AUTO"
+        saveConfig()
+    elseif txt ~= "" and parseCostString(txt) > 0 then
         settings.targetRebirthCost = txt
+        rCostBox.Text = txt
         saveConfig()
     else
-        rCostBox.Text = tostring(settings.targetRebirthCost or "1T")
+        rCostBox.Text = tostring(settings.targetRebirthCost or "1.1T")
     end
 end)
 
@@ -1844,6 +1880,8 @@ task.spawn(function()
                 local rollStatus = ""
                 if isRebirthRushActive then
                     rollStatus = "  |  " .. rebirthRushStatusText
+                elseif settings.autoRebirthRush and rebirthRushStatusText ~= "Standby" and rebirthRushStatusText ~= "Rush Nonaktif" then
+                    rollStatus = "  |  " .. rebirthRushStatusText
                 elseif isRollPausedForMoney then
                     rollStatus = "  |  ⏳ " .. rollPauseReason
                 end
@@ -1878,7 +1916,8 @@ task.spawn(function()
                 rebirthLbl.Text = string.format("🔄 Rebirth Saat Ini: %s", tostring(curRebirths))
             end
             if rebirthStatusLbl and rebirthStatusLbl.Parent then
-                rebirthStatusLbl.Text = "⏱️ " .. rebirthRushStatusText
+                local _, targetStr = getDetectedRebirthCost()
+                rebirthStatusLbl.Text = string.format("🎯 Target: $%s | %s", targetStr or "1.1T", rebirthRushStatusText)
             end
         end)
         task.wait(0.8)
