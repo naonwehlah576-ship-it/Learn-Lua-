@@ -2,6 +2,14 @@
 -- ANIME ARMY RNG - ULTIMATE AUTO FARM & UTILITY SCRIPT
 -- Game: Anime Army RNG
 -- Compatibility: Delta (Android / Emulator) & All Standard Roblox Executors
+-- Features:
+--   ⚡ Auto Collect Money (Instan TouchInterest + Gamepass Bypass)
+--   🎲 Auto Roll Gacha (Group Bypass + Native Auto Roll + Fast Prompt Trigger)
+--   🏰 Full Auto Tower (Equip Best Team + Start Tower + Auto Next Floor)
+--   🏗️ Auto Upgrade Plot (Max RollLuck, UnitRolls, Damage, Money, Boss, Floor)
+--   🎁 Auto Claim Rewards (Daily Rewards + Playtime Rewards 1-12 + Free Spin Wheel)
+--   📍 Fast Teleport (Base/Plot, Tower, Spin Wheel, Merchant)
+--   💾 Auto Save & Load Config
 -- ============================================================================
 
 if not game:IsLoaded() then
@@ -105,6 +113,7 @@ local function collectMoney()
         end
     end
 
+    -- Trigger server pass toggle
     pcall(function()
         replica:FireServer("SetAutoCollect", { ["On"] = true })
     end)
@@ -113,6 +122,7 @@ end
 -- 2. Auto Roll Helpers
 local function startNativeAutoRoll()
     pcall(function()
+        -- Unlock group requirement jika ada
         replica:FireServer("AutoRollJoinedGroup")
         task.wait(0.1)
         replica:FireServer("RequestStartAutoRoll")
@@ -134,10 +144,13 @@ end
 -- 3. Tower Helpers
 local function stepTower()
     pcall(function()
+        -- Equip team terkuat
         replica:FireServer("TowerEquipBest")
         task.wait(0.15)
+        -- Set auto progress
         replica:FireServer("TowerSetAuto", { ["On"] = true })
         task.wait(0.15)
+        -- Start Tower
         local tId = settings.selectedTower or "Tower1"
         replica:FireServer("TowerStart", { ["TowerId"] = tId })
     end)
@@ -162,11 +175,13 @@ end
 
 -- 5. Rewards Claim Helpers
 local function claimRewards()
+    -- Daily
     if settings.autoClaimDaily then
         pcall(function()
             replica:FireServer("ClaimDailyReward")
         end)
     end
+    -- Playtime (1 s/d 12)
     if settings.autoClaimPlaytime then
         pcall(function()
             for idx = 1, 12 do
@@ -175,6 +190,7 @@ local function claimRewards()
             end
         end)
     end
+    -- Spin Wheel
     if settings.autoSpinWheel then
         pcall(function()
             replica:FireServer("RequestWheelSpin")
@@ -212,7 +228,7 @@ local function tpToWheel()
 end
 
 -- ============================================================================
--- GUI
+-- MODERN MOBILE & EMULATOR FRIENDLY GUI
 -- ============================================================================
 local parentGui = (gethui and gethui()) or CoreGui:FindFirstChild("RobloxGui") or LocalPlayer:WaitForChild("PlayerGui")
 local ScreenGui = Instance.new("ScreenGui")
@@ -221,6 +237,7 @@ ScreenGui.ResetOnSpawn = false
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 ScreenGui.Parent = parentGui
 
+-- Main Card Frame
 local Main = Instance.new("Frame")
 Main.Name = "MainFrame"
 Main.Size = UDim2.new(0, 310, 0, 420)
@@ -240,7 +257,7 @@ MainStroke.Thickness = 1.6
 MainStroke.Color = Color3.fromRGB(80, 100, 160)
 MainStroke.Parent = Main
 
--- Dragging
+-- Dragging System (Support Touch & Mouse)
 local dragging, dragInput, dragStart, startPos
 local function updateDrag(input)
     local delta = input.Position - dragStart
@@ -272,6 +289,7 @@ UserInputService.InputChanged:Connect(function(input)
     end
 end)
 
+-- Top Title Bar
 local TopBar = Instance.new("Frame")
 TopBar.Name = "TopBar"
 TopBar.Size = UDim2.new(1, 0, 0, 40)
@@ -295,6 +313,7 @@ Title.TextSize = 14
 Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.Parent = TopBar
 
+-- Close & Min Buttons
 local CloseBtn = Instance.new("TextButton")
 CloseBtn.Name = "CloseBtn"
 CloseBtn.Size = UDim2.new(0, 26, 0, 26)
@@ -323,6 +342,7 @@ local MinCorner = Instance.new("UICorner")
 MinCorner.CornerRadius = UDim.new(0, 6)
 MinCorner.Parent = MinBtn
 
+-- Stats Header (Money & DPS)
 local StatsFrame = Instance.new("Frame")
 StatsFrame.Name = "StatsFrame"
 StatsFrame.Size = UDim2.new(1, -20, 0, 36)
@@ -346,6 +366,7 @@ MoneyDisplay.TextSize = 11
 MoneyDisplay.TextXAlignment = Enum.TextXAlignment.Left
 MoneyDisplay.Parent = StatsFrame
 
+-- Scrollable Content
 local Scroll = Instance.new("ScrollingFrame")
 Scroll.Name = "ContentScroll"
 Scroll.Size = UDim2.new(1, -16, 1, -92)
@@ -362,6 +383,7 @@ Layout.Padding = UDim.new(0, 6)
 Layout.SortOrder = Enum.SortOrder.LayoutOrder
 Layout.Parent = Scroll
 
+-- Helper: Create Section Header
 local function makeHeader(text)
     local lbl = Instance.new("TextLabel")
     lbl.Size = UDim2.new(1, 0, 0, 20)
@@ -375,6 +397,7 @@ local function makeHeader(text)
     return lbl
 end
 
+-- Helper: Create Toggle Button
 local function makeToggle(name, text, stateKey, callback)
     local btn = Instance.new("TextButton")
     btn.Name = name
@@ -403,7 +426,158 @@ local function makeToggle(name, text, stateKey, callback)
     return btn
 end
 
+-- Helper: Create Action / TP Button
 local function makeActionBtn(name, text, color, callback)
     local btn = Instance.new("TextButton")
     btn.Name = name
-    btn.Size = UDim2.new
+    btn.Size = UDim2.new(1, 0, 0, 30)
+    btn.BackgroundColor3 = color or Color3.fromRGB(45, 55, 80)
+    btn.Font = Enum.Font.GothamBold
+    btn.Text = text
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.TextSize = 11
+    btn.Parent = Scroll
+
+    local c = Instance.new("UICorner")
+    c.CornerRadius = UDim.new(0, 6)
+    c.Parent = btn
+
+    btn.Activated:Connect(function()
+        if callback then callback() end
+    end)
+    return btn
+end
+
+-- SECTION 1: AUTO MONEY & ROLL
+makeHeader("⚡ PENGUMPULAN & GACHA")
+makeToggle("AutoCollectBtn", "Auto Collect Money (Instant)", "autoCollect")
+makeToggle("AutoRollBtn", "Auto Roll (Native Group-Unlocked)", "autoRoll", function(on)
+    if on then startNativeAutoRoll() end
+end)
+makeToggle("FastRollBtn", "Fast Roll Prompt Spammer", "fastRollPrompt")
+
+-- SECTION 2: TOWER & BATTLE
+makeHeader("🏰 TOWER DUNGEON")
+makeToggle("AutoTowerBtn", "Full Auto Tower (Equip+Start+Next)", "autoTower")
+
+-- SECTION 3: BASE UPGRADES
+makeHeader("🏗️ UPGRADE BASE / PLOT")
+makeToggle("AutoUpgradeBtn", "Auto Max Upgrades (Luck/Damage/Money/Boss)", "autoUpgrade")
+makeToggle("AutoFloorBtn", "Auto Buy / Unlock Floor", "autoFloor")
+
+-- SECTION 4: FREE REWARDS
+makeHeader("🎁 HADIAH & SPIN WHEEL")
+makeToggle("DailyBtn", "Auto Claim Daily Rewards", "autoClaimDaily")
+makeToggle("PlaytimeBtn", "Auto Claim Playtime Rewards (1-12)", "autoClaimPlaytime")
+makeToggle("WheelBtn", "Auto Free Spin Wheel", "autoSpinWheel")
+
+-- SECTION 5: TELEPORTS
+makeHeader("📍 SHORTCUT TELEPORT")
+makeActionBtn("TpBaseBtn", "🏠 Teleport ke My Plot / Base", Color3.fromRGB(40, 70, 110), tpToPlot)
+makeActionBtn("TpTowerBtn", "🏰 Teleport ke Tower Dungeon", Color3.fromRGB(90, 50, 110), tpToTower)
+makeActionBtn("TpWheelBtn", "🎡 Teleport ke Spin Wheel", Color3.fromRGB(110, 80, 40), tpToWheel)
+
+-- Minimize System
+local isMinimized = false
+MinBtn.Activated:Connect(function()
+    isMinimized = not isMinimized
+    if isMinimized then
+        Scroll.Visible = false
+        StatsFrame.Visible = false
+        Main.Size = UDim2.new(0, 310, 0, 40)
+        MinBtn.Text = "+"
+    else
+        Main.Size = UDim2.new(0, 310, 0, 420)
+        Scroll.Visible = true
+        StatsFrame.Visible = true
+        MinBtn.Text = "—"
+    end
+end)
+
+local function cleanup()
+    isRunning = false
+    settings.autoCollect = false
+    settings.autoRoll = false
+    settings.autoTower = false
+    settings.autoUpgrade = false
+    if ScreenGui and ScreenGui.Parent then
+        ScreenGui:Destroy()
+    end
+end
+
+CloseBtn.Activated:Connect(cleanup)
+
+local env = (getgenv and getgenv()) or _G
+if env then env._AnimeArmyCleanup = cleanup end
+
+-- ============================================================================
+-- BACKGROUND LOOPS
+-- ============================================================================
+
+-- 1. Money Stats Listener
+task.spawn(function()
+    while isRunning do
+        pcall(function()
+            local d = replica.Data
+            if d and d.Money ~= nil then
+                local mStr = NumberFormat.Abbreviate(d.Money)
+                local mpsStr = d.MoneyPerSecond and NumberFormat.Abbreviate(d.MoneyPerSecond) or "0"
+                MoneyDisplay.Text = string.format("💰 $%s (+$%s/s) | Tower: %s", mStr, mpsStr, tostring(d.TowerBest or 1))
+            end
+        end)
+        task.wait(1)
+    end
+end)
+
+-- 2. Fast Money Collection Loop (setiap 0.6 detik)
+task.spawn(function()
+    while isRunning do
+        if settings.autoCollect then
+            collectMoney()
+        end
+        task.wait(0.6)
+    end
+end)
+
+-- 3. Auto Roll & Fast Roll Loop
+task.spawn(function()
+    while isRunning do
+        if settings.autoRoll then
+            startNativeAutoRoll()
+        end
+        if settings.fastRollPrompt then
+            triggerFastRollPrompt()
+        end
+        task.wait(0.3)
+    end
+end)
+
+-- 4. Auto Tower Loop (setiap 2.5 detik)
+task.spawn(function()
+    while isRunning do
+        if settings.autoTower then
+            stepTower()
+        end
+        task.wait(2.5)
+    end
+end)
+
+-- 5. Auto Upgrade Base Loop (setiap 3 detik)
+task.spawn(function()
+    while isRunning do
+        if settings.autoUpgrade then
+            upgradeBase()
+        end
+        task.wait(3.0)
+    end
+end)
+
+-- 6. Auto Claim Rewards Loop (setiap 10 detik)
+task.spawn(function()
+    while isRunning do
+        claimRewards()
+        task.wait(10)
+    end
+end)
+
+print("⚔️ [OK] Anime Army RNG Multi-Tool v1.0 Siap Dijalankan!")
