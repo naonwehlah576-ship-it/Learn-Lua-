@@ -619,49 +619,51 @@ end
 
 local function triggerRebirth(isManual)
     pcall(function()
-        -- 1. Direct server remotes
+        -- 1. Direct server remotes (100% Silent di background - TANPA buka menu!)
         replica:FireServer("RequestRebirth")
+        replica:FireServer("RequestBuyRebirth")
         replica:FireServer("Rebirth")
         replica:FireServer("ClaimRebirth")
         replica:FireServer("DoRebirth")
 
-        -- 2. GUI button interaction
+        -- 2. Tekan tombol konfirmasi di dalam RebirthGui jika ada, TANPA buka popup di layar
         local pGui = LocalPlayer:FindFirstChild("PlayerGui")
-        if not pGui then return end
-
-        for _, btn in ipairs(pGui:GetDescendants()) do
-            if (btn:IsA("TextButton") or btn:IsA("ImageButton")) and btn.Visible then
-                local bName = btn.Name:lower()
-                local bText = (btn:IsA("TextButton") and btn.Text:lower()) or ""
-                if bName == "rebirth" or bName == "rebirthbtn" or bName == "rebirthbutton" 
-                   or bText == "rebirth" or bText:find("^rebirth") then
-                    pcall(firesignal, btn.Activated)
-                    pcall(firesignal, btn.MouseButton1Click)
+        if pGui then
+            for _, gui in ipairs(pGui:GetChildren()) do
+                local gName = gui.Name:lower()
+                if gName:find("rebirth") then
+                    for _, b in ipairs(gui:GetDescendants()) do
+                        if (b:IsA("TextButton") or b:IsA("ImageButton")) then
+                            local btnTxt = (b:IsA("TextButton") and b.Text:lower()) or ""
+                            local btnNm = b.Name:lower()
+                            if not (btnNm:find("close") or btnNm:find("cancel") or btnNm:find("exit") or btnTxt == "x" or btnTxt == "✕") then
+                                if btnNm:find("confirm") or btnNm:find("rebirth") or btnNm:find("buy") or btnNm:find("yes")
+                                   or btnTxt:find("rebirth") or btnTxt:find("confirm") or btnTxt:find("yes") then
+                                    pcall(firesignal, b.Activated)
+                                    pcall(firesignal, b.MouseButton1Click)
+                                end
+                            end
+                        end
+                    end
+                    -- SELALU SEMBUNYIKAN GUI AGAR TIDAK MUNCUL DI LAYAR SAMA SEKALI
+                    if gui:IsA("ScreenGui") then
+                        gui.Enabled = false
+                    end
                 end
             end
-        end
 
-        task.wait(0.15)
-
-        for _, gui in ipairs(pGui:GetChildren()) do
-            local gName = gui.Name:lower()
-            if gName:find("rebirth") then
-                for _, b in ipairs(gui:GetDescendants()) do
-                    if (b:IsA("TextButton") or b:IsA("ImageButton")) and b.Visible then
-                        local btnTxt = (b:IsA("TextButton") and b.Text:lower()) or ""
-                        local btnNm = b.Name:lower()
-                        if btnNm:find("rebirth") or btnNm:find("confirm") or btnNm:find("buy") or btnNm:find("yes")
-                           or btnTxt:find("rebirth") or btnTxt:find("confirm") or btnTxt:find("yes") then
-                            pcall(firesignal, b.Activated)
-                            pcall(firesignal, b.MouseButton1Click)
-                        end
+            -- Tutup semua frame popup Rebirth yang sempat terbuka agar layar tetap bersih
+            for _, obj in ipairs(pGui:GetDescendants()) do
+                if obj:IsA("Frame") and obj.Name:lower():find("rebirth") and obj.Visible then
+                    if (obj.AbsoluteSize.X > 120 and obj.AbsoluteSize.Y > 120) or (obj.Size.X.Offset > 120 and obj.Size.Y.Offset > 120) then
+                        obj.Visible = false
                     end
                 end
             end
         end
 
         if isManual then
-            print("🔄 [Rebirth] Mencoba melakukan Rebirth...")
+            print("🔄 [Silent Rebirth] Permintaan Rebirth dikirim ke server (Silent Background)!")
         end
     end)
 end
@@ -1460,13 +1462,13 @@ task.spawn(function()
     end
 end)
 
--- 9. Auto Rebirth Loop
+-- 9. Auto Rebirth Loop (100% Silent Background - No Menu Spam)
 task.spawn(function()
     while isRunning do
         if settings.autoRebirth then
             triggerRebirth(false)
         end
-        task.wait(2.5)
+        task.wait(4.0)
     end
 end)
 
