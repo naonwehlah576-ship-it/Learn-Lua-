@@ -50,6 +50,19 @@ pcall(function()
     FloorConfig = require(Shared:WaitForChild("FloorConfig", 10))
 end)
 
+local RebirthConfig = nil
+pcall(function()
+    RebirthConfig = require(Shared:WaitForChild("RebirthConfig", 5))
+end)
+if not RebirthConfig then
+    pcall(function()
+        local cFolder = ReplicatedStorage:FindFirstChild("Config")
+        if cFolder and cFolder:FindFirstChild("RebirthConfig") then
+            RebirthConfig = require(cFolder.RebirthConfig)
+        end
+    end)
+end
+
 local replica = ClientReplica.WaitForReplica()
 local myPlot = PlotUtil.WaitForMyPlot(10)
 
@@ -87,6 +100,9 @@ local settings = {
     autoUpBoss = false,
     autoFloor = false,
     autoRebirth = false,
+    autoRebirthRush = false,
+    rebirthRushMinutes = 5,
+    targetRebirthCost = "1T",
     
     -- Hero / Pad Upgrades & Auto Sell
     autoUpgradeHeroes = false,
@@ -149,6 +165,9 @@ local nextCheapestBaseName = "None"
 local nextCheapestBaseCost = 0
 local nextCheapestHeroName = "None"
 local nextCheapestHeroCost = 0
+local isRebirthRushActive = false
+local rebirthRushStatusText = "Standby"
+local lastRebirthCount = nil
 
 -- ============================================================================
 -- HELPER FUNCTIONS
@@ -236,6 +255,12 @@ local function getRolledUnitsOnStation()
 end
 
 local function processFilterBuyAndRollGuard()
+    if isRebirthRushActive then
+        isRollPausedForMoney = false
+        rollPauseReason = ""
+        return
+    end
+
     if not settings.autoBuyRolled then
         isRollPausedForMoney = false
         rollPauseReason = ""
@@ -316,6 +341,10 @@ local function getCheapestBaseUpgrade(forceAll)
 end
 
 local function stepSmartBaseUpgrade(isManual)
+    if isRebirthRushActive and not isManual then
+        return
+    end
+
     local cheapest = getCheapestBaseUpgrade(false)
     if not cheapest and isManual then
         -- Jika manual click tapi tidak ada toggle yang aktif, cek semua stat
@@ -398,7 +427,11 @@ local function getCheapestHeroUpgrade()
     return candidates[1]
 end
 
-local function stepHeroUpgrade()
+local function stepHeroUpgrade(isManual)
+    if isRebirthRushActive and not isManual then
+        return
+    end
+
     local cheapestHero = getCheapestHeroUpgrade()
     if cheapestHero then
         nextCheapestHeroName = string.format("%s (Fl.%s Sq.%s Lv.%d)", cheapestHero.name, tostring(cheapestHero.floorIndex), tostring(cheapestHero.squareIndex), cheapestHero.curLevel)
@@ -731,6 +764,120 @@ local function triggerRebirth(isManual)
             print("🔄 [Silent Rebirth] Permintaan Rebirth dikirim ke server!")
         end
     end)
+end
+
+local function getDetectedRebirthCost()
+    -- 1. Cek dari replica.Data jika ada
+    local data = replica.Data
+    if data then
+        if data.RebirthCost and tonumber(data.RebirthCost) then
+            return tonumber(data.RebirthCost)
+        end
+        if data.NextRebirthCost and tonumber(data.NextRebirthCost) then
+            return tonumber(data.NextRebirthCost)
+        end
+        if data.RebirthPrice and tonumber(data.RebirthPrice) then
+            return tonumber(data.RebirthPrice)
+        end
+    end
+
+    -- 2. Cek dari RebirthConfig jika ada
+    if RebirthConfig then
+        local curRebirth = (data and (data.Rebirths or data.Rebirth)) or LocalPlayer:GetAttribute("Rebirths") or 0
+        if RebirthConfig.CostForLevel then
+            local c = RebirthConfig.CostForLevel(curRebirth + 1)
+            if c then return c end
+        elseif RebirthConfig.PriceForLevel then
+            local c = RebirthConfig.PriceForLevel(curRebirth + 1)
+            if c then return c end
+        elseif RebirthConfig.Cost then
+            local c = RebirthConfig.Cost(curRebirth + 1)
+            if c then return c end
+        end
+    end
+
+    -- 3. Cek dari PlayerGui teks yang mengandung Rebirth dan harga
+    local pGui = LocalPlayer:FindFirstChild("PlayerGui")
+    if pGui then
+        for _, gui in ipairs(pGui:GetChildren()) do
+            if gui.Name:lower():find("rebirth") then
+                for _, lbl in ipairs(gui:GetDescendants()) do
+                    if lbl:IsA("TextLabel") or lbl:IsA("TextButton") then
+                        local t = lbl.Text
+                        if t:find("%$") or t:find("[%d]+[KkMmBbTt]") then
+                            local parsed = parseCostString(t)
+                            if parsed > 1000 then
+                                return parsed
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    -- 4. Fallback ke setting user (misal "1T")
+    local fallback = parseCostString(settings.targetRebirthCost or "1T")
+    return fallback > 0 and fallback or 1e12
+end
+
+local function checkAndStepRebirthRush()
+    if not settings.autoRebirthRush then
+        isRebirthRushActive = false
+        rebirthRushStatusText = "Rush Nonaktif"
+        return
+    end
+
+    local data = replica.Data
+    local currentMoney = getPlayerMoney()
+    local moneyPerSec = (data and data.MoneyPerSecond) or 0
+    local curRebirths = (data and (data.Rebirths or data.Rebirth)) or LocalPlayer:GetAttribute("Rebirths") or 0
+
+    -- Deteksi jika baru saja berhasil Rebirth
+    if lastRebirthCount == nil then
+        lastRebirthCount = curRebirths
+    elseif curRebirths > lastRebirthCount then
+        -- REBIRTH SELESAI! Reset status rush, biarkan upgrade berjalan lagi!
+        lastRebirthCount = curRebirths
+        isRebirthRushActive = false
+        rebirthRushStatusText = string.format("🎉 Rebirth %d Selesai! Upgrade Berjalan Kembali.", curRebirths)
+        return
+    end
+
+    -- Hitung target biaya Rebirth
+    local targetCost = getDetectedRebirthCost()
+
+    -- Jika uang SUDAH CUKUP:
+    if currentMoney >= targetCost then
+        isRebirthRushActive = true
+        rebirthRushStatusText = string.format("🔥 Uang Cukup ($%s)! Eksekusi Rebirth...", NumberFormat.Abbreviate(targetCost))
+        triggerRebirth(false)
+        return
+    end
+
+    -- Hitung estimasi waktu untuk mencapai target berdasarkan $/s
+    local maxMinutes = tonumber(settings.rebirthRushMinutes) or 5
+    local maxSeconds = maxMinutes * 60
+    local remainingMoney = targetCost - currentMoney
+
+    if moneyPerSec > 0 then
+        local secondsNeeded = remainingMoney / moneyPerSec
+        if secondsNeeded <= maxSeconds then
+            -- MUMPUNI! Waktu kumpul <= 5 menit!
+            isRebirthRushActive = true
+            local mins = math.floor(secondsNeeded / 60)
+            local secs = math.floor(secondsNeeded % 60)
+            rebirthRushStatusText = string.format("🔥 RUSH AKTIF: Kumpul $%s (Est. %dm %ds)", NumberFormat.Abbreviate(targetCost), mins, secs)
+        else
+            -- Belum mumpuni: Uang per detik belum cukup untuk capai target dalam 5 menit
+            isRebirthRushActive = false
+            local mins = math.floor(secondsNeeded / 60)
+            rebirthRushStatusText = string.format("⏳ Standby: $/s butuh %dm (Maks %dm) -> Upgrade Jalan", mins, maxMinutes)
+        end
+    else
+        isRebirthRushActive = false
+        rebirthRushStatusText = "⏳ Standby: $/s masih 0 -> Upgrade Jalan"
+    end
 end
 
 local function claimRewards()
@@ -1253,10 +1400,10 @@ addToggle(pageBase, "Auto Upgrade Boss", "Otomatis upgrade Boss damage (priorita
 addToggle(pageBase, "Auto Unlock Floor", "Beli floor baru otomatis jika uang cukup", "autoFloor")
 addAction(pageBase, "Beli Upgrade Termurah 1x", "Upgrade", Colors.Accent, function() stepSmartBaseUpgrade(true) end)
 
-addSectionLabel(pageBase, "REBIRTH SYSTEM")
+addSectionLabel(pageBase, "REBIRTH SYSTEM & SMART 5-MIN RUSH")
 
 local rebirthCard = Instance.new("Frame")
-rebirthCard.Size = UDim2.new(1, 0, 0, 36)
+rebirthCard.Size = UDim2.new(1, 0, 0, 50)
 rebirthCard.BackgroundColor3 = Colors.Card
 rebirthCard.BorderSizePixel = 0
 rebirthCard.LayoutOrder = getOrder()
@@ -1264,8 +1411,8 @@ rebirthCard.Parent = pageBase
 Instance.new("UICorner", rebirthCard).CornerRadius = UDim.new(0, 6)
 
 local rebirthLbl = Instance.new("TextLabel")
-rebirthLbl.Size = UDim2.new(1, -16, 1, 0)
-rebirthLbl.Position = UDim2.fromOffset(10, 0)
+rebirthLbl.Size = UDim2.new(1, -16, 0, 22)
+rebirthLbl.Position = UDim2.fromOffset(10, 4)
 rebirthLbl.BackgroundTransparency = 1
 rebirthLbl.Font = Enum.Font.GothamMedium
 rebirthLbl.TextSize = 10.5
@@ -1274,8 +1421,103 @@ rebirthLbl.TextXAlignment = Enum.TextXAlignment.Left
 rebirthLbl.Text = "🔄 Rebirth: Loading..."
 rebirthLbl.Parent = rebirthCard
 
-addToggle(pageBase, "Auto Rebirth", "Otomatis rebirth begitu uang / syarat sudah cukup", "autoRebirth")
-addAction(pageBase, "Rebirth Sekarang", "Rebirth", Colors.Red, function() triggerRebirth(true) end)
+local rebirthStatusLbl = Instance.new("TextLabel")
+rebirthStatusLbl.Size = UDim2.new(1, -16, 0, 20)
+rebirthStatusLbl.Position = UDim2.fromOffset(10, 26)
+rebirthStatusLbl.BackgroundTransparency = 1
+rebirthStatusLbl.Font = Enum.Font.GothamMedium
+rebirthStatusLbl.TextSize = 9.5
+rebirthStatusLbl.TextColor3 = Colors.Gold
+rebirthStatusLbl.TextXAlignment = Enum.TextXAlignment.Left
+rebirthStatusLbl.Text = "⏱️ Rush: Standby"
+rebirthStatusLbl.Parent = rebirthCard
+
+addToggle(pageBase, "Smart Rebirth Rush", "Jika $/s sanggup capai biaya Rebirth dalam batas waktu (5m), stop semua upgrade & fokus Rebirth!", "autoRebirthRush")
+addToggle(pageBase, "Auto Rebirth (Silent)", "Otomatis rebirth di background saat uang / syarat sudah cukup", "autoRebirth")
+
+-- Input Target Biaya Rebirth
+local rCostCard = Instance.new("Frame")
+rCostCard.Size = UDim2.new(1, 0, 0, 36)
+rCostCard.BackgroundColor3 = Colors.Card
+rCostCard.BorderSizePixel = 0
+rCostCard.LayoutOrder = getOrder()
+rCostCard.Parent = pageBase
+Instance.new("UICorner", rCostCard).CornerRadius = UDim.new(0, 6)
+
+local rCostLbl = Instance.new("TextLabel")
+rCostLbl.Size = UDim2.new(0.6, 0, 1, 0)
+rCostLbl.Position = UDim2.fromOffset(10, 0)
+rCostLbl.BackgroundTransparency = 1
+rCostLbl.Font = Enum.Font.GothamMedium
+rCostLbl.TextSize = 10.5
+rCostLbl.TextColor3 = Colors.Text
+rCostLbl.TextXAlignment = Enum.TextXAlignment.Left
+rCostLbl.Text = "Target Biaya Rebirth (misal 1T):"
+rCostLbl.Parent = rCostCard
+
+local rCostBox = Instance.new("TextBox")
+rCostBox.Size = UDim2.fromOffset(70, 24)
+rCostBox.Position = UDim2.new(1, -78, 0.5, -12)
+rCostBox.BackgroundColor3 = Colors.Panel
+rCostBox.Font = Enum.Font.GothamBold
+rCostBox.TextSize = 10.5
+rCostBox.TextColor3 = Colors.Gold
+rCostBox.Text = tostring(settings.targetRebirthCost or "1T")
+rCostBox.Parent = rCostCard
+Instance.new("UICorner", rCostBox).CornerRadius = UDim.new(0, 6)
+
+rCostBox.FocusLost:Connect(function()
+    local txt = rCostBox.Text:gsub("%s+", "")
+    if txt ~= "" and parseCostString(txt) > 0 then
+        settings.targetRebirthCost = txt
+        saveConfig()
+    else
+        rCostBox.Text = tostring(settings.targetRebirthCost or "1T")
+    end
+end)
+
+-- Input Batas Menit Kumpul (Default 5 menit)
+local rTimeCard = Instance.new("Frame")
+rTimeCard.Size = UDim2.new(1, 0, 0, 36)
+rTimeCard.BackgroundColor3 = Colors.Card
+rTimeCard.BorderSizePixel = 0
+rTimeCard.LayoutOrder = getOrder()
+rTimeCard.Parent = pageBase
+Instance.new("UICorner", rTimeCard).CornerRadius = UDim.new(0, 6)
+
+local rTimeLbl = Instance.new("TextLabel")
+rTimeLbl.Size = UDim2.new(0.6, 0, 1, 0)
+rTimeLbl.Position = UDim2.fromOffset(10, 0)
+rTimeLbl.BackgroundTransparency = 1
+rTimeLbl.Font = Enum.Font.GothamMedium
+rTimeLbl.TextSize = 10.5
+rTimeLbl.TextColor3 = Colors.Text
+rTimeLbl.TextXAlignment = Enum.TextXAlignment.Left
+rTimeLbl.Text = "Maks Menit Kumpul (Rush):"
+rTimeLbl.Parent = rTimeCard
+
+local rTimeBox = Instance.new("TextBox")
+rTimeBox.Size = UDim2.fromOffset(70, 24)
+rTimeBox.Position = UDim2.new(1, -78, 0.5, -12)
+rTimeBox.BackgroundColor3 = Colors.Panel
+rTimeBox.Font = Enum.Font.GothamBold
+rTimeBox.TextSize = 10.5
+rTimeBox.TextColor3 = Colors.Gold
+rTimeBox.Text = tostring(settings.rebirthRushMinutes or 5)
+rTimeBox.Parent = rTimeCard
+Instance.new("UICorner", rTimeBox).CornerRadius = UDim.new(0, 6)
+
+rTimeBox.FocusLost:Connect(function()
+    local val = tonumber(rTimeBox.Text)
+    if val and val > 0 then
+        settings.rebirthRushMinutes = math.floor(val)
+        saveConfig()
+    else
+        rTimeBox.Text = tostring(settings.rebirthRushMinutes or 5)
+    end
+end)
+
+addAction(pageBase, "Rebirth Sekarang (Manual 1x)", "Rebirth", Colors.Red, function() triggerRebirth(true) end)
 
 -- ----------------------------------------------------------------------------
 -- TAB 3: HERO / PAD UPGRADES (Target Level + Cheapest First)
@@ -1486,6 +1728,8 @@ local function cleanup()
     settings.autoUpgradeHeroes = false
     settings.autoEquipBest = false
     settings.autoRebirth = false
+    settings.autoRebirthRush = false
+    isRebirthRushActive = false
     settings.autoSell = false
     if ScreenGui and ScreenGui.Parent then
         ScreenGui:Destroy()
@@ -1512,7 +1756,9 @@ task.spawn(function()
                 local tStr = formatTower(d.TowerBest)
                 
                 local rollStatus = ""
-                if isRollPausedForMoney then
+                if isRebirthRushActive then
+                    rollStatus = "  |  " .. rebirthRushStatusText
+                elseif isRollPausedForMoney then
                     rollStatus = "  |  ⏳ " .. rollPauseReason
                 end
 
@@ -1524,7 +1770,12 @@ task.spawn(function()
             if cheapestBase then
                 basePreviewLbl.Text = string.format("⭐ Up Termurah: %s Lv.%d -> $%s", cheapestBase.key, cheapestBase.level, NumberFormat.Abbreviate(cheapestBase.cost))
             else
-                basePreviewLbl.Text = "⭐ Up Termurah: Semua Stat Sudah Max!"
+                local anyEnabled = settings.autoUpDamage or settings.autoUpMoney or settings.autoUpLuck or settings.autoUpRolls or settings.autoUpBoss
+                if not anyEnabled then
+                    basePreviewLbl.Text = "⭐ Next: Aktifkan toggle stat di bawah"
+                else
+                    basePreviewLbl.Text = "⭐ Up Termurah: Stat yang dipilih sudah Max!"
+                end
             end
 
             -- Update Next Hero Upgrade Preview
@@ -1539,6 +1790,9 @@ task.spawn(function()
             if rebirthLbl and rebirthLbl.Parent then
                 local curRebirths = (d and (d.Rebirths or d.Rebirth)) or LocalPlayer:GetAttribute("Rebirths") or 0
                 rebirthLbl.Text = string.format("🔄 Rebirth Saat Ini: %s", tostring(curRebirths))
+            end
+            if rebirthStatusLbl and rebirthStatusLbl.Parent then
+                rebirthStatusLbl.Text = "⏱️ " .. rebirthRushStatusText
             end
         end)
         task.wait(0.8)
@@ -1620,13 +1874,17 @@ task.spawn(function()
     end
 end)
 
--- 9. Auto Rebirth Loop
+-- 9. Auto Rebirth & Smart 5-Min Rush Loop
 task.spawn(function()
     while isRunning do
-        if settings.autoRebirth then
-            triggerRebirth(false)
-        end
-        task.wait(2.5)
+        pcall(function()
+            if settings.autoRebirthRush then
+                checkAndStepRebirthRush()
+            elseif settings.autoRebirth then
+                triggerRebirth(false)
+            end
+        end)
+        task.wait(1.5)
     end
 end)
 
