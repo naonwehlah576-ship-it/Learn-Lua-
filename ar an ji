@@ -1,8 +1,8 @@
 -- ============================================================================
--- ANIME ARMY RNG - ULTIMATE AUTO FARM & UTILITY SCRIPT (v2.0 TAB UI)
+-- ANIME ARMY RNG - ULTIMATE AUTO FARM & UTILITY SCRIPT (v2.5)
 -- Game: Anime Army RNG
 -- Compatibility: Delta (Android / Emulator) & All Standard Roblox Executors
--- UI: Modern Tabbed Sidebar Design (Tidak kepotong, Mobile/Touch friendly)
+-- UI: Modern Tabbed Sidebar Design (Touch & Mobile Friendly)
 -- ============================================================================
 
 if not game:IsLoaded() then
@@ -28,29 +28,71 @@ pcall(function()
     end
 end)
 
--- Ambil Replica Controller & Plot
+-- Ambil Replica Controller & Modul Game
 local Shared = ReplicatedStorage:WaitForChild("Shared", 20)
 local ClientReplica = require(Shared:WaitForChild("ClientReplica", 20))
 local PlotUtil = require(Shared:WaitForChild("PlotUtil", 20))
 local NumberFormat = require(Shared:WaitForChild("NumberFormat", 20))
+local PlotUpgradeConfig = require(Shared:WaitForChild("PlotUpgradeConfig", 20))
+
+local UpgradeConfig = nil
+pcall(function()
+    UpgradeConfig = require(Shared:WaitForChild("UpgradeConfig", 10))
+end)
+
+local UnitConfig = nil
+pcall(function()
+    UnitConfig = require(Shared:WaitForChild("UnitConfig", 10))
+end)
+
+local FloorConfig = nil
+pcall(function()
+    FloorConfig = require(Shared:WaitForChild("FloorConfig", 10))
+end)
 
 local replica = ClientReplica.WaitForReplica()
 local myPlot = PlotUtil.WaitForMyPlot(10)
 
 -- ============================================================================
--- CONFIGURATION & STATE
+-- CONFIGURATION & PERSISTENT STATE
 -- ============================================================================
-local CONFIG_FILE = "AnimeArmy_Config.json"
+local CONFIG_FILE = "AnimeArmy_Config_v2.json"
 local isRunning = true
 
 local settings = {
+    -- Utama & Farming
     autoCollect = true,
     autoRoll = false,
     fastRollPrompt = false,
+    
+    -- Filter Buy & Smart Roll
+    autoBuyRolled = true,
+    stopRollIfBroke = true,
+    filterRarities = {
+        ["Common"] = false,
+        ["Uncommon"] = false,
+        ["Rare"] = true,
+        ["Epic"] = true,
+        ["Legendary"] = true,
+        ["Mythical"] = true,
+        ["Secret"] = true,
+        ["Godly"] = true,
+    },
+    
+    -- Smart Base Upgrades (Cheapest First)
+    autoSmartBaseUpgrade = false,
+    autoFloor = false,
+    
+    -- Hero / Pad Upgrades (Cheapest First)
+    autoUpgradeHeroes = false,
+    targetHeroLevel = 25,
+    autoEquipBest = false,
+    
+    -- Tower
     autoTower = false,
     selectedTower = "Tower1",
-    autoUpgrade = false,
-    autoFloor = false,
+    
+    -- Hadiah
     autoClaimDaily = true,
     autoClaimPlaytime = true,
     autoSpinWheel = true,
@@ -71,7 +113,13 @@ local function loadConfig()
             if type(data) == "table" then
                 for k, v in pairs(data) do
                     if settings[k] ~= nil then
-                        settings[k] = v
+                        if type(v) == "table" and type(settings[k]) == "table" then
+                            for subK, subV in pairs(v) do
+                                settings[k][subK] = subV
+                            end
+                        else
+                            settings[k] = v
+                        end
                     end
                 end
             end
@@ -81,8 +129,274 @@ end
 
 loadConfig()
 
+-- Global Runtime Flags
+local isRollPausedForMoney = false
+local rollPauseReason = ""
+local nextCheapestBaseName = "None"
+local nextCheapestBaseCost = 0
+local nextCheapestHeroName = "None"
+local nextCheapestHeroCost = 0
+
 -- ============================================================================
--- GAME ACTION HELPERS
+-- HELPER FUNCTIONS
+-- ============================================================================
+
+local function parseCostString(txt)
+    if not txt then return 0 end
+    if txt == "FREE" or txt == "0" then return 0 end
+    local clean = tostring(txt):gsub("[%$,]", ""):gsub("%s+", "")
+    local num = tonumber(clean:match("[%d%.]+"))
+    if not num then return 0 end
+    if clean:find("[kK]") then num = num * 1e3
+    elseif clean:find("[mM]") then num = num * 1e6
+    elseif clean:find("[bB]") then num = num * 1e9
+    elseif clean:find("[tT]") then num = num * 1e12
+    end
+    return math.floor(num)
+end
+
+local function getPlayerMoney()
+    return (replica.Data and replica.Data.Money) or 0
+end
+
+-- ============================================================================
+-- 1. FILTER BUY & SMART ROLL SYSTEM
+-- ============================================================================
+
+local function getRolledUnitsOnStation()
+    local units = {}
+    local tagged = CollectionService:GetTagged("RolledUnit")
+    for _, model in ipairs(tagged) do
+        if model and model.Parent then
+            local slotIdx = model:GetAttribute("SlotIndex")
+            local buyPrompt = model:FindFirstChild("BuyPrompt", true)
+            local rollInfo = model:FindFirstChild("UnitRollInfo", true)
+            
+            local rarity = "Common"
+            local unitName = model.Name
+            local price = 0
+            local unitId = nil
+
+            if buyPrompt then
+                rarity = buyPrompt.ObjectText ~= "" and buyPrompt.ObjectText or rarity
+                local promptName = buyPrompt.ActionText:gsub("^Buy%s*", "")
+                if promptName ~= "" then unitName = promptName end
+            end
+
+            if rollInfo and rollInfo:FindFirstChild("Panel") then
+                local p = rollInfo.Panel
+                if p:FindFirstChild("UnitTier") and p.UnitTier.Text ~= "" then
+                    rarity = p.UnitTier.Text
+                end
+                if p:FindFirstChild("UnitName") and p.UnitName.Text ~= "" then
+                    unitName = p.UnitName.Text
+                end
+                if p:FindFirstChild("UnitCost") then
+                    price = parseCostString(p.UnitCost.Text)
+                end
+            end
+
+            -- Match UnitId dari UnitConfig jika ada
+            if UnitConfig then
+                for uId, uDef in pairs(UnitConfig) do
+                    if uDef.DisplayName == unitName or uId == unitName then
+                        unitId = uId
+                        if price == 0 and uDef.Price then price = uDef.Price end
+                        if uDef.Rarity then rarity = uDef.Rarity end
+                        break
+                    end
+                end
+            end
+
+            table.insert(units, {
+                model = model,
+                slotIndex = slotIdx or 1,
+                unitId = unitId or unitName,
+                name = unitName,
+                rarity = rarity,
+                price = price,
+                prompt = buyPrompt
+            })
+        end
+    end
+    return units
+end
+
+local function processFilterBuyAndRollGuard()
+    if not settings.autoBuyRolled then
+        isRollPausedForMoney = false
+        rollPauseReason = ""
+        return
+    end
+
+    local rolledUnits = getRolledUnitsOnStation()
+    local money = getPlayerMoney()
+    local waitingToBuy = false
+
+    for _, unit in ipairs(rolledUnits) do
+        local wantBuy = settings.filterRarities[unit.rarity] == true
+        if wantBuy then
+            if money >= unit.price then
+                -- Uang CUKUP: Langsung beli!
+                pcall(function()
+                    replica:FireServer("RequestBuyRolledUnit", {
+                        ["SlotIndex"] = unit.slotIndex,
+                        ["UnitId"] = unit.unitId
+                    })
+                end)
+                if unit.prompt and fireproximityprompt then
+                    pcall(fireproximityprompt, unit.prompt)
+                end
+                task.wait(0.2)
+            else
+                -- Uang KURANG untuk unit yang dicentang!
+                if settings.stopRollIfBroke then
+                    waitingToBuy = true
+                    rollPauseReason = string.format("Kurang Uang: %s [%s] ($%s)", unit.name, unit.rarity, NumberFormat.Abbreviate(unit.price))
+                    break
+                end
+            end
+        end
+    end
+
+    isRollPausedForMoney = waitingToBuy
+    if not waitingToBuy then
+        rollPauseReason = ""
+    end
+end
+
+-- ============================================================================
+-- 2. SMART BASE UPGRADES (Cheapest First, Even Leveling)
+-- ============================================================================
+
+local function getCheapestBaseUpgrade()
+    local upgrades = (replica.Data and replica.Data.Upgrades) or {}
+    local keys = {"Damage", "Money", "RollLuck", "UnitRolls", "BossUpgrade"}
+    local list = {}
+
+    for _, key in ipairs(keys) do
+        local curLvl = upgrades[key] or 1
+        local cost = PlotUpgradeConfig.PriceForLevel(key, curLvl)
+        if cost ~= nil then
+            table.insert(list, {
+                key = key,
+                cost = cost,
+                level = curLvl
+            })
+        end
+    end
+
+    if #list == 0 then return nil end
+    table.sort(list, function(a, b) return a.cost < b.cost end)
+    return list[1]
+end
+
+local function stepSmartBaseUpgrade()
+    local cheapest = getCheapestBaseUpgrade()
+    if cheapest then
+        nextCheapestBaseName = string.format("%s (Lv.%d)", cheapest.key, cheapest.level)
+        nextCheapestBaseCost = cheapest.cost
+
+        local money = getPlayerMoney()
+        if money >= cheapest.cost then
+            pcall(function()
+                replica:FireServer("RequestBuyUpgrade", {
+                    ["Mode"] = "Single",
+                    ["UpgradeKey"] = cheapest.key
+                })
+            end)
+            task.wait(0.35)
+        end
+    else
+        nextCheapestBaseName = "Maxed Out"
+        nextCheapestBaseCost = 0
+    end
+
+    -- Auto Floor jika uang cukup
+    if settings.autoFloor and FloorConfig and FloorConfig.FloorCosts then
+        local curFloors = (replica.Data and replica.Data.UnlockedFloors) or 1
+        local nextFloor = curFloors + 1
+        local floorCost = FloorConfig.FloorCosts[nextFloor]
+        if floorCost and getPlayerMoney() >= floorCost then
+            pcall(function() replica:FireServer("RequestBuyFloor") end)
+            task.wait(0.4)
+        end
+    end
+end
+
+-- ============================================================================
+-- 3. HERO / PAD UPGRADES (Target Level + Cheapest First)
+-- ============================================================================
+
+local function getCheapestHeroUpgrade()
+    local data = replica.Data
+    if not data or not data.PlacedUnits or not data.OwnedUnits then return nil end
+    local targetLvl = tonumber(settings.targetHeroLevel) or 25
+    local candidates = {}
+
+    for floorIdx, squares in pairs(data.PlacedUnits) do
+        if type(squares) == "table" then
+            for squareIdx, ownedId in pairs(squares) do
+                local unit = data.OwnedUnits[ownedId]
+                if unit then
+                    local curLvl = unit.Level or unit.Lvl or 1
+                    if curLvl < targetLvl then
+                        local unitDef = UnitConfig and UnitConfig[unit.UnitId]
+                        local basePrice = (unitDef and unitDef.Price) or 100
+                        local cost = 100
+                        if UpgradeConfig and UpgradeConfig.CostForLevel then
+                            cost = UpgradeConfig.CostForLevel(basePrice, curLvl)
+                        else
+                            cost = math.floor(basePrice * 0.1 * (1.747 ^ (curLvl - 1)) + 0.5)
+                        end
+                        table.insert(candidates, {
+                            ownedUnitId = ownedId,
+                            floorIndex = floorIdx,
+                            squareIndex = squareIdx,
+                            unitId = unit.UnitId,
+                            name = (unitDef and unitDef.DisplayName) or unit.UnitId,
+                            curLevel = curLvl,
+                            cost = cost,
+                        })
+                    end
+                end
+            end
+        end
+    end
+
+    if #candidates == 0 then return nil end
+    table.sort(candidates, function(a, b) return a.cost < b.cost end)
+    return candidates[1]
+end
+
+local function stepHeroUpgrade()
+    local cheapestHero = getCheapestHeroUpgrade()
+    if cheapestHero then
+        nextCheapestHeroName = string.format("%s (Fl.%s Sq.%s Lv.%d)", cheapestHero.name, tostring(cheapestHero.floorIndex), tostring(cheapestHero.squareIndex), cheapestHero.curLevel)
+        nextCheapestHeroCost = cheapestHero.cost
+
+        local money = getPlayerMoney()
+        if money >= cheapestHero.cost then
+            -- Tembak remote upgrade unit
+            pcall(function()
+                replica:FireServer("RequestUpgradeUnit", { ["OwnedUnitId"] = cheapestHero.ownedUnitId })
+            end)
+            pcall(function()
+                replica:FireServer("RequestUpgradeUnit", { ["FloorIndex"] = cheapestHero.floorIndex, ["SquareIndex"] = cheapestHero.squareIndex })
+            end)
+            pcall(function()
+                replica:FireServer("RequestUpgradePlacedUnit", { ["FloorIndex"] = cheapestHero.floorIndex, ["SquareIndex"] = cheapestHero.squareIndex })
+            end)
+            task.wait(0.35)
+        end
+    else
+        nextCheapestHeroName = "Semua Sudah Target Level"
+        nextCheapestHeroCost = 0
+    end
+end
+
+-- ============================================================================
+-- 4. UTILITY & FARMING ACTIONS
 -- ============================================================================
 
 local function collectMoney()
@@ -109,14 +423,16 @@ local function collectMoney()
 end
 
 local function startNativeAutoRoll()
+    if isRollPausedForMoney then return end
     pcall(function()
         replica:FireServer("AutoRollJoinedGroup")
-        task.wait(0.1)
+        task.wait(0.05)
         replica:FireServer("RequestStartAutoRoll")
     end)
 end
 
 local function triggerFastRollPrompt()
+    if isRollPausedForMoney then return end
     if not myPlot then return end
     for _, obj in ipairs(CollectionService:GetTagged("RollButton")) do
         if obj and obj:IsDescendantOf(myPlot) then
@@ -139,77 +455,9 @@ local function stepTower()
     end)
 end
 
--- Fix: Auto Upgrade Base (Dual Method: Physical Buttons + Dual Single/Max Server Calls with Cooldown Guard)
-local function upgradeBase()
+local function stepEquipBest()
     pcall(function()
-        if not myPlot then myPlot = PlotUtil.WaitForMyPlot(2) end
-        if not myPlot then return end
-
-        local function clickBtn(b)
-            if not b then return end
-            if firesignal then
-                pcall(firesignal, b.Activated)
-                pcall(firesignal, b.MouseButton1Click)
-            end
-        end
-
-        -- Method 1: Click physical SurfaceGui Buttons on Plot
-        local lsc = myPlot:FindFirstChild("LuckAndSpinCount")
-        local lPart = lsc and lsc:FindFirstChild("SurfaceGUIPART")
-        local lGui = lPart and lPart:FindFirstChild("SurfaceGui")
-        local lHolder = lGui and lGui:FindFirstChild("Holder")
-        if lHolder then
-            local lf = lHolder:FindFirstChild("LuckFrame")
-            if lf then
-                clickBtn(lf:FindFirstChild("MaxButton") or lf:FindFirstChild("SingleButton"))
-            end
-            local sc = lHolder:FindFirstChild("SpinCount")
-            if sc then
-                clickBtn(sc:FindFirstChild("SingleButton"))
-            end
-        end
-
-        local dms = myPlot:FindFirstChild("DamageMoneySign")
-        local dPart = dms and dms:FindFirstChild("SurfaceGUIPART")
-        local dGui = dPart and dPart:FindFirstChild("SurfaceGui")
-        local dHolder = dGui and dGui:FindFirstChild("Holder")
-        if dHolder then
-            local df = dHolder:FindFirstChild("DamageFrame")
-            if df then clickBtn(df:FindFirstChild("MaxButton") or df:FindFirstChild("SingleButton")) end
-            local mf = dHolder:FindFirstChild("MoneyFrame")
-            if mf then clickBtn(mf:FindFirstChild("MaxButton") or mf:FindFirstChild("SingleButton")) end
-        end
-
-        local bUp = myPlot:FindFirstChild("BossUpgrade")
-        local bPart = bUp and bUp:FindFirstChild("SurfaceGuiPart")
-        local bGui = bPart and bPart:FindFirstChild("SurfaceGui")
-        local bHolder = bGui and bGui:FindFirstChild("Holder")
-        if bHolder then
-            local bf = bHolder:FindFirstChild("BossFrame")
-            if bf then clickBtn(bf:FindFirstChild("SingleButton")) end
-        end
-
-        -- Method 2: Direct Server Calls with Cooldown Protection
-        replica:FireServer("RequestBuyUpgrade", { ["Mode"] = "Max", ["UpgradeKey"] = "RollLuck" })
-        task.wait(0.1)
-        replica:FireServer("RequestBuyUpgrade", { ["Mode"] = "Single", ["UpgradeKey"] = "RollLuck" })
-        task.wait(0.1)
-        replica:FireServer("RequestBuyUpgrade", { ["Mode"] = "Single", ["UpgradeKey"] = "UnitRolls" })
-        task.wait(0.1)
-        replica:FireServer("RequestBuyUpgrade", { ["Mode"] = "Max", ["UpgradeKey"] = "Damage" })
-        task.wait(0.1)
-        replica:FireServer("RequestBuyUpgrade", { ["Mode"] = "Single", ["UpgradeKey"] = "Damage" })
-        task.wait(0.1)
-        replica:FireServer("RequestBuyUpgrade", { ["Mode"] = "Max", ["UpgradeKey"] = "Money" })
-        task.wait(0.1)
-        replica:FireServer("RequestBuyUpgrade", { ["Mode"] = "Single", ["UpgradeKey"] = "Money" })
-        task.wait(0.1)
-        replica:FireServer("RequestBuyUpgrade", { ["Mode"] = "Single", ["UpgradeKey"] = "BossUpgrade" })
-
-        if settings.autoFloor then
-            task.wait(0.1)
-            replica:FireServer("RequestBuyFloor")
-        end
+        replica:FireServer("TowerEquipBest")
     end)
 end
 
@@ -265,7 +513,7 @@ local function formatTower(val)
 end
 
 -- ============================================================================
--- MODERN TABBED GUI (Roll an Anime Style)
+-- MODERN TABBED GUI (v2.5 Full Feature Suite)
 -- ============================================================================
 local Colors = {
     Bg       = Color3.fromRGB(16, 18, 26),
@@ -290,8 +538,8 @@ ScreenGui.Parent = parentGui
 
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
-MainFrame.Size = UDim2.fromOffset(470, 310)
-MainFrame.Position = UDim2.new(0.5, -235, 0.5, -155)
+MainFrame.Size = UDim2.fromOffset(480, 320)
+MainFrame.Position = UDim2.new(0.5, -240, 0.5, -160)
 MainFrame.BackgroundColor3 = Colors.Bg
 MainFrame.BorderSizePixel = 0
 MainFrame.Active = true
@@ -320,7 +568,7 @@ TitleLabel.Font = Enum.Font.GothamBold
 TitleLabel.TextSize = 13
 TitleLabel.TextColor3 = Colors.Text
 TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
-TitleLabel.Text = "⚔️ Anime Army RNG  •  Multi-Tool v2.0"
+TitleLabel.Text = "⚔️ Anime Army RNG  •  Smart Multi-Tool v2.5"
 TitleLabel.Parent = Header
 
 local MinBtn = Instance.new("TextButton")
@@ -542,7 +790,7 @@ local function addToggle(parent, title, desc, configKey, callback)
         saveConfig()
         if callback then callback(val) end
     end)
-    return card
+    return card, toggleBtn
 end
 
 local function addAction(parent, title, btnText, btnColor, callback)
@@ -582,42 +830,247 @@ local function addAction(parent, title, btnText, btnColor, callback)
     return card
 end
 
+local function addSectionLabel(parent, text)
+    local lbl = Instance.new("TextLabel")
+    lbl.Size = UDim2.new(1, 0, 0, 20)
+    lbl.BackgroundTransparency = 1
+    lbl.Font = Enum.Font.GothamBold
+    lbl.TextSize = 11
+    lbl.TextColor3 = Colors.Gold
+    lbl.TextXAlignment = Enum.TextXAlignment.Left
+    lbl.Text = "📌 " .. text
+    lbl.LayoutOrder = getOrder()
+    lbl.Parent = parent
+    return lbl
+end
+
 -- ============================================================================
 -- BUILD PAGES & TABS
 -- ============================================================================
 
-local pageMain = createTab("Utama", "⚡", 1)
-local pageTower = createTab("Tower", "🏰", 2)
-local pageUpgrade = createTab("Upgrades", "🏗️", 3)
-local pageRewards = createTab("Hadiah", "🎁", 4)
-local pageTeleport = createTab("Teleport", "📍", 5)
+local pageRoll = createTab("Roll & Buy", "⚡", 1)
+local pageBase = createTab("Base Up", "🏗️", 2)
+local pageHero = createTab("Hero Pads", "⚔️", 3)
+local pageTower = createTab("Tower", "🏰", 4)
+local pageRewards = createTab("Hadiah", "🎁", 5)
+local pageTeleport = createTab("Teleport", "📍", 6)
 
--- TAB 1: UTAMA
-addToggle(pageMain, "Auto Collect Money", "Ambil uang instan via touch (no gamepass)", "autoCollect")
-addToggle(pageMain, "Auto Roll Gacha", "Auto roll gacha unit (bypass syarat grup)", "autoRoll", function(on)
+-- ----------------------------------------------------------------------------
+-- TAB 1: ROLL & BUY (Dengan Filter Rarity & Stop Roll If Broke)
+-- ----------------------------------------------------------------------------
+addSectionLabel(pageRoll, "AUTO GACHA & ROLLING")
+addToggle(pageRoll, "Auto Roll Gacha", "Auto roll unit bypass syarat grup", "autoRoll", function(on)
     if on then startNativeAutoRoll() end
 end)
-addToggle(pageMain, "Fast Roll Prompt", "Spam tombol roll via ProximityPrompt", "fastRollPrompt")
+addToggle(pageRoll, "Fast Roll Prompt", "Spam tombol roll via ProximityPrompt", "fastRollPrompt")
 
--- TAB 2: TOWER DUNGEON
-addToggle(pageTower, "Full Auto Tower", "Equip unit terkuat + mulai + auto next floor", "autoTower")
+addSectionLabel(pageRoll, "SMART BUY & ROLL GUARD")
+addToggle(pageRoll, "Auto Buy Rolled Units", "Otomatis beli unit hasil roll di showcase", "autoBuyRolled")
+addToggle(pageRoll, "Stop Roll If Broke", "JEDA roll jika uang kurang untuk unit incaran", "stopRollIfBroke")
+
+-- Rarity Checkboxes Container
+local rarityList = {"Common", "Uncommon", "Rare", "Epic", "Legendary", "Mythical", "Secret", "Godly"}
+local rarityCard = Instance.new("Frame")
+rarityCard.Size = UDim2.new(1, 0, 0, 140)
+rarityCard.BackgroundColor3 = Colors.Card
+rarityCard.BorderSizePixel = 0
+rarityCard.LayoutOrder = getOrder()
+rarityCard.Parent = pageRoll
+Instance.new("UICorner", rarityCard).CornerRadius = UDim.new(0, 6)
+
+local rLayout = Instance.new("UIGridLayout", rarityCard)
+rLayout.CellSize = UDim2.new(0.48, 0, 0, 26)
+rLayout.CellPadding = UDim2.new(0.04, 0, 0, 6)
+local rPad = Instance.new("UIPadding", rarityCard)
+rPad.PaddingTop = UDim.new(0, 8)
+rPad.PaddingLeft = UDim.new(0, 8)
+rPad.PaddingRight = UDim.new(0, 8)
+
+local rarityButtons = {}
+for _, rarity in ipairs(rarityList) do
+    local isChecked = settings.filterRarities[rarity] == true
+    local rBtn = Instance.new("TextButton")
+    rBtn.BackgroundColor3 = isChecked and Colors.Green or Colors.Panel
+    rBtn.Font = Enum.Font.GothamMedium
+    rBtn.TextSize = 10
+    rBtn.TextColor3 = Colors.Text
+    rBtn.Text = (isChecked and "✓ " or "✕ ") .. rarity
+    rBtn.Parent = rarityCard
+    Instance.new("UICorner", rBtn).CornerRadius = UDim.new(0, 5)
+
+    rBtn.Activated:Connect(function()
+        settings.filterRarities[rarity] = not settings.filterRarities[rarity]
+        local nowChecked = settings.filterRarities[rarity]
+        rBtn.BackgroundColor3 = nowChecked and Colors.Green or Colors.Panel
+        rBtn.Text = (nowChecked and "✓ " or "✕ ") .. rarity
+        saveConfig()
+    end)
+    rarityButtons[rarity] = rBtn
+end
+
+-- Quick Rarity Selection Buttons
+local quickFrame = Instance.new("Frame")
+quickFrame.Size = UDim2.new(1, 0, 0, 30)
+quickFrame.BackgroundTransparency = 1
+quickFrame.LayoutOrder = getOrder()
+quickFrame.Parent = pageRoll
+
+local ql = Instance.new("UIListLayout", quickFrame)
+ql.FillDirection = Enum.FillDirection.Horizontal
+ql.Padding = UDim.new(0, 6)
+
+local function makeQuickBtn(title, filterFn)
+    local qb = Instance.new("TextButton")
+    qb.Size = UDim2.new(0.31, 0, 1, 0)
+    qb.BackgroundColor3 = Colors.CardHover
+    qb.Font = Enum.Font.GothamBold
+    qb.TextSize = 9.5
+    qb.TextColor3 = Colors.Text
+    qb.Text = title
+    qb.Parent = quickFrame
+    Instance.new("UICorner", qb).CornerRadius = UDim.new(0, 5)
+
+    qb.Activated:Connect(function()
+        for _, r in ipairs(rarityList) do
+            local checked = filterFn(r)
+            settings.filterRarities[r] = checked
+            if rarityButtons[r] then
+                rarityButtons[r].BackgroundColor3 = checked and Colors.Green or Colors.Panel
+                rarityButtons[r].Text = (checked and "✓ " or "✕ ") .. r
+            end
+        end
+        saveConfig()
+    end)
+end
+
+makeQuickBtn("Semua", function() return true end)
+makeQuickBtn("Epic ke Atas", function(r)
+    return r == "Epic" or r == "Legendary" or r == "Mythical" or r == "Secret" or r == "Godly"
+end)
+makeQuickBtn("Bersihkan", function() return false end)
+
+-- ----------------------------------------------------------------------------
+-- TAB 2: SMART BASE UPGRADES (Cheapest First, Even Leveling)
+-- ----------------------------------------------------------------------------
+addSectionLabel(pageBase, "BASE & PLOT UPGRADES")
+
+local basePreviewCard = Instance.new("Frame")
+basePreviewCard.Size = UDim2.new(1, 0, 0, 36)
+basePreviewCard.BackgroundColor3 = Colors.Card
+basePreviewCard.BorderSizePixel = 0
+basePreviewCard.LayoutOrder = getOrder()
+basePreviewCard.Parent = pageBase
+Instance.new("UICorner", basePreviewCard).CornerRadius = UDim.new(0, 6)
+
+local basePreviewLbl = Instance.new("TextLabel")
+basePreviewLbl.Size = UDim2.new(1, -16, 1, 0)
+basePreviewLbl.Position = UDim2.fromOffset(10, 0)
+basePreviewLbl.BackgroundTransparency = 1
+basePreviewLbl.Font = Enum.Font.GothamMedium
+basePreviewLbl.TextSize = 10.5
+basePreviewLbl.TextColor3 = Colors.Gold
+basePreviewLbl.TextXAlignment = Enum.TextXAlignment.Left
+basePreviewLbl.Text = "⭐ Next: Menghitung upgrade termurah..."
+basePreviewLbl.Parent = basePreviewCard
+
+addToggle(pageBase, "Smart Auto Base Upgrade", "Prioritas termurah dulu (Dmg, Money, Luck, Rolls, Boss) agar naik setara & anti-spam error", "autoSmartBaseUpgrade")
+addToggle(pageBase, "Auto Unlock Floor", "Beli floor baru otomatis jika uang cukup", "autoFloor")
+addAction(pageBase, "Beli Upgrade Termurah 1x", "Upgrade", Colors.Accent, stepSmartBaseUpgrade)
+
+-- ----------------------------------------------------------------------------
+-- TAB 3: HERO / PAD UPGRADES (Target Level + Cheapest First)
+-- ----------------------------------------------------------------------------
+addSectionLabel(pageHero, "HERO & PLACEMENT PADS")
+
+local heroPreviewCard = Instance.new("Frame")
+heroPreviewCard.Size = UDim2.new(1, 0, 0, 36)
+heroPreviewCard.BackgroundColor3 = Colors.Card
+heroPreviewCard.BorderSizePixel = 0
+heroPreviewCard.LayoutOrder = getOrder()
+heroPreviewCard.Parent = pageHero
+Instance.new("UICorner", heroPreviewCard).CornerRadius = UDim.new(0, 6)
+
+local heroPreviewLbl = Instance.new("TextLabel")
+heroPreviewLbl.Size = UDim2.new(1, -16, 1, 0)
+heroPreviewLbl.Position = UDim2.fromOffset(10, 0)
+heroPreviewLbl.BackgroundTransparency = 1
+heroPreviewLbl.Font = Enum.Font.GothamMedium
+heroPreviewLbl.TextSize = 10.5
+heroPreviewLbl.TextColor3 = Colors.Gold
+heroPreviewLbl.TextXAlignment = Enum.TextXAlignment.Left
+heroPreviewLbl.Text = "⭐ Hero Next: Menghitung..."
+heroPreviewLbl.Parent = heroPreviewCard
+
+-- Target Level Input Box
+local targetCard = Instance.new("Frame")
+targetCard.Size = UDim2.new(1, 0, 0, 38)
+targetCard.BackgroundColor3 = Colors.Card
+targetCard.BorderSizePixel = 0
+targetCard.LayoutOrder = getOrder()
+targetCard.Parent = pageHero
+Instance.new("UICorner", targetCard).CornerRadius = UDim.new(0, 6)
+
+local targetLbl = Instance.new("TextLabel")
+targetLbl.Size = UDim2.new(0.55, 0, 1, 0)
+targetLbl.Position = UDim2.fromOffset(10, 0)
+targetLbl.BackgroundTransparency = 1
+targetLbl.Font = Enum.Font.GothamMedium
+targetLbl.TextSize = 11
+targetLbl.TextColor3 = Colors.Text
+targetLbl.TextXAlignment = Enum.TextXAlignment.Left
+targetLbl.Text = "Target Level Semua Hero:"
+targetLbl.Parent = targetCard
+
+local targetBox = Instance.new("TextBox")
+targetBox.Size = UDim2.fromOffset(70, 24)
+targetBox.Position = UDim2.new(1, -78, 0.5, -12)
+targetBox.BackgroundColor3 = Colors.Panel
+targetBox.Font = Enum.Font.GothamBold
+targetBox.TextSize = 11
+targetBox.TextColor3 = Colors.Gold
+targetBox.Text = tostring(settings.targetHeroLevel or 25)
+targetBox.Parent = targetCard
+Instance.new("UICorner", targetBox).CornerRadius = UDim.new(0, 6)
+
+targetBox.FocusLost:Connect(function()
+    local val = tonumber(targetBox.Text)
+    if val and val > 0 then
+        settings.targetHeroLevel = math.floor(val)
+        saveConfig()
+    else
+        targetBox.Text = tostring(settings.targetHeroLevel or 25)
+    end
+end)
+
+addToggle(pageHero, "Auto Upgrade Placed Heroes", "Upgrade hero di pad prioritas termurah dulu agar naik merata", "autoUpgradeHeroes")
+addToggle(pageHero, "Auto Equip Best Units", "Equip team terbaik otomatis tiap 5 detik", "autoEquipBest")
+addAction(pageHero, "Equip Best Sekarang", "Equip Best", Colors.Accent, stepEquipBest)
+addAction(pageHero, "Upgrade Hero Termurah 1x", "Upgrade", Colors.Green, stepHeroUpgrade)
+
+-- ----------------------------------------------------------------------------
+-- TAB 4: TOWER DUNGEON
+-- ----------------------------------------------------------------------------
+addSectionLabel(pageTower, "TOWER DUNGEON")
+addToggle(pageTower, "Full Auto Tower", "Equip tim terbaik + Mulai + Auto next floor", "autoTower")
 addAction(pageTower, "Mulai Tower Sekarang", "Mulai", Colors.Green, stepTower)
 
--- TAB 3: UPGRADES
-addToggle(pageUpgrade, "Auto Max Base Upgrades", "Auto upgrade Luck, Rolls, Damage, Money, Boss", "autoUpgrade")
-addToggle(pageUpgrade, "Auto Unlock Floor", "Otomatis beli floor baru jika uang cukup", "autoFloor")
-addAction(pageUpgrade, "Upgrade Semua Sekali", "Max All", Colors.Accent, upgradeBase)
-
--- TAB 4: HADIAH & SPIN
+-- ----------------------------------------------------------------------------
+-- TAB 5: HADIAH & SPIN
+-- ----------------------------------------------------------------------------
+addSectionLabel(pageRewards, "KLAIM OTOMATIS")
 addToggle(pageRewards, "Auto Claim Daily", "Klaim reward harian otomatis", "autoClaimDaily")
 addToggle(pageRewards, "Auto Claim Playtime", "Klaim reward playtime (1 s/d 12)", "autoClaimPlaytime")
 addToggle(pageRewards, "Auto Free Spin Wheel", "Putar roda spin gratis otomatis", "autoSpinWheel")
-addAction(pageRewards, "Klaim Semua Hadiah", "Claim All", Colors.Gold, claimRewards)
+addAction(pageRewards, "Klaim Semua Hadiah Sekarang", "Claim All", Colors.Gold, claimRewards)
 
--- TAB 5: TELEPORT SHORTCUTS
+-- ----------------------------------------------------------------------------
+-- TAB 6: TELEPORT SHORTCUTS
+-- ----------------------------------------------------------------------------
+addSectionLabel(pageTeleport, "TELEPORT CEPAT")
 addAction(pageTeleport, "Teleport ke My Plot", "Teleport", Colors.Accent, tpToPlot)
 addAction(pageTeleport, "Teleport ke Tower", "Teleport", Color3.fromRGB(130, 70, 160), tpToTower)
 addAction(pageTeleport, "Teleport ke Spin Wheel", "Teleport", Color3.fromRGB(180, 120, 50), tpToWheel)
+addToggle(pageTeleport, "Auto Collect Money", "Ambil uang instan di plot (no gamepass)", "autoCollect")
 
 -- Minimize System
 local isMinimized = false
@@ -626,10 +1079,10 @@ MinBtn.Activated:Connect(function()
     if isMinimized then
         Body.Visible = false
         InfoStrip.Visible = false
-        MainFrame.Size = UDim2.fromOffset(470, 38)
+        MainFrame.Size = UDim2.fromOffset(480, 38)
         MinBtn.Text = "+"
     else
-        MainFrame.Size = UDim2.fromOffset(470, 310)
+        MainFrame.Size = UDim2.fromOffset(480, 320)
         Body.Visible = true
         InfoStrip.Visible = true
         MinBtn.Text = "—"
@@ -641,7 +1094,9 @@ local function cleanup()
     settings.autoCollect = false
     settings.autoRoll = false
     settings.autoTower = false
-    settings.autoUpgrade = false
+    settings.autoSmartBaseUpgrade = false
+    settings.autoUpgradeHeroes = false
+    settings.autoEquipBest = false
     if ScreenGui and ScreenGui.Parent then
         ScreenGui:Destroy()
     end
@@ -653,10 +1108,10 @@ local env = (getgenv and getgenv()) or _G
 if env then env._AnimeArmyCleanup = cleanup end
 
 -- ============================================================================
--- BACKGROUND LOOPS
+-- BACKGROUND WORKERS & LOOPS
 -- ============================================================================
 
--- 1. Money Stats Listener
+-- 1. Stats Display & Preview Updater
 task.spawn(function()
     while isRunning do
         pcall(function()
@@ -665,52 +1120,108 @@ task.spawn(function()
                 local mStr = NumberFormat.Abbreviate(d.Money)
                 local mpsStr = d.MoneyPerSecond and NumberFormat.Abbreviate(d.MoneyPerSecond) or "0"
                 local tStr = formatTower(d.TowerBest)
-                MoneyDisplay.Text = string.format("💰 $%s (+$%s/s)  |  🏰 Tower: %s", mStr, mpsStr, tStr)
+                
+                local rollStatus = ""
+                if isRollPausedForMoney then
+                    rollStatus = "  |  ⏳ " .. rollPauseReason
+                end
+
+                MoneyDisplay.Text = string.format("💰 $%s (+$%s/s)  |  🏰 Tower: %s%s", mStr, mpsStr, tStr, rollStatus)
+            end
+
+            -- Update Next Base Upgrade Preview
+            local cheapestBase = getCheapestBaseUpgrade()
+            if cheapestBase then
+                basePreviewLbl.Text = string.format("⭐ Up Termurah: %s Lv.%d -> $%s", cheapestBase.key, cheapestBase.level, NumberFormat.Abbreviate(cheapestBase.cost))
+            else
+                basePreviewLbl.Text = "⭐ Up Termurah: Semua Stat Sudah Max!"
+            end
+
+            -- Update Next Hero Upgrade Preview
+            local cheapestHero = getCheapestHeroUpgrade()
+            if cheapestHero then
+                heroPreviewLbl.Text = string.format("⭐ Hero Termurah: %s (Lv.%d) -> $%s", cheapestHero.name, cheapestHero.curLevel, NumberFormat.Abbreviate(cheapestHero.cost))
+            else
+                heroPreviewLbl.Text = string.format("⭐ Semua hero sudah Lv.%s!", tostring(settings.targetHeroLevel or 25))
             end
         end)
-        task.wait(1)
+        task.wait(0.8)
     end
 end)
 
--- 2. Fast Money Collection
+-- 2. Fast Money Collection Loop
 task.spawn(function()
     while isRunning do
         if settings.autoCollect then collectMoney() end
-        task.wait(0.6)
+        task.wait(0.5)
     end
 end)
 
--- 3. Auto Roll & Fast Roll
+-- 3. Filter Buy & Smart Auto Roll Loop
 task.spawn(function()
     while isRunning do
-        if settings.autoRoll then startNativeAutoRoll() end
-        if settings.fastRollPrompt then triggerFastRollPrompt() end
+        if settings.autoBuyRolled then
+            processFilterBuyAndRollGuard()
+        end
+
+        if not isRollPausedForMoney then
+            if settings.autoRoll then
+                startNativeAutoRoll()
+            end
+            if settings.fastRollPrompt then
+                triggerFastRollPrompt()
+            end
+        end
         task.wait(0.3)
     end
 end)
 
--- 4. Auto Tower
+-- 4. Smart Base Upgrade Loop (Cheapest First - Anti-Spam Cooldown)
 task.spawn(function()
     while isRunning do
-        if settings.autoTower then stepTower() end
+        if settings.autoSmartBaseUpgrade then
+            stepSmartBaseUpgrade()
+        end
+        task.wait(0.6)
+    end
+end)
+
+-- 5. Hero / Pad Upgrade Loop (Cheapest First up to Target Level)
+task.spawn(function()
+    while isRunning do
+        if settings.autoUpgradeHeroes then
+            stepHeroUpgrade()
+        end
+        task.wait(0.6)
+    end
+end)
+
+-- 6. Auto Equip Best Loop
+task.spawn(function()
+    while isRunning do
+        if settings.autoEquipBest then
+            stepEquipBest()
+        end
+        task.wait(5.0)
+    end
+end)
+
+-- 7. Auto Tower Dungeon Loop
+task.spawn(function()
+    while isRunning do
+        if settings.autoTower then
+            stepTower()
+        end
         task.wait(2.5)
     end
 end)
 
--- 5. Auto Upgrade Base (setiap 2 detik dengan dual click & direct call)
-task.spawn(function()
-    while isRunning do
-        if settings.autoUpgrade then upgradeBase() end
-        task.wait(2.0)
-    end
-end)
-
--- 6. Auto Claim Rewards
+-- 8. Auto Claim Rewards Loop
 task.spawn(function()
     while isRunning do
         claimRewards()
-        task.wait(10)
+        task.wait(10.0)
     end
 end)
 
-print("⚔️ [OK] Anime Army RNG Multi-Tool v2.0 (Tabbed UI) Siap Dijalankan!")
+print("⚔️ [OK] Anime Army RNG Multi-Tool v2.5 Siap Dijalankan!")
