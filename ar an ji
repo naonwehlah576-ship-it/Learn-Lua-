@@ -79,8 +79,12 @@ local settings = {
         ["Godly"] = true,
     },
     
-    -- Smart Base Upgrades (Cheapest First)
-    autoSmartBaseUpgrade = false,
+    -- Base Upgrades (Individual Toggles & Cheapest Priority)
+    autoUpDamage = false,
+    autoUpMoney = false,
+    autoUpLuck = false,
+    autoUpRolls = false,
+    autoUpBoss = false,
     autoFloor = false,
     autoRebirth = false,
     
@@ -281,20 +285,28 @@ end
 -- 2. SMART BASE UPGRADES (Cheapest First, Even Leveling)
 -- ============================================================================
 
-local function getCheapestBaseUpgrade()
+local function getCheapestBaseUpgrade(forceAll)
     local upgrades = (replica.Data and replica.Data.Upgrades) or {}
-    local keys = {"Damage", "Money", "RollLuck", "UnitRolls", "BossUpgrade"}
+    local statMap = {
+        { key = "Damage", enabled = settings.autoUpDamage },
+        { key = "Money", enabled = settings.autoUpMoney },
+        { key = "RollLuck", enabled = settings.autoUpLuck },
+        { key = "UnitRolls", enabled = settings.autoUpRolls },
+        { key = "BossUpgrade", enabled = settings.autoUpBoss },
+    }
     local list = {}
 
-    for _, key in ipairs(keys) do
-        local curLvl = upgrades[key] or 1
-        local cost = PlotUpgradeConfig.PriceForLevel(key, curLvl)
-        if cost ~= nil then
-            table.insert(list, {
-                key = key,
-                cost = cost,
-                level = curLvl
-            })
+    for _, item in ipairs(statMap) do
+        if forceAll or item.enabled == true then
+            local curLvl = upgrades[item.key] or 1
+            local cost = PlotUpgradeConfig.PriceForLevel(item.key, curLvl)
+            if cost ~= nil then
+                table.insert(list, {
+                    key = item.key,
+                    cost = cost,
+                    level = curLvl
+                })
+            end
         end
     end
 
@@ -303,8 +315,13 @@ local function getCheapestBaseUpgrade()
     return list[1]
 end
 
-local function stepSmartBaseUpgrade()
-    local cheapest = getCheapestBaseUpgrade()
+local function stepSmartBaseUpgrade(isManual)
+    local cheapest = getCheapestBaseUpgrade(false)
+    if not cheapest and isManual then
+        -- Jika manual click tapi tidak ada toggle yang aktif, cek semua stat
+        cheapest = getCheapestBaseUpgrade(true)
+    end
+
     if cheapest then
         nextCheapestBaseName = string.format("%s (Lv.%d)", cheapest.key, cheapest.level)
         nextCheapestBaseCost = cheapest.cost
@@ -320,7 +337,7 @@ local function stepSmartBaseUpgrade()
             task.wait(0.35)
         end
     else
-        nextCheapestBaseName = "Maxed Out"
+        nextCheapestBaseName = "None Enabled / Maxed"
         nextCheapestBaseCost = 0
     end
 
@@ -1228,9 +1245,13 @@ basePreviewLbl.TextXAlignment = Enum.TextXAlignment.Left
 basePreviewLbl.Text = "⭐ Next: Menghitung upgrade termurah..."
 basePreviewLbl.Parent = basePreviewCard
 
-addToggle(pageBase, "Smart Auto Base Upgrade", "Prioritas termurah dulu (Dmg, Money, Luck, Rolls, Boss) agar naik setara & anti-spam error", "autoSmartBaseUpgrade")
+addToggle(pageBase, "Auto Upgrade Damage", "Otomatis upgrade Damage base (prioritas termurah)", "autoUpDamage")
+addToggle(pageBase, "Auto Upgrade Money", "Otomatis upgrade Money income (prioritas termurah)", "autoUpMoney")
+addToggle(pageBase, "Auto Upgrade Luck", "Otomatis upgrade Roll Luck (prioritas termurah)", "autoUpLuck")
+addToggle(pageBase, "Auto Upgrade Unit Rolls", "Otomatis upgrade jumlah roll unit (prioritas termurah)", "autoUpRolls")
+addToggle(pageBase, "Auto Upgrade Boss", "Otomatis upgrade Boss damage (prioritas termurah)", "autoUpBoss")
 addToggle(pageBase, "Auto Unlock Floor", "Beli floor baru otomatis jika uang cukup", "autoFloor")
-addAction(pageBase, "Beli Upgrade Termurah 1x", "Upgrade", Colors.Accent, stepSmartBaseUpgrade)
+addAction(pageBase, "Beli Upgrade Termurah 1x", "Upgrade", Colors.Accent, function() stepSmartBaseUpgrade(true) end)
 
 addSectionLabel(pageBase, "REBIRTH SYSTEM")
 
@@ -1457,7 +1478,11 @@ local function cleanup()
     settings.autoCollect = false
     settings.autoRoll = false
     settings.autoTower = false
-    settings.autoSmartBaseUpgrade = false
+    settings.autoUpDamage = false
+    settings.autoUpMoney = false
+    settings.autoUpLuck = false
+    settings.autoUpRolls = false
+    settings.autoUpBoss = false
     settings.autoUpgradeHeroes = false
     settings.autoEquipBest = false
     settings.autoRebirth = false
@@ -1547,11 +1572,11 @@ task.spawn(function()
     end
 end)
 
--- 4. Smart Base Upgrade Loop (Cheapest First - Anti-Spam Cooldown)
+-- 4. Smart Base Upgrade Loop (Cheapest First among enabled)
 task.spawn(function()
     while isRunning do
-        if settings.autoSmartBaseUpgrade then
-            stepSmartBaseUpgrade()
+        if settings.autoUpDamage or settings.autoUpMoney or settings.autoUpLuck or settings.autoUpRolls or settings.autoUpBoss then
+            stepSmartBaseUpgrade(false)
         end
         task.wait(0.6)
     end
