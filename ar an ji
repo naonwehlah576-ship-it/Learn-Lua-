@@ -63,6 +63,19 @@ if not RebirthConfig then
     end)
 end
 
+local UnitUpgradeConfig = nil
+pcall(function()
+    UnitUpgradeConfig = require(Shared:WaitForChild("UnitUpgradeConfig", 5))
+end)
+if not UnitUpgradeConfig then
+    pcall(function()
+        local cFolder = ReplicatedStorage:FindFirstChild("Config")
+        if cFolder and cFolder:FindFirstChild("UnitUpgradeConfig") then
+            UnitUpgradeConfig = require(cFolder.UnitUpgradeConfig)
+        end
+    end)
+end
+
 local replica = ClientReplica.WaitForReplica()
 local myPlot = PlotUtil.WaitForMyPlot(10)
 
@@ -176,13 +189,21 @@ local lastRebirthCount = nil
 local function parseCostString(txt)
     if not txt then return 0 end
     if txt == "FREE" or txt == "0" then return 0 end
-    local clean = tostring(txt):gsub("[%$,]", ""):gsub("%s+", "")
+    local str = tostring(txt)
+    if str:find("/") then
+        local _, second = str:match("([^/]+)%s*/%s*([^/]+)")
+        if second and second ~= "" then
+            str = second
+        end
+    end
+    local clean = str:gsub("[%$,]", ""):gsub("%s+", "")
     local num = tonumber(clean:match("[%d%.]+"))
     if not num then return 0 end
     if clean:find("[kK]") then num = num * 1e3
     elseif clean:find("[mM]") then num = num * 1e6
     elseif clean:find("[bB]") then num = num * 1e9
     elseif clean:find("[tT]") then num = num * 1e12
+    elseif clean:find("[qQ]") then num = num * 1e15
     end
     return math.floor(num)
 end
@@ -400,13 +421,23 @@ local function getCheapestHeroUpgrade()
                     local curLvl = unit.Level or unit.Lvl or 1
                     if curLvl < targetLvl then
                         local unitDef = UnitConfig and UnitConfig[unit.UnitId]
-                        local basePrice = (unitDef and unitDef.Price) or 100
-                        local cost = 100
-                        if UpgradeConfig and UpgradeConfig.CostForLevel then
-                            cost = UpgradeConfig.CostForLevel(basePrice, curLvl)
-                        else
-                            cost = math.floor(basePrice * 0.1 * (1.747 ^ (curLvl - 1)) + 0.5)
+                        local rarity = (unitDef and unitDef.Rarity) or "Common"
+                        local cost = 0
+
+                        -- 1. Gunakan UnitUpgradeConfig resmi game jika ada
+                        if UnitUpgradeConfig and UnitUpgradeConfig.Cost then
+                            cost = UnitUpgradeConfig.Cost(curLvl, rarity) or 0
                         end
+
+                        -- 2. Fallback jika UnitUpgradeConfig nil atau mengembalikan 0
+                        if not cost or cost <= 0 then
+                            local basePrice = 500
+                            if unitDef and tonumber(unitDef.Price) and unitDef.Price > 0 then
+                                basePrice = unitDef.Price
+                            end
+                            cost = math.max(100, math.floor(basePrice * 0.25 * (1.42 ^ curLvl) + 0.5))
+                        end
+
                         table.insert(candidates, {
                             ownedUnitId = ownedId,
                             floorIndex = floorIdx,
@@ -439,15 +470,62 @@ local function stepHeroUpgrade(isManual)
 
         local money = getPlayerMoney()
         if money >= cheapestHero.cost then
-            -- Tembak remote upgrade unit
-            pcall(function()
-                replica:FireServer("RequestUpgradeUnit", { ["OwnedUnitId"] = cheapestHero.ownedUnitId })
-            end)
+            -- Tembak remote replica
             pcall(function()
                 replica:FireServer("RequestUpgradeUnit", { ["FloorIndex"] = cheapestHero.floorIndex, ["SquareIndex"] = cheapestHero.squareIndex })
             end)
             pcall(function()
                 replica:FireServer("RequestUpgradePlacedUnit", { ["FloorIndex"] = cheapestHero.floorIndex, ["SquareIndex"] = cheapestHero.squareIndex })
+            end)
+            pcall(function()
+                replica:FireServer("RequestUpgradeUnit", { ["OwnedUnitId"] = cheapestHero.ownedUnitId })
+            end)
+            pcall(function()
+                replica:FireServer("UpgradeUnit", cheapestHero.ownedUnitId)
+            end)
+            pcall(function()
+                replica:FireServer("UpgradeUnit", cheapestHero.squareIndex)
+            end)
+
+            -- RemoteFunction UpgradeUnit di ReplicatedStorage jika ada
+            pcall(function()
+                for _, r in ipairs(ReplicatedStorage:GetDescendants()) do
+                    if r.Name == "UpgradeUnit" then
+                        if r:IsA("RemoteFunction") then
+                            r:InvokeServer(cheapestHero.squareIndex)
+                            r:InvokeServer(cheapestHero.ownedUnitId)
+                        elseif r:IsA("RemoteEvent") then
+                            r:FireServer(cheapestHero.squareIndex)
+                            r:FireServer(cheapestHero.ownedUnitId)
+                        end
+                    end
+                end
+            end)
+
+            -- Cek ProximityPrompt di pad plot milik player
+            pcall(function()
+                if myPlot then
+                    for _, d in ipairs(myPlot:GetDescendants()) do
+                        if d:IsA("ProximityPrompt") and d.Enabled and fireproximityprompt then
+                            local act = d.ActionText:lower()
+                            local obj = d.ObjectText:lower()
+                            if act:find("upgrade") or obj:find("upgrade") then
+                                fireproximityprompt(d)
+                            end
+                        end
+                    end
+                end
+            end)
+
+            -- Cek PadUpgradeUI button di PlayerGui jika ada
+            pcall(function()
+                local pGui = LocalPlayer:FindFirstChild("PlayerGui")
+                if pGui then
+                    local padGui = pGui:FindFirstChild("PadUpgrade" .. tostring(cheapestHero.squareIndex))
+                    if padGui and padGui:FindFirstChild("Root") and padGui.Root:FindFirstChild("Tap") then
+                        pcall(firesignal, padGui.Root.Tap.Activated)
+                    end
+                end
             end)
             task.wait(0.35)
         end
@@ -767,48 +845,23 @@ local function triggerRebirth(isManual)
 end
 
 local function getDetectedRebirthCost()
-    -- 1. Cek dari replica.Data jika ada
-    local data = replica.Data
-    if data then
-        if data.RebirthCost and tonumber(data.RebirthCost) then
-            return tonumber(data.RebirthCost)
-        end
-        if data.NextRebirthCost and tonumber(data.NextRebirthCost) then
-            return tonumber(data.NextRebirthCost)
-        end
-        if data.RebirthPrice and tonumber(data.RebirthPrice) then
-            return tonumber(data.RebirthPrice)
-        end
-    end
+    local detectedCost = 0
+    local detectedStr = nil
 
-    -- 2. Cek dari RebirthConfig jika ada
-    if RebirthConfig then
-        local curRebirth = (data and (data.Rebirths or data.Rebirth)) or LocalPlayer:GetAttribute("Rebirths") or 0
-        if RebirthConfig.CostForLevel then
-            local c = RebirthConfig.CostForLevel(curRebirth + 1)
-            if c then return c end
-        elseif RebirthConfig.PriceForLevel then
-            local c = RebirthConfig.PriceForLevel(curRebirth + 1)
-            if c then return c end
-        elseif RebirthConfig.Cost then
-            local c = RebirthConfig.Cost(curRebirth + 1)
-            if c then return c end
-        end
-    end
-
-    -- 3. Cek dari PlayerGui teks yang mengandung Rebirth dan harga
+    -- 1. Scan PlayerGui secara presisi untuk label progress bar "$104B/$1.1T" (Ambil target di belakang garis miring!)
     local pGui = LocalPlayer:FindFirstChild("PlayerGui")
     if pGui then
-        for _, gui in ipairs(pGui:GetChildren()) do
-            if gui.Name:lower():find("rebirth") then
-                for _, lbl in ipairs(gui:GetDescendants()) do
-                    if lbl:IsA("TextLabel") or lbl:IsA("TextButton") then
-                        local t = lbl.Text
-                        if t:find("%$") or t:find("[%d]+[KkMmBbTt]") then
-                            local parsed = parseCostString(t)
-                            if parsed > 1000 then
-                                return parsed
-                            end
+        for _, lbl in ipairs(pGui:GetDescendants()) do
+            if (lbl:IsA("TextLabel") or lbl:IsA("TextButton")) and lbl.Visible then
+                local t = lbl.Text
+                if t and t:find("/") and (t:find("%$") or t:find("[%d]+[KkMmBbTt]")) then
+                    local _, targetPart = t:match("([^/]+)%s*/%s*([^/]+)")
+                    if targetPart then
+                        local parsed = parseCostString(targetPart)
+                        if parsed and parsed > 1000 then
+                            detectedCost = parsed
+                            detectedStr = targetPart:gsub("%s+", "")
+                            return detectedCost, detectedStr
                         end
                     end
                 end
@@ -816,9 +869,36 @@ local function getDetectedRebirthCost()
         end
     end
 
-    -- 4. Fallback ke setting user (misal "1T")
-    local fallback = parseCostString(settings.targetRebirthCost or "1T")
-    return fallback > 0 and fallback or 1e12
+    -- 2. Cek replica.Data jika ada
+    local data = replica.Data
+    if data then
+        if data.RebirthCost and tonumber(data.RebirthCost) and tonumber(data.RebirthCost) > 1000 then
+            detectedCost = tonumber(data.RebirthCost)
+            return detectedCost, NumberFormat.Abbreviate(detectedCost)
+        end
+        if data.NextRebirthCost and tonumber(data.NextRebirthCost) and tonumber(data.NextRebirthCost) > 1000 then
+            detectedCost = tonumber(data.NextRebirthCost)
+            return detectedCost, NumberFormat.Abbreviate(detectedCost)
+        end
+    end
+
+    -- 3. Cek dari RebirthConfig jika ada
+    if RebirthConfig then
+        local curRebirth = (data and (data.Rebirths or data.Rebirth)) or LocalPlayer:GetAttribute("Rebirths") or 0
+        local c = nil
+        if RebirthConfig.CostForLevel then c = RebirthConfig.CostForLevel(curRebirth + 1)
+        elseif RebirthConfig.PriceForLevel then c = RebirthConfig.PriceForLevel(curRebirth + 1)
+        elseif RebirthConfig.Cost then c = RebirthConfig.Cost(curRebirth + 1)
+        end
+        if c and c > 1000 then
+            detectedCost = c
+            return detectedCost, NumberFormat.Abbreviate(detectedCost)
+        end
+    end
+
+    -- 4. Fallback ke manual input user jika ada
+    local fallback = parseCostString(settings.targetRebirthCost or "1.1T")
+    return (fallback > 0 and fallback) or 1.1e12, tostring(settings.targetRebirthCost or "1.1T")
 end
 
 local function checkAndStepRebirthRush()
@@ -845,12 +925,18 @@ local function checkAndStepRebirthRush()
     end
 
     -- Hitung target biaya Rebirth
-    local targetCost = getDetectedRebirthCost()
+    local targetCost, autoDetectedStr = getDetectedRebirthCost()
+    if targetCost <= 0 then targetCost = 1.1e12 end
+
+    -- Update input box text otomatis jika auto-detect mendeteksi target
+    if autoDetectedStr and rCostBox and not rCostBox:IsFocused() then
+        rCostBox.PlaceholderText = autoDetectedStr
+    end
 
     -- Jika uang SUDAH CUKUP:
     if currentMoney >= targetCost then
         isRebirthRushActive = true
-        rebirthRushStatusText = string.format("🔥 Uang Cukup ($%s)! Eksekusi Rebirth...", NumberFormat.Abbreviate(targetCost))
+        rebirthRushStatusText = string.format("🔥 Uang Cukup ($%s / $%s)! Eksekusi Rebirth...", NumberFormat.Abbreviate(currentMoney), NumberFormat.Abbreviate(targetCost))
         triggerRebirth(false)
         return
     end
