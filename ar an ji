@@ -242,6 +242,9 @@ local function processFilterBuyAndRollGuard()
     local money = getPlayerMoney()
     local waitingToBuy = false
 
+    -- Prioritas beli yang termurah dulu agar tidak stuck jika ada unit mahal di sebelahnya
+    table.sort(rolledUnits, function(a, b) return (a.price or 0) < (b.price or 0) end)
+
     for _, unit in ipairs(rolledUnits) do
         local wantBuy = settings.filterRarities[unit.rarity] == true
         if wantBuy then
