@@ -84,10 +84,18 @@ local settings = {
     autoFloor = false,
     autoRebirth = false,
     
-    -- Hero / Pad Upgrades (Cheapest First)
+    -- Hero / Pad Upgrades & Auto Sell
     autoUpgradeHeroes = false,
     targetHeroLevel = 25,
     autoEquipBest = false,
+    autoSell = false,
+    sellRarities = {
+        ["Common"] = true,
+        ["Uncommon"] = true,
+        ["Rare"] = false,
+        ["Epic"] = false,
+        ["Legendary"] = false,
+    },
     
     -- Tower
     autoTower = false,
@@ -443,6 +451,79 @@ local function triggerFastRollPrompt()
             end
         end
     end
+end
+
+local function stepAutoSell(isManual)
+    pcall(function()
+        local data = replica.Data
+        if not data or not data.OwnedUnits then return end
+
+        -- 1. Kumpulkan ID hero yang SEDANG TERPASANG di pad (PROTECTED - JANGAN DIJUAL!)
+        local protectedIds = {}
+        if data.PlacedUnits then
+            for _, squares in pairs(data.PlacedUnits) do
+                if type(squares) == "table" then
+                    for _, oId in pairs(squares) do
+                        if oId then protectedIds[oId] = true end
+                    end
+                end
+            end
+        end
+
+        -- 2. Cari hero di tas yang sesuai kriteria sell
+        local unitsToSell = {}
+        for oId, uData in pairs(data.OwnedUnits) do
+            if uData and not protectedIds[oId] and not uData.Locked then
+                local uDef = UnitConfig and UnitConfig[uData.UnitId]
+                local rarity = (uDef and uDef.Rarity) or "Common"
+                
+                if settings.sellRarities and settings.sellRarities[rarity] == true then
+                    table.insert(unitsToSell, {
+                        ownedId = oId,
+                        unitId = uData.UnitId,
+                        rarity = rarity
+                    })
+                end
+            end
+        end
+
+        if #unitsToSell == 0 then
+            if isManual then
+                print("🗑️ [Auto Sell] Tidak ada hero di inventory yang cocok untuk dijual.")
+            end
+            return
+        end
+
+        -- 3. Eksekusi penjualan (Batch & Single remotes)
+        local batchIds = {}
+        for _, u in ipairs(unitsToSell) do
+            table.insert(batchIds, u.ownedId)
+        end
+
+        pcall(function()
+            replica:FireServer("RequestSellUnits", { ["OwnedUnitIds"] = batchIds })
+            replica:FireServer("RequestSellUnits", { ["Ids"] = batchIds })
+            replica:FireServer("RequestSellUnits", batchIds)
+            replica:FireServer("SellUnits", batchIds)
+        end)
+
+        for i = 1, math.min(#unitsToSell, 20) do
+            local u = unitsToSell[i]
+            pcall(function()
+                replica:FireServer("RequestSellUnit", { ["OwnedUnitId"] = u.ownedId })
+                replica:FireServer("RequestSellUnit", { ["Id"] = u.ownedId })
+                replica:FireServer("RequestSellUnit", u.ownedId)
+                replica:FireServer("SellUnit", { ["OwnedUnitId"] = u.ownedId })
+                replica:FireServer("SellUnit", u.ownedId)
+                replica:FireServer("RequestDeleteUnit", { ["OwnedUnitId"] = u.ownedId })
+            end)
+            task.wait(0.04)
+        end
+
+        if isManual then
+            print(string.format("🗑️ [Auto Sell] Sukses menjual %d hero di inventory!", #unitsToSell))
+        end
+    end)
 end
 
 local function stepTower()
@@ -1242,6 +1323,90 @@ addToggle(pageHero, "Auto Equip Best Units", "Equip team terbaik otomatis tiap 5
 addAction(pageHero, "Equip Best Sekarang", "Equip Best", Colors.Accent, function() stepEquipBest(true) end)
 addAction(pageHero, "Upgrade Hero Termurah 1x", "Upgrade", Colors.Green, stepHeroUpgrade)
 
+addSectionLabel(pageHero, "AUTO SELL INVENTORY (Hero Sampah)")
+addToggle(pageHero, "Auto Sell Heroes", "Jual otomatis hero di tas yang dicentang (Hero di pad 100% aman)", "autoSell")
+
+local sellRarityCard = Instance.new("Frame")
+sellRarityCard.Size = UDim2.new(1, 0, 0, 70)
+sellRarityCard.BackgroundColor3 = Colors.Card
+sellRarityCard.BorderSizePixel = 0
+sellRarityCard.LayoutOrder = getOrder()
+sellRarityCard.Parent = pageHero
+Instance.new("UICorner", sellRarityCard).CornerRadius = UDim.new(0, 6)
+
+local sLayout = Instance.new("UIGridLayout", sellRarityCard)
+sLayout.CellSize = UDim2.new(0.30, 0, 0, 24)
+sLayout.CellPadding = UDim2.new(0.03, 0, 0, 6)
+local sPad = Instance.new("UIPadding", sellRarityCard)
+sPad.PaddingTop = UDim.new(0, 6)
+sPad.PaddingLeft = UDim.new(0, 6)
+sPad.PaddingRight = UDim.new(0, 6)
+
+local sellRarityButtons = {}
+local sellableRarities = {"Common", "Uncommon", "Rare", "Epic", "Legendary"}
+for _, rName in ipairs(sellableRarities) do
+    local isChecked = settings.sellRarities and settings.sellRarities[rName] == true
+    local sBtn = Instance.new("TextButton")
+    sBtn.BackgroundColor3 = isChecked and Colors.Red or Colors.Panel
+    sBtn.Font = Enum.Font.GothamMedium
+    sBtn.TextSize = 10
+    sBtn.TextColor3 = Colors.Text
+    sBtn.Text = (isChecked and "🗑️ " or "✕ ") .. rName
+    sBtn.Parent = sellRarityCard
+    Instance.new("UICorner", sBtn).CornerRadius = UDim.new(0, 5)
+
+    sBtn.Activated:Connect(function()
+        if not settings.sellRarities then settings.sellRarities = {} end
+        settings.sellRarities[rName] = not settings.sellRarities[rName]
+        local nowChecked = settings.sellRarities[rName]
+        sBtn.BackgroundColor3 = nowChecked and Colors.Red or Colors.Panel
+        sBtn.Text = (nowChecked and "🗑️ " or "✕ ") .. rName
+        saveConfig()
+    end)
+    sellRarityButtons[rName] = sBtn
+end
+
+local quickSellFrame = Instance.new("Frame")
+quickSellFrame.Size = UDim2.new(1, 0, 0, 28)
+quickSellFrame.BackgroundTransparency = 1
+quickSellFrame.LayoutOrder = getOrder()
+quickSellFrame.Parent = pageHero
+
+local qsl = Instance.new("UIListLayout", quickSellFrame)
+qsl.FillDirection = Enum.FillDirection.Horizontal
+qsl.Padding = UDim.new(0, 6)
+
+local function makeQuickSellBtn(title, filterFn)
+    local qb = Instance.new("TextButton")
+    qb.Size = UDim2.new(0.31, 0, 1, 0)
+    qb.BackgroundColor3 = Colors.CardHover
+    qb.Font = Enum.Font.GothamBold
+    qb.TextSize = 9.5
+    qb.TextColor3 = Colors.Text
+    qb.Text = title
+    qb.Parent = quickSellFrame
+    Instance.new("UICorner", qb).CornerRadius = UDim.new(0, 5)
+
+    qb.Activated:Connect(function()
+        if not settings.sellRarities then settings.sellRarities = {} end
+        for _, r in ipairs(sellableRarities) do
+            local checked = filterFn(r)
+            settings.sellRarities[r] = checked
+            if sellRarityButtons[r] then
+                sellRarityButtons[r].BackgroundColor3 = checked and Colors.Red or Colors.Panel
+                sellRarityButtons[r].Text = (checked and "🗑️ " or "✕ ") .. r
+            end
+        end
+        saveConfig()
+    end)
+end
+
+makeQuickSellBtn("Below Rare", function(r) return r == "Common" or r == "Uncommon" end)
+makeQuickSellBtn("Below Epic", function(r) return r == "Common" or r == "Uncommon" or r == "Rare" end)
+makeQuickSellBtn("Bersihkan", function() return false end)
+
+addAction(pageHero, "Jual Hero Sampah Sekarang", "Jual Sekarang", Colors.Red, function() stepAutoSell(true) end)
+
 -- ----------------------------------------------------------------------------
 -- TAB 4: TOWER DUNGEON
 -- ----------------------------------------------------------------------------
@@ -1293,6 +1458,7 @@ local function cleanup()
     settings.autoUpgradeHeroes = false
     settings.autoEquipBest = false
     settings.autoRebirth = false
+    settings.autoSell = false
     if ScreenGui and ScreenGui.Parent then
         ScreenGui:Destroy()
     end
@@ -1436,4 +1602,14 @@ task.spawn(function()
     end
 end)
 
-print("⚔️ [OK] Anime Army RNG Multi-Tool v2.5 Siap Dijalankan!")
+-- 10. Auto Sell Inventory Loop
+task.spawn(function()
+    while isRunning do
+        if settings.autoSell then
+            stepAutoSell(false)
+        end
+        task.wait(4.0)
+    end
+end)
+
+print("⚔️ [OK] Anime Army RNG Multi-Tool v2.6 Siap Dijalankan!")
