@@ -76,6 +76,32 @@ if not UnitUpgradeConfig then
     end)
 end
 
+local BossRushConfig = nil
+pcall(function()
+    BossRushConfig = require(Shared:WaitForChild("BossRushConfig", 5))
+end)
+if not BossRushConfig then
+    pcall(function()
+        local cFolder = ReplicatedStorage:FindFirstChild("Config")
+        if cFolder and cFolder:FindFirstChild("BossRushConfig") then
+            BossRushConfig = require(cFolder.BossRushConfig)
+        end
+    end)
+end
+
+local RUBY_SHOP_ITEMS = {
+    { Id = "Trait", Name = "Trait Crystal", Price = 2, Stock = 100, Icon = "🔮", Desc = "Rerolls unit traits" },
+    { Id = "Stat", Name = "Stat Crystal", Price = 2, Stock = 100, Icon = "💎", Desc = "Rerolls unit stats" },
+    { Id = "Shadow", Name = "Shadow", Price = 1200, Stock = 1, Once = true, Icon = "👤", Desc = "Secret Unit (Void/Diamond/Gold)" },
+    { Id = "KaidoCape", Name = "Kaido's Cape", Price = 600, Stock = 1, Once = true, Gear = "KaidoCape", Icon = "🧥", Desc = "Gear Back slot" },
+    { Id = "KaidoWeapon", Name = "Kaido's Bat", Price = 600, Stock = 1, Once = true, Gear = "KaidoWeapon", Icon = "⚔️", Desc = "Gear Weapon slot" },
+    { Id = "PotSuperLuck", Name = "Super Luck Potion", Price = 200, Stock = 5, Icon = "🧪", Desc = "x2 Luck 5 min" },
+    { Id = "PotDamage", Name = "Damage Potion", Price = 150, Stock = 5, Icon = "🧪", Desc = "x2 Damage 5 min" },
+    { Id = "PotLuck", Name = "Luck Potion", Price = 100, Stock = 5, Icon = "🧪", Desc = "x1.5 Luck 5 min" },
+    { Id = "PotSpeed", Name = "Speed Potion", Price = 100, Stock = 5, Icon = "🧪", Desc = "x1.5 Speed 5 min" },
+    { Id = "PotGold", Name = "Gold Potion", Price = 100, Stock = 5, Icon = "🧪", Desc = "x2 Money 5 min" },
+}
+
 local replica = ClientReplica.WaitForReplica()
 local myPlot = PlotUtil.WaitForMyPlot(10)
 
@@ -138,6 +164,21 @@ local settings = {
     autoClaimDaily = true,
     autoClaimPlaytime = true,
     autoSpinWheel = true,
+
+    -- Ruby / Boss Shop Auto Buy
+    autoBuyRubyShop = false,
+    rubyShopItems = {
+        ["Trait"] = true,
+        ["Stat"] = true,
+        ["Shadow"] = true,
+        ["KaidoCape"] = true,
+        ["KaidoWeapon"] = true,
+        ["PotSuperLuck"] = true,
+        ["PotDamage"] = true,
+        ["PotLuck"] = false,
+        ["PotSpeed"] = false,
+        ["PotGold"] = false,
+    },
 }
 
 local function saveConfig()
@@ -668,6 +709,132 @@ local function stepTower()
     end)
 end
 
+local function formatRestockTime()
+    local restockAt = LocalPlayer:GetAttribute("BossShopRestockAt") or 0
+    local timeLeft = restockAt - workspace:GetServerTimeNow()
+    if timeLeft <= 0 then
+        return "Sedang Restock / Siap!"
+    end
+    local mins = math.floor(timeLeft / 60)
+    local secs = math.floor(timeLeft % 60)
+    return string.format("%d:%02d", mins, secs)
+end
+
+local function buyBossShopItem(itemId, amount)
+    local amt = amount or 1
+    local success = false
+
+    -- 1. Game native Net module via ClientMain
+    pcall(function()
+        local ps = LocalPlayer:FindFirstChild("PlayerScripts")
+        if ps and ps:FindFirstChild("ClientMain") and ps.ClientMain:FindFirstChild("Net") then
+            local Net = require(ps.ClientMain.Net)
+            if Net and Net.Invoke then
+                local res = Net.Invoke("BossShopBuy", itemId, amt)
+                if res and (res.ok or res.Mutation) then success = true end
+            end
+        end
+    end)
+
+    -- 2. RemoteFunction BossShopBuy direct
+    if not success then
+        pcall(function()
+            local r = ReplicatedStorage:FindFirstChild("BossShopBuy", true)
+            if r and r:IsA("RemoteFunction") then
+                local res = r:InvokeServer(itemId, amt)
+                if res and (res.ok or res.Mutation) then success = true end
+            end
+        end)
+    end
+
+    -- 3. Replica remotes fallback
+    if not success then
+        pcall(function()
+            replica:FireServer("BossShopBuy", itemId, amt)
+        end)
+    end
+
+    -- 4. Native UI button trigger fallback jika BossShopGui ada di PlayerGui
+    pcall(function()
+        local pGui = LocalPlayer:FindFirstChild("PlayerGui")
+        if pGui then
+            local shopGui = pGui:FindFirstChild("BossShopGui") or pGui:FindFirstChild("BossShop")
+            if shopGui then
+                for _, b in ipairs(shopGui:GetDescendants()) do
+                    if (b:IsA("TextButton") or b:IsA("ImageButton")) and (b.Name == itemId or (b.Parent and b.Parent.Name == itemId)) then
+                        pcall(firesignal, b.Activated)
+                        pcall(firesignal, b.MouseButton1Click)
+                    end
+                end
+            end
+        end
+    end)
+
+    return success
+end
+
+local isBuyingRubyShop = false
+
+local function stepRubyShop(isManual)
+    if isBuyingRubyShop then return end
+    if not isManual and not settings.autoBuyRubyShop then return end
+
+    local coins = LocalPlayer:GetAttribute("BossCoins") or 0
+    if coins <= 0 and not isManual then return end
+
+    isBuyingRubyShop = true
+
+    pcall(function()
+        local gearOwnedStr = LocalPlayer:GetAttribute("GearOwned") or ""
+        local gearOwnedList = string.split(gearOwnedStr, ",")
+        local boughtAny = false
+
+        for _, item in ipairs(RUBY_SHOP_ITEMS) do
+            if settings.rubyShopItems[item.Id] == true then
+                local alreadyOwned = false
+                if item.Once then
+                    if item.Id == "Shadow" and LocalPlayer:GetAttribute("BossShop_Shadow") then
+                        alreadyOwned = true
+                    elseif item.Gear and table.find(gearOwnedList, item.Gear) ~= nil then
+                        alreadyOwned = true
+                    end
+                end
+
+                if not alreadyOwned then
+                    local left = LocalPlayer:GetAttribute("BossShopLeft_" .. item.Id)
+                    if left == nil then left = item.Stock or 1 end
+
+                    if left > 0 and coins >= item.Price then
+                        local maxAfford = math.floor(coins / item.Price)
+                        local buyCount = math.min(left, maxAfford)
+
+                        if buyCount > 0 then
+                            if item.Once or buyCount == 1 then
+                                buyBossShopItem(item.Id, 1)
+                                coins = LocalPlayer:GetAttribute("BossCoins") or (coins - item.Price)
+                                boughtAny = true
+                                task.wait(0.2)
+                            else
+                                local toBuy = math.min(buyCount, 10)
+                                buyBossShopItem(item.Id, toBuy)
+                                coins = LocalPlayer:GetAttribute("BossCoins") or (coins - (item.Price * toBuy))
+                                boughtAny = true
+                                task.wait(0.2)
+                            end
+                        end
+                    end
+                end
+            end
+        end
+
+        if isManual and boughtAny then
+            print("💎 [Ruby Shop] Berhasil membeli item pilihan yang tersedia di toko!")
+        end
+    end)
+
+    isBuyingRubyShop = false
+end
+
 local RarityWeights = {
     ["Godly"] = 100000000,
     ["Secret"] = 10000000,
@@ -1180,11 +1347,15 @@ Body.Position = UDim2.fromOffset(0, 70)
 Body.BackgroundTransparency = 1
 Body.Parent = MainFrame
 
-local Sidebar = Instance.new("Frame")
+local Sidebar = Instance.new("ScrollingFrame")
 Sidebar.Size = UDim2.new(0, 125, 1, -8)
 Sidebar.Position = UDim2.fromOffset(8, 0)
 Sidebar.BackgroundColor3 = Colors.Panel
 Sidebar.BorderSizePixel = 0
+Sidebar.ScrollBarThickness = 2
+Sidebar.ScrollBarImageColor3 = Colors.Accent
+Sidebar.AutomaticCanvasSize = Enum.AutomaticSize.Y
+Sidebar.CanvasSize = UDim2.new()
 Sidebar.Parent = Body
 Instance.new("UICorner", Sidebar).CornerRadius = UDim.new(0, 8)
 
@@ -1388,8 +1559,9 @@ local pageRoll = createTab("Roll & Buy", "⚡", 1)
 local pageBase = createTab("Base Up", "🏗️", 2)
 local pageHero = createTab("Hero Pads", "⚔️", 3)
 local pageTower = createTab("Tower", "🏰", 4)
-local pageRewards = createTab("Hadiah", "🎁", 5)
-local pageTeleport = createTab("Teleport", "📍", 6)
+local pageRuby = createTab("Ruby Shop", "💎", 5)
+local pageRewards = createTab("Hadiah", "🎁", 6)
+local pageTeleport = createTab("Teleport", "📍", 7)
 
 -- ----------------------------------------------------------------------------
 -- TAB 1: ROLL & BUY (Dengan Filter Rarity & Stop Roll If Broke)
@@ -1803,7 +1975,156 @@ addToggle(pageTower, "Full Auto Tower", "Equip tim terbaik + Mulai + Auto next f
 addAction(pageTower, "Mulai Tower Sekarang", "Mulai", Colors.Green, stepTower)
 
 -- ----------------------------------------------------------------------------
--- TAB 5: HADIAH & SPIN
+-- TAB 5: RUBY / BOSS SHOP (Auto Buy on Restock)
+-- ----------------------------------------------------------------------------
+addSectionLabel(pageRuby, "STATUS RUBY / BOSS SHOP")
+
+local rubyInfoCard = Instance.new("Frame")
+rubyInfoCard.Size = UDim2.new(1, 0, 0, 52)
+rubyInfoCard.BackgroundColor3 = Colors.Card
+rubyInfoCard.BorderSizePixel = 0
+rubyInfoCard.LayoutOrder = getOrder()
+rubyInfoCard.Parent = pageRuby
+Instance.new("UICorner", rubyInfoCard).CornerRadius = UDim.new(0, 6)
+
+local rubyCoinsLbl = Instance.new("TextLabel")
+rubyCoinsLbl.Size = UDim2.new(1, -16, 0, 22)
+rubyCoinsLbl.Position = UDim2.fromOffset(10, 4)
+rubyCoinsLbl.BackgroundTransparency = 1
+rubyCoinsLbl.Font = Enum.Font.GothamBold
+rubyCoinsLbl.TextSize = 11
+rubyCoinsLbl.TextColor3 = Color3.fromRGB(255, 65, 95)
+rubyCoinsLbl.TextXAlignment = Enum.TextXAlignment.Left
+rubyCoinsLbl.Text = "💎 Boss Coins: Loading..."
+rubyCoinsLbl.Parent = rubyInfoCard
+
+local rubyRestockLbl = Instance.new("TextLabel")
+rubyRestockLbl.Size = UDim2.new(1, -16, 0, 20)
+rubyRestockLbl.Position = UDim2.fromOffset(10, 26)
+rubyRestockLbl.BackgroundTransparency = 1
+rubyRestockLbl.Font = Enum.Font.GothamMedium
+rubyRestockLbl.TextSize = 10
+rubyRestockLbl.TextColor3 = Colors.Gold
+rubyRestockLbl.TextXAlignment = Enum.TextXAlignment.Left
+rubyRestockLbl.Text = "🔄 Restock: Loading..."
+rubyRestockLbl.Parent = rubyInfoCard
+
+addToggle(pageRuby, "Auto Buy Ruby Shop", "Otomatis beli item yang dicentang saat restock & koin cukup", "autoBuyRubyShop")
+
+-- Quick Action Buttons Frame
+local rubyQuickFrame = Instance.new("Frame")
+rubyQuickFrame.Size = UDim2.new(1, 0, 0, 32)
+rubyQuickFrame.BackgroundTransparency = 1
+rubyQuickFrame.LayoutOrder = getOrder()
+rubyQuickFrame.Parent = pageRuby
+
+local rqLayout = Instance.new("UIListLayout", rubyQuickFrame)
+rqLayout.FillDirection = Enum.FillDirection.Horizontal
+rqLayout.Padding = UDim.new(0, 6)
+rqLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+
+local function createRubySmallBtn(txt, col, cb)
+    local b = Instance.new("TextButton")
+    b.Size = UDim2.new(0.31, 0, 1, 0)
+    b.BackgroundColor3 = col
+    b.Font = Enum.Font.GothamBold
+    b.TextSize = 10
+    b.TextColor3 = Colors.Text
+    b.Text = txt
+    b.Parent = rubyQuickFrame
+    Instance.new("UICorner", b).CornerRadius = UDim.new(0, 5)
+    b.Activated:Connect(cb)
+    return b
+end
+
+local rubyItemButtons = {}
+
+createRubySmallBtn("Pilih Semua", Colors.Accent, function()
+    for _, item in ipairs(RUBY_SHOP_ITEMS) do
+        settings.rubyShopItems[item.Id] = true
+        if rubyItemButtons[item.Id] then
+            rubyItemButtons[item.Id].BackgroundColor3 = Colors.Green
+            rubyItemButtons[item.Id].Text = "✓"
+        end
+    end
+    saveConfig()
+end)
+
+createRubySmallBtn("Hapus Semua", Colors.Panel, function()
+    for _, item in ipairs(RUBY_SHOP_ITEMS) do
+        settings.rubyShopItems[item.Id] = false
+        if rubyItemButtons[item.Id] then
+            rubyItemButtons[item.Id].BackgroundColor3 = Colors.Panel
+            rubyItemButtons[item.Id].Text = "✕"
+        end
+    end
+    saveConfig()
+end)
+
+createRubySmallBtn("🛒 Beli Sekarang", Colors.Green, function()
+    stepRubyShop(true)
+end)
+
+addSectionLabel(pageRuby, "PILIH ITEM YANG MAU DI-BUY:")
+
+for _, item in ipairs(RUBY_SHOP_ITEMS) do
+    local isChecked = settings.rubyShopItems[item.Id] == true
+
+    local card = Instance.new("Frame")
+    card.Size = UDim2.new(1, 0, 0, 42)
+    card.BackgroundColor3 = Colors.Card
+    card.BorderSizePixel = 0
+    card.LayoutOrder = getOrder()
+    card.Parent = pageRuby
+    Instance.new("UICorner", card).CornerRadius = UDim.new(0, 6)
+
+    local titleLbl = Instance.new("TextLabel")
+    titleLbl.Size = UDim2.new(1, -70, 0, 20)
+    titleLbl.Position = UDim2.fromOffset(10, 4)
+    titleLbl.BackgroundTransparency = 1
+    titleLbl.Font = Enum.Font.GothamBold
+    titleLbl.TextSize = 11
+    titleLbl.TextColor3 = Colors.Text
+    titleLbl.TextXAlignment = Enum.TextXAlignment.Left
+    titleLbl.Text = string.format("%s %s", item.Icon or "🎁", item.Name)
+    titleLbl.Parent = card
+
+    local subLbl = Instance.new("TextLabel")
+    subLbl.Size = UDim2.new(1, -70, 0, 16)
+    subLbl.Position = UDim2.fromOffset(10, 22)
+    subLbl.BackgroundTransparency = 1
+    subLbl.Font = Enum.Font.GothamMedium
+    subLbl.TextSize = 9.5
+    subLbl.TextColor3 = Colors.Muted
+    subLbl.TextXAlignment = Enum.TextXAlignment.Left
+    subLbl.Text = string.format("Harga: %d 💎  |  Stok: %d  |  %s", item.Price, item.Stock or 1, item.Desc or "")
+    subLbl.Parent = card
+
+    local chkBtn = Instance.new("TextButton")
+    chkBtn.Size = UDim2.fromOffset(36, 26)
+    chkBtn.Position = UDim2.new(1, -44, 0.5, -13)
+    chkBtn.BackgroundColor3 = isChecked and Colors.Green or Colors.Panel
+    chkBtn.Font = Enum.Font.GothamBold
+    chkBtn.TextSize = 12
+    chkBtn.TextColor3 = Colors.Text
+    chkBtn.Text = isChecked and "✓" or "✕"
+    chkBtn.Parent = card
+    Instance.new("UICorner", chkBtn).CornerRadius = UDim.new(0, 5)
+
+    local function toggleItem()
+        settings.rubyShopItems[item.Id] = not settings.rubyShopItems[item.Id]
+        local nowOn = settings.rubyShopItems[item.Id]
+        chkBtn.BackgroundColor3 = nowOn and Colors.Green or Colors.Panel
+        chkBtn.Text = nowOn and "✓" or "✕"
+        saveConfig()
+    end
+
+    chkBtn.Activated:Connect(toggleItem)
+    rubyItemButtons[item.Id] = chkBtn
+end
+
+-- ----------------------------------------------------------------------------
+-- TAB 6: HADIAH & SPIN
 -- ----------------------------------------------------------------------------
 addSectionLabel(pageRewards, "KLAIM OTOMATIS")
 addToggle(pageRewards, "Auto Claim Daily", "Klaim reward harian otomatis", "autoClaimDaily")
@@ -1812,7 +2133,7 @@ addToggle(pageRewards, "Auto Free Spin Wheel", "Putar roda spin gratis otomatis"
 addAction(pageRewards, "Klaim Semua Hadiah Sekarang", "Claim All", Colors.Gold, claimRewards)
 
 -- ----------------------------------------------------------------------------
--- TAB 6: TELEPORT SHORTCUTS
+-- TAB 7: TELEPORT SHORTCUTS
 -- ----------------------------------------------------------------------------
 addSectionLabel(pageTeleport, "TELEPORT CEPAT")
 addAction(pageTeleport, "Teleport ke My Plot", "Teleport", Colors.Accent, tpToPlot)
@@ -1919,6 +2240,15 @@ task.spawn(function()
                 local _, targetStr = getDetectedRebirthCost()
                 rebirthStatusLbl.Text = string.format("🎯 Target: $%s | %s", targetStr or "1.1T", rebirthRushStatusText)
             end
+
+            -- Update Ruby Shop Labels
+            if rubyCoinsLbl and rubyCoinsLbl.Parent then
+                local bc = LocalPlayer:GetAttribute("BossCoins") or 0
+                rubyCoinsLbl.Text = string.format("💎 Boss Coins (Ruby): %s", NumberFormat.Abbreviate(bc))
+            end
+            if rubyRestockLbl and rubyRestockLbl.Parent then
+                rubyRestockLbl.Text = string.format("🔄 Restock: %s", formatRestockTime())
+            end
         end)
         task.wait(0.8)
     end
@@ -2023,4 +2353,24 @@ task.spawn(function()
     end
 end)
 
-print("⚔️ [OK] Anime Army RNG Multi-Tool v2.6 Siap Dijalankan!")
+-- 11. Auto Buy Ruby Shop on Restock Loop
+task.spawn(function()
+    pcall(function()
+        LocalPlayer:GetAttributeChangedSignal("BossShopRestockAt"):Connect(function()
+            if settings.autoBuyRubyShop then
+                task.wait(1.0)
+                stepRubyShop(false)
+            end
+        end)
+    end)
+    while isRunning do
+        if settings.autoBuyRubyShop then
+            pcall(function()
+                stepRubyShop(false)
+            end)
+        end
+        task.wait(4.0)
+    end
+end)
+
+print("⚔️ [OK] Anime Army RNG Multi-Tool v2.7 (Ruby Shop Auto-Buy) Siap Dijalankan!")
