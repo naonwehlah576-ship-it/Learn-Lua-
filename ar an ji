@@ -1,15 +1,8 @@
 -- ============================================================================
--- ANIME ARMY RNG - ULTIMATE AUTO FARM & UTILITY SCRIPT
+-- ANIME ARMY RNG - ULTIMATE AUTO FARM & UTILITY SCRIPT (v2.0 TAB UI)
 -- Game: Anime Army RNG
 -- Compatibility: Delta (Android / Emulator) & All Standard Roblox Executors
--- Features:
---   ⚡ Auto Collect Money (Instan TouchInterest + Gamepass Bypass)
---   🎲 Auto Roll Gacha (Group Bypass + Native Auto Roll + Fast Prompt Trigger)
---   🏰 Full Auto Tower (Equip Best Team + Start Tower + Auto Next Floor)
---   🏗️ Auto Upgrade Plot (Max RollLuck, UnitRolls, Damage, Money, Boss, Floor)
---   🎁 Auto Claim Rewards (Daily Rewards + Playtime Rewards 1-12 + Free Spin Wheel)
---   📍 Fast Teleport (Base/Plot, Tower, Spin Wheel, Merchant)
---   💾 Auto Save & Load Config
+-- UI: Modern Tabbed Sidebar Design (Tidak kepotong, Mobile/Touch friendly)
 -- ============================================================================
 
 if not game:IsLoaded() then
@@ -89,10 +82,9 @@ end
 loadConfig()
 
 -- ============================================================================
--- CORE GAME LOGIC HELPERS
+-- GAME ACTION HELPERS
 -- ============================================================================
 
--- 1. Money Collector (Instant Touch)
 local function collectMoney()
     if not myPlot then
         myPlot = PlotUtil.WaitForMyPlot(2)
@@ -105,24 +97,19 @@ local function collectMoney()
 
     local mc = myPlot:FindFirstChild("MoneyCollector")
     local glowyPart = mc and mc:FindFirstChild("GlowyPart")
-    if glowyPart then
-        if firetouchinterest then
-            firetouchinterest(hrp, glowyPart, 0)
-            task.wait(0.02)
-            firetouchinterest(hrp, glowyPart, 1)
-        end
+    if glowyPart and firetouchinterest then
+        firetouchinterest(hrp, glowyPart, 0)
+        task.wait(0.02)
+        firetouchinterest(hrp, glowyPart, 1)
     end
 
-    -- Trigger server pass toggle
     pcall(function()
         replica:FireServer("SetAutoCollect", { ["On"] = true })
     end)
 end
 
--- 2. Auto Roll Helpers
 local function startNativeAutoRoll()
     pcall(function()
-        -- Unlock group requirement jika ada
         replica:FireServer("AutoRollJoinedGroup")
         task.wait(0.1)
         replica:FireServer("RequestStartAutoRoll")
@@ -141,47 +128,95 @@ local function triggerFastRollPrompt()
     end
 end
 
--- 3. Tower Helpers
 local function stepTower()
     pcall(function()
-        -- Equip team terkuat
         replica:FireServer("TowerEquipBest")
         task.wait(0.15)
-        -- Set auto progress
         replica:FireServer("TowerSetAuto", { ["On"] = true })
         task.wait(0.15)
-        -- Start Tower
         local tId = settings.selectedTower or "Tower1"
         replica:FireServer("TowerStart", { ["TowerId"] = tId })
     end)
 end
 
--- 4. Upgrade Helpers
-local upgradeKeys = { "RollLuck", "UnitRolls", "Damage", "Money", "BossUpgrade" }
+-- Fix: Auto Upgrade Base (Dual Method: Physical Buttons + Dual Single/Max Server Calls with Cooldown Guard)
 local function upgradeBase()
     pcall(function()
-        for _, key in ipairs(upgradeKeys) do
-            replica:FireServer("RequestBuyUpgrade", {
-                ["Mode"] = "Max",
-                ["UpgradeKey"] = key
-            })
-            task.wait(0.05)
+        if not myPlot then myPlot = PlotUtil.WaitForMyPlot(2) end
+        if not myPlot then return end
+
+        local function clickBtn(b)
+            if not b then return end
+            if firesignal then
+                pcall(firesignal, b.Activated)
+                pcall(firesignal, b.MouseButton1Click)
+            end
         end
+
+        -- Method 1: Click physical SurfaceGui Buttons on Plot
+        local lsc = myPlot:FindFirstChild("LuckAndSpinCount")
+        local lPart = lsc and lsc:FindFirstChild("SurfaceGUIPART")
+        local lGui = lPart and lPart:FindFirstChild("SurfaceGui")
+        local lHolder = lGui and lGui:FindFirstChild("Holder")
+        if lHolder then
+            local lf = lHolder:FindFirstChild("LuckFrame")
+            if lf then
+                clickBtn(lf:FindFirstChild("MaxButton") or lf:FindFirstChild("SingleButton"))
+            end
+            local sc = lHolder:FindFirstChild("SpinCount")
+            if sc then
+                clickBtn(sc:FindFirstChild("SingleButton"))
+            end
+        end
+
+        local dms = myPlot:FindFirstChild("DamageMoneySign")
+        local dPart = dms and dms:FindFirstChild("SurfaceGUIPART")
+        local dGui = dPart and dPart:FindFirstChild("SurfaceGui")
+        local dHolder = dGui and dGui:FindFirstChild("Holder")
+        if dHolder then
+            local df = dHolder:FindFirstChild("DamageFrame")
+            if df then clickBtn(df:FindFirstChild("MaxButton") or df:FindFirstChild("SingleButton")) end
+            local mf = dHolder:FindFirstChild("MoneyFrame")
+            if mf then clickBtn(mf:FindFirstChild("MaxButton") or mf:FindFirstChild("SingleButton")) end
+        end
+
+        local bUp = myPlot:FindFirstChild("BossUpgrade")
+        local bPart = bUp and bUp:FindFirstChild("SurfaceGuiPart")
+        local bGui = bPart and bPart:FindFirstChild("SurfaceGui")
+        local bHolder = bGui and bGui:FindFirstChild("Holder")
+        if bHolder then
+            local bf = bHolder:FindFirstChild("BossFrame")
+            if bf then clickBtn(bf:FindFirstChild("SingleButton")) end
+        end
+
+        -- Method 2: Direct Server Calls with Cooldown Protection
+        replica:FireServer("RequestBuyUpgrade", { ["Mode"] = "Max", ["UpgradeKey"] = "RollLuck" })
+        task.wait(0.1)
+        replica:FireServer("RequestBuyUpgrade", { ["Mode"] = "Single", ["UpgradeKey"] = "RollLuck" })
+        task.wait(0.1)
+        replica:FireServer("RequestBuyUpgrade", { ["Mode"] = "Single", ["UpgradeKey"] = "UnitRolls" })
+        task.wait(0.1)
+        replica:FireServer("RequestBuyUpgrade", { ["Mode"] = "Max", ["UpgradeKey"] = "Damage" })
+        task.wait(0.1)
+        replica:FireServer("RequestBuyUpgrade", { ["Mode"] = "Single", ["UpgradeKey"] = "Damage" })
+        task.wait(0.1)
+        replica:FireServer("RequestBuyUpgrade", { ["Mode"] = "Max", ["UpgradeKey"] = "Money" })
+        task.wait(0.1)
+        replica:FireServer("RequestBuyUpgrade", { ["Mode"] = "Single", ["UpgradeKey"] = "Money" })
+        task.wait(0.1)
+        replica:FireServer("RequestBuyUpgrade", { ["Mode"] = "Single", ["UpgradeKey"] = "BossUpgrade" })
+
         if settings.autoFloor then
+            task.wait(0.1)
             replica:FireServer("RequestBuyFloor")
         end
     end)
 end
 
--- 5. Rewards Claim Helpers
 local function claimRewards()
-    -- Daily
     if settings.autoClaimDaily then
-        pcall(function()
-            replica:FireServer("ClaimDailyReward")
-        end)
+        pcall(function() replica:FireServer("ClaimDailyReward") end)
     end
-    -- Playtime (1 s/d 12)
     if settings.autoClaimPlaytime then
         pcall(function()
             for idx = 1, 12 do
@@ -190,46 +225,62 @@ local function claimRewards()
             end
         end)
     end
-    -- Spin Wheel
     if settings.autoSpinWheel then
-        pcall(function()
-            replica:FireServer("RequestWheelSpin")
-        end)
+        pcall(function() replica:FireServer("RequestWheelSpin") end)
     end
 end
 
--- 6. Teleport Helpers
 local function tpToPlot()
     if not myPlot then myPlot = PlotUtil.WaitForMyPlot(2) end
     local char = LocalPlayer.Character
     if char and myPlot then
         local sp = myPlot:FindFirstChild("SpawnPart")
-        if sp then
-            char:PivotTo(sp.CFrame + Vector3.new(0, 3, 0))
-        end
+        if sp then char:PivotTo(sp.CFrame + Vector3.new(0, 3, 0)) end
     end
 end
 
 local function tpToTower()
     local char = LocalPlayer.Character
     local towerPart = Workspace:FindFirstChild("TowerPart")
-    if char and towerPart then
-        char:PivotTo(towerPart.CFrame + Vector3.new(0, 3, 0))
-    end
+    if char and towerPart then char:PivotTo(towerPart.CFrame + Vector3.new(0, 3, 0)) end
 end
 
 local function tpToWheel()
     local char = LocalPlayer.Character
     local wheel = Workspace:FindFirstChild("SpinWheel")
     local base = wheel and wheel:FindFirstChild("Base")
-    if char and base then
-        char:PivotTo(base.CFrame + Vector3.new(0, 3, 0))
+    if char and base then char:PivotTo(base.CFrame + Vector3.new(0, 3, 0)) end
+end
+
+local function formatTower(val)
+    if type(val) == "number" then return tostring(val) end
+    if type(val) == "table" then
+        local best = 0
+        for _, f in pairs(val) do
+            if type(f) == "number" and f > best then best = f end
+        end
+        return best > 0 and ("Fl." .. best) or "Ready"
     end
+    return "Ready"
 end
 
 -- ============================================================================
--- MODERN MOBILE & EMULATOR FRIENDLY GUI
+-- MODERN TABBED GUI (Roll an Anime Style)
 -- ============================================================================
+local Colors = {
+    Bg       = Color3.fromRGB(16, 18, 26),
+    Panel    = Color3.fromRGB(22, 26, 38),
+    Card     = Color3.fromRGB(28, 33, 48),
+    CardHover= Color3.fromRGB(36, 43, 62),
+    Accent   = Color3.fromRGB(85, 115, 230),
+    Green    = Color3.fromRGB(45, 160, 90),
+    Red      = Color3.fromRGB(215, 55, 65),
+    Gold     = Color3.fromRGB(240, 195, 60),
+    Text     = Color3.fromRGB(245, 248, 255),
+    Muted    = Color3.fromRGB(150, 160, 185),
+    Border   = Color3.fromRGB(45, 52, 75),
+}
+
 local parentGui = (gethui and gethui()) or CoreGui:FindFirstChild("RobloxGui") or LocalPlayer:WaitForChild("PlayerGui")
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "AnimeArmyMultiTool"
@@ -237,259 +288,350 @@ ScreenGui.ResetOnSpawn = false
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 ScreenGui.Parent = parentGui
 
--- Main Card Frame
-local Main = Instance.new("Frame")
-Main.Name = "MainFrame"
-Main.Size = UDim2.new(0, 310, 0, 420)
-Main.Position = UDim2.new(0.5, -155, 0.5, -210)
-Main.BackgroundColor3 = Color3.fromRGB(18, 20, 28)
-Main.BorderSizePixel = 0
-Main.Active = true
-Main.ClipsDescendants = true
-Main.Parent = ScreenGui
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Size = UDim2.fromOffset(470, 310)
+MainFrame.Position = UDim2.new(0.5, -235, 0.5, -155)
+MainFrame.BackgroundColor3 = Colors.Bg
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.ClipsDescendants = true
+MainFrame.Parent = ScreenGui
 
-local MainCorner = Instance.new("UICorner")
-MainCorner.CornerRadius = UDim.new(0, 12)
-MainCorner.Parent = Main
+Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 10)
+local Stroke = Instance.new("UIStroke", MainFrame)
+Stroke.Thickness = 1.6
+Stroke.Color = Colors.Border
 
-local MainStroke = Instance.new("UIStroke")
-MainStroke.Thickness = 1.6
-MainStroke.Color = Color3.fromRGB(80, 100, 160)
-MainStroke.Parent = Main
+-- Header Bar
+local Header = Instance.new("Frame")
+Header.Name = "Header"
+Header.Size = UDim2.new(1, 0, 0, 38)
+Header.BackgroundColor3 = Colors.Panel
+Header.BorderSizePixel = 0
+Header.Parent = MainFrame
+Instance.new("UICorner", Header).CornerRadius = UDim.new(0, 10)
 
--- Dragging System (Support Touch & Mouse)
-local dragging, dragInput, dragStart, startPos
-local function updateDrag(input)
-    local delta = input.Position - dragStart
-    Main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-end
-
-Main.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        dragging = true
-        dragStart = input.Position
-        startPos = Main.Position
-        input.Changed:Connect(function()
-            if input.UserInputState == Enum.UserInputState.End then
-                dragging = false
-            end
-        end)
-    end
-end)
-
-Main.InputChanged:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-        dragInput = input
-    end
-end)
-
-UserInputService.InputChanged:Connect(function(input)
-    if input == dragInput and dragging then
-        updateDrag(input)
-    end
-end)
-
--- Top Title Bar
-local TopBar = Instance.new("Frame")
-TopBar.Name = "TopBar"
-TopBar.Size = UDim2.new(1, 0, 0, 40)
-TopBar.BackgroundColor3 = Color3.fromRGB(26, 30, 42)
-TopBar.BorderSizePixel = 0
-TopBar.Parent = Main
-
-local TopCorner = Instance.new("UICorner")
-TopCorner.CornerRadius = UDim.new(0, 12)
-TopCorner.Parent = TopBar
-
-local Title = Instance.new("TextLabel")
-Title.Name = "Title"
-Title.Size = UDim2.new(1, -70, 1, 0)
-Title.Position = UDim2.new(0, 14, 0, 0)
-Title.BackgroundTransparency = 1
-Title.Font = Enum.Font.GothamBold
-Title.Text = "⚔️ Anime Army RNG v1.0"
-Title.TextColor3 = Color3.fromRGB(240, 245, 255)
-Title.TextSize = 14
-Title.TextXAlignment = Enum.TextXAlignment.Left
-Title.Parent = TopBar
-
--- Close & Min Buttons
-local CloseBtn = Instance.new("TextButton")
-CloseBtn.Name = "CloseBtn"
-CloseBtn.Size = UDim2.new(0, 26, 0, 26)
-CloseBtn.Position = UDim2.new(1, -32, 0, 7)
-CloseBtn.BackgroundColor3 = Color3.fromRGB(220, 60, 60)
-CloseBtn.Font = Enum.Font.GothamBold
-CloseBtn.Text = "✕"
-CloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-CloseBtn.TextSize = 12
-CloseBtn.Parent = TopBar
-local CloseCorner = Instance.new("UICorner")
-CloseCorner.CornerRadius = UDim.new(0, 6)
-CloseCorner.Parent = CloseBtn
+local TitleLabel = Instance.new("TextLabel")
+TitleLabel.Size = UDim2.new(1, -90, 1, 0)
+TitleLabel.Position = UDim2.fromOffset(14, 0)
+TitleLabel.BackgroundTransparency = 1
+TitleLabel.Font = Enum.Font.GothamBold
+TitleLabel.TextSize = 13
+TitleLabel.TextColor3 = Colors.Text
+TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+TitleLabel.Text = "⚔️ Anime Army RNG  •  Multi-Tool v2.0"
+TitleLabel.Parent = Header
 
 local MinBtn = Instance.new("TextButton")
-MinBtn.Name = "MinBtn"
-MinBtn.Size = UDim2.new(0, 26, 0, 26)
-MinBtn.Position = UDim2.new(1, -62, 0, 7)
-MinBtn.BackgroundColor3 = Color3.fromRGB(50, 60, 85)
+MinBtn.Size = UDim2.fromOffset(28, 26)
+MinBtn.Position = UDim2.new(1, -64, 0.5, -13)
+MinBtn.BackgroundColor3 = Colors.Card
 MinBtn.Font = Enum.Font.GothamBold
+MinBtn.TextSize = 13
+MinBtn.TextColor3 = Colors.Text
 MinBtn.Text = "—"
-MinBtn.TextColor3 = Color3.fromRGB(200, 220, 255)
-MinBtn.TextSize = 12
-MinBtn.Parent = TopBar
-local MinCorner = Instance.new("UICorner")
-MinCorner.CornerRadius = UDim.new(0, 6)
-MinCorner.Parent = MinBtn
+MinBtn.Parent = Header
+Instance.new("UICorner", MinBtn).CornerRadius = UDim.new(0, 6)
 
--- Stats Header (Money & DPS)
-local StatsFrame = Instance.new("Frame")
-StatsFrame.Name = "StatsFrame"
-StatsFrame.Size = UDim2.new(1, -20, 0, 36)
-StatsFrame.Position = UDim2.new(0, 10, 0, 46)
-StatsFrame.BackgroundColor3 = Color3.fromRGB(24, 28, 38)
-StatsFrame.BorderSizePixel = 0
-StatsFrame.Parent = Main
-local StatsCorner = Instance.new("UICorner")
-StatsCorner.CornerRadius = UDim.new(0, 8)
-StatsCorner.Parent = StatsFrame
+local CloseBtn = Instance.new("TextButton")
+CloseBtn.Size = UDim2.fromOffset(28, 26)
+CloseBtn.Position = UDim2.new(1, -32, 0.5, -13)
+CloseBtn.BackgroundColor3 = Colors.Red
+CloseBtn.Font = Enum.Font.GothamBold
+CloseBtn.TextSize = 13
+CloseBtn.TextColor3 = Colors.Text
+CloseBtn.Text = "✕"
+CloseBtn.Parent = Header
+Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 6)
+
+-- Dragging logic
+do
+    local dragging, dragStart, startPos
+    Header.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = MainFrame.Position
+        end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+            local delta = input.Position - dragStart
+            MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end)
+    UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = false
+        end
+    end)
+end
+
+-- Info / Stats Strip
+local InfoStrip = Instance.new("Frame")
+InfoStrip.Name = "InfoStrip"
+InfoStrip.Size = UDim2.new(1, -16, 0, 24)
+InfoStrip.Position = UDim2.fromOffset(8, 42)
+InfoStrip.BackgroundColor3 = Colors.Panel
+InfoStrip.BorderSizePixel = 0
+InfoStrip.Parent = MainFrame
+Instance.new("UICorner", InfoStrip).CornerRadius = UDim.new(0, 6)
 
 local MoneyDisplay = Instance.new("TextLabel")
-MoneyDisplay.Name = "MoneyDisplay"
-MoneyDisplay.Size = UDim2.new(1, -12, 1, 0)
-MoneyDisplay.Position = UDim2.new(0, 8, 0, 0)
+MoneyDisplay.Size = UDim2.new(1, -16, 1, 0)
+MoneyDisplay.Position = UDim2.fromOffset(8, 0)
 MoneyDisplay.BackgroundTransparency = 1
 MoneyDisplay.Font = Enum.Font.GothamMedium
-MoneyDisplay.Text = "💰 Money: Loading... | Status: Ready"
-MoneyDisplay.TextColor3 = Color3.fromRGB(140, 255, 160)
 MoneyDisplay.TextSize = 11
+MoneyDisplay.TextColor3 = Color3.fromRGB(140, 255, 170)
 MoneyDisplay.TextXAlignment = Enum.TextXAlignment.Left
-MoneyDisplay.Parent = StatsFrame
+MoneyDisplay.Text = "💰 Money: Loading... | Status: Ready"
+MoneyDisplay.Parent = InfoStrip
 
--- Scrollable Content
-local Scroll = Instance.new("ScrollingFrame")
-Scroll.Name = "ContentScroll"
-Scroll.Size = UDim2.new(1, -16, 1, -92)
-Scroll.Position = UDim2.new(0, 8, 0, 86)
-Scroll.BackgroundTransparency = 1
-Scroll.BorderSizePixel = 0
-Scroll.ScrollBarThickness = 4
-Scroll.ScrollBarImageColor3 = Color3.fromRGB(80, 100, 160)
-Scroll.CanvasSize = UDim2.new(0, 0, 0, 480)
-Scroll.Parent = Main
+-- Body Frame (Tabs Sidebar + Pages Container)
+local Body = Instance.new("Frame")
+Body.Size = UDim2.new(1, 0, 1, -70)
+Body.Position = UDim2.fromOffset(0, 70)
+Body.BackgroundTransparency = 1
+Body.Parent = MainFrame
 
-local Layout = Instance.new("UIListLayout")
-Layout.Padding = UDim.new(0, 6)
-Layout.SortOrder = Enum.SortOrder.LayoutOrder
-Layout.Parent = Scroll
+local Sidebar = Instance.new("Frame")
+Sidebar.Size = UDim2.new(0, 125, 1, -8)
+Sidebar.Position = UDim2.fromOffset(8, 0)
+Sidebar.BackgroundColor3 = Colors.Panel
+Sidebar.BorderSizePixel = 0
+Sidebar.Parent = Body
+Instance.new("UICorner", Sidebar).CornerRadius = UDim.new(0, 8)
 
--- Helper: Create Section Header
-local function makeHeader(text)
-    local lbl = Instance.new("TextLabel")
-    lbl.Size = UDim2.new(1, 0, 0, 20)
-    lbl.BackgroundTransparency = 1
-    lbl.Font = Enum.Font.GothamBold
-    lbl.Text = " " .. text
-    lbl.TextColor3 = Color3.fromRGB(180, 200, 240)
-    lbl.TextSize = 11
-    lbl.TextXAlignment = Enum.TextXAlignment.Left
-    lbl.Parent = Scroll
-    return lbl
-end
+local sideLayout = Instance.new("UIListLayout", Sidebar)
+sideLayout.Padding = UDim.new(0, 5)
+sideLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+sideLayout.SortOrder = Enum.SortOrder.LayoutOrder
 
--- Helper: Create Toggle Button
-local function makeToggle(name, text, stateKey, callback)
+local sidePad = Instance.new("UIPadding", Sidebar)
+sidePad.PaddingTop = UDim.new(0, 6)
+sidePad.PaddingBottom = UDim.new(0, 6)
+
+local PagesHolder = Instance.new("Frame")
+PagesHolder.Size = UDim2.new(1, -147, 1, -8)
+PagesHolder.Position = UDim2.fromOffset(139, 0)
+PagesHolder.BackgroundColor3 = Colors.Panel
+PagesHolder.BorderSizePixel = 0
+PagesHolder.Parent = Body
+Instance.new("UICorner", PagesHolder).CornerRadius = UDim.new(0, 8)
+
+local Tabs = {}
+local CurrentTab = nil
+
+local function createTab(name, icon, order)
     local btn = Instance.new("TextButton")
-    btn.Name = name
-    btn.Size = UDim2.new(1, 0, 0, 32)
-    btn.BackgroundColor3 = settings[stateKey] and Color3.fromRGB(35, 75, 55) or Color3.fromRGB(40, 44, 58)
-    btn.Font = Enum.Font.GothamMedium
-    btn.Text = "  " .. text .. (settings[stateKey] and " [ON]" or " [OFF]")
-    btn.TextColor3 = settings[stateKey] and Color3.fromRGB(120, 255, 160) or Color3.fromRGB(220, 220, 230)
+    btn.Size = UDim2.new(1, -12, 0, 32)
+    btn.LayoutOrder = order
+    btn.BackgroundColor3 = Colors.Card
+    btn.Font = Enum.Font.GothamSemibold
     btn.TextSize = 11
+    btn.TextColor3 = Colors.Muted
+    btn.Text = icon .. "  " .. name
     btn.TextXAlignment = Enum.TextXAlignment.Left
-    btn.Parent = Scroll
+    btn.Parent = Sidebar
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+    
+    local pad = Instance.new("UIPadding", btn)
+    pad.PaddingLeft = UDim.new(0, 10)
 
-    local c = Instance.new("UICorner")
-    c.CornerRadius = UDim.new(0, 6)
-    c.Parent = btn
+    local page = Instance.new("ScrollingFrame")
+    page.Size = UDim2.new(1, -12, 1, -12)
+    page.Position = UDim2.fromOffset(6, 6)
+    page.BackgroundTransparency = 1
+    page.BorderSizePixel = 0
+    page.ScrollBarThickness = 4
+    page.ScrollBarImageColor3 = Colors.Accent
+    page.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    page.CanvasSize = UDim2.new()
+    page.Visible = false
+    page.Parent = PagesHolder
+
+    local layout = Instance.new("UIListLayout", page)
+    layout.Padding = UDim.new(0, 6)
+    layout.SortOrder = Enum.SortOrder.LayoutOrder
+
+    local pPad = Instance.new("UIPadding", page)
+    pPad.PaddingTop = UDim.new(0, 4)
+    pPad.PaddingBottom = UDim.new(0, 8)
+    pPad.PaddingLeft = UDim.new(0, 4)
+    pPad.PaddingRight = UDim.new(0, 6)
 
     btn.Activated:Connect(function()
-        settings[stateKey] = not settings[stateKey]
-        local on = settings[stateKey]
-        btn.BackgroundColor3 = on and Color3.fromRGB(35, 75, 55) or Color3.fromRGB(40, 44, 58)
-        btn.Text = "  " .. text .. (on and " [ON]" or " [OFF]")
-        btn.TextColor3 = on and Color3.fromRGB(120, 255, 160) or Color3.fromRGB(220, 220, 230)
-        saveConfig()
-        if callback then callback(on) end
+        for _, t in pairs(Tabs) do
+            t.Page.Visible = false
+            t.Btn.BackgroundColor3 = Colors.Card
+            t.Btn.TextColor3 = Colors.Muted
+        end
+        page.Visible = true
+        btn.BackgroundColor3 = Colors.Accent
+        btn.TextColor3 = Colors.Text
+        CurrentTab = name
     end)
-    return btn
+
+    Tabs[name] = { Btn = btn, Page = page }
+    if not CurrentTab then
+        page.Visible = true
+        btn.BackgroundColor3 = Colors.Accent
+        btn.TextColor3 = Colors.Text
+        CurrentTab = name
+    end
+    return page
 end
 
--- Helper: Create Action / TP Button
-local function makeActionBtn(name, text, color, callback)
-    local btn = Instance.new("TextButton")
-    btn.Name = name
-    btn.Size = UDim2.new(1, 0, 0, 30)
-    btn.BackgroundColor3 = color or Color3.fromRGB(45, 55, 80)
-    btn.Font = Enum.Font.GothamBold
-    btn.Text = text
-    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    btn.TextSize = 11
-    btn.Parent = Scroll
+local nextOrder = 0
+local function getOrder()
+    nextOrder = nextOrder + 1
+    return nextOrder
+end
 
-    local c = Instance.new("UICorner")
-    c.CornerRadius = UDim.new(0, 6)
-    c.Parent = btn
+local function addToggle(parent, title, desc, configKey, callback)
+    local card = Instance.new("Frame")
+    card.Size = UDim2.new(1, 0, 0, desc and 46 or 36)
+    card.BackgroundColor3 = Colors.Card
+    card.BorderSizePixel = 0
+    card.LayoutOrder = getOrder()
+    card.Parent = parent
+    Instance.new("UICorner", card).CornerRadius = UDim.new(0, 6)
+
+    local titleLbl = Instance.new("TextLabel")
+    titleLbl.Size = UDim2.new(1, -75, 0, 18)
+    titleLbl.Position = UDim2.fromOffset(10, desc and 5 or 9)
+    titleLbl.BackgroundTransparency = 1
+    titleLbl.Font = Enum.Font.GothamMedium
+    titleLbl.TextSize = 11
+    titleLbl.TextColor3 = Colors.Text
+    titleLbl.TextXAlignment = Enum.TextXAlignment.Left
+    titleLbl.Text = title
+    titleLbl.Parent = card
+
+    if desc then
+        local descLbl = Instance.new("TextLabel")
+        descLbl.Size = UDim2.new(1, -75, 0, 14)
+        descLbl.Position = UDim2.fromOffset(10, 24)
+        descLbl.BackgroundTransparency = 1
+        descLbl.Font = Enum.Font.Gotham
+        descLbl.TextSize = 9.5
+        descLbl.TextColor3 = Colors.Muted
+        descLbl.TextXAlignment = Enum.TextXAlignment.Left
+        descLbl.Text = desc
+        descLbl.Parent = card
+    end
+
+    local toggleBtn = Instance.new("TextButton")
+    toggleBtn.Size = UDim2.fromOffset(58, 24)
+    toggleBtn.Position = UDim2.new(1, -66, 0.5, -12)
+    toggleBtn.BackgroundColor3 = settings[configKey] and Colors.Green or Colors.Border
+    toggleBtn.Font = Enum.Font.GothamBold
+    toggleBtn.TextSize = 10
+    toggleBtn.TextColor3 = Colors.Text
+    toggleBtn.Text = settings[configKey] and "✓ ON" or "OFF"
+    toggleBtn.Parent = card
+    Instance.new("UICorner", toggleBtn).CornerRadius = UDim.new(0, 6)
+
+    toggleBtn.Activated:Connect(function()
+        settings[configKey] = not settings[configKey]
+        local val = settings[configKey]
+        toggleBtn.BackgroundColor3 = val and Colors.Green or Colors.Border
+        toggleBtn.Text = val and "✓ ON" or "OFF"
+        saveConfig()
+        if callback then callback(val) end
+    end)
+    return card
+end
+
+local function addAction(parent, title, btnText, btnColor, callback)
+    local card = Instance.new("Frame")
+    card.Size = UDim2.new(1, 0, 0, 36)
+    card.BackgroundColor3 = Colors.Card
+    card.BorderSizePixel = 0
+    card.LayoutOrder = getOrder()
+    card.Parent = parent
+    Instance.new("UICorner", card).CornerRadius = UDim.new(0, 6)
+
+    local lbl = Instance.new("TextLabel")
+    lbl.Size = UDim2.new(1, -100, 1, 0)
+    lbl.Position = UDim2.fromOffset(10, 0)
+    lbl.BackgroundTransparency = 1
+    lbl.Font = Enum.Font.GothamMedium
+    lbl.TextSize = 11
+    lbl.TextColor3 = Colors.Text
+    lbl.TextXAlignment = Enum.TextXAlignment.Left
+    lbl.Text = title
+    lbl.Parent = card
+
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.fromOffset(80, 24)
+    btn.Position = UDim2.new(1, -88, 0.5, -12)
+    btn.BackgroundColor3 = btnColor or Colors.Accent
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 10
+    btn.TextColor3 = Colors.Text
+    btn.Text = btnText
+    btn.Parent = card
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
 
     btn.Activated:Connect(function()
         if callback then callback() end
     end)
-    return btn
+    return card
 end
 
--- SECTION 1: AUTO MONEY & ROLL
-makeHeader("⚡ PENGUMPULAN & GACHA")
-makeToggle("AutoCollectBtn", "Auto Collect Money (Instant)", "autoCollect")
-makeToggle("AutoRollBtn", "Auto Roll (Native Group-Unlocked)", "autoRoll", function(on)
+-- ============================================================================
+-- BUILD PAGES & TABS
+-- ============================================================================
+
+local pageMain = createTab("Utama", "⚡", 1)
+local pageTower = createTab("Tower", "🏰", 2)
+local pageUpgrade = createTab("Upgrades", "🏗️", 3)
+local pageRewards = createTab("Hadiah", "🎁", 4)
+local pageTeleport = createTab("Teleport", "📍", 5)
+
+-- TAB 1: UTAMA
+addToggle(pageMain, "Auto Collect Money", "Ambil uang instan via touch (no gamepass)", "autoCollect")
+addToggle(pageMain, "Auto Roll Gacha", "Auto roll gacha unit (bypass syarat grup)", "autoRoll", function(on)
     if on then startNativeAutoRoll() end
 end)
-makeToggle("FastRollBtn", "Fast Roll Prompt Spammer", "fastRollPrompt")
+addToggle(pageMain, "Fast Roll Prompt", "Spam tombol roll via ProximityPrompt", "fastRollPrompt")
 
--- SECTION 2: TOWER & BATTLE
-makeHeader("🏰 TOWER DUNGEON")
-makeToggle("AutoTowerBtn", "Full Auto Tower (Equip+Start+Next)", "autoTower")
+-- TAB 2: TOWER DUNGEON
+addToggle(pageTower, "Full Auto Tower", "Equip unit terkuat + mulai + auto next floor", "autoTower")
+addAction(pageTower, "Mulai Tower Sekarang", "Mulai", Colors.Green, stepTower)
 
--- SECTION 3: BASE UPGRADES
-makeHeader("🏗️ UPGRADE BASE / PLOT")
-makeToggle("AutoUpgradeBtn", "Auto Max Upgrades (Luck/Damage/Money/Boss)", "autoUpgrade")
-makeToggle("AutoFloorBtn", "Auto Buy / Unlock Floor", "autoFloor")
+-- TAB 3: UPGRADES
+addToggle(pageUpgrade, "Auto Max Base Upgrades", "Auto upgrade Luck, Rolls, Damage, Money, Boss", "autoUpgrade")
+addToggle(pageUpgrade, "Auto Unlock Floor", "Otomatis beli floor baru jika uang cukup", "autoFloor")
+addAction(pageUpgrade, "Upgrade Semua Sekali", "Max All", Colors.Accent, upgradeBase)
 
--- SECTION 4: FREE REWARDS
-makeHeader("🎁 HADIAH & SPIN WHEEL")
-makeToggle("DailyBtn", "Auto Claim Daily Rewards", "autoClaimDaily")
-makeToggle("PlaytimeBtn", "Auto Claim Playtime Rewards (1-12)", "autoClaimPlaytime")
-makeToggle("WheelBtn", "Auto Free Spin Wheel", "autoSpinWheel")
+-- TAB 4: HADIAH & SPIN
+addToggle(pageRewards, "Auto Claim Daily", "Klaim reward harian otomatis", "autoClaimDaily")
+addToggle(pageRewards, "Auto Claim Playtime", "Klaim reward playtime (1 s/d 12)", "autoClaimPlaytime")
+addToggle(pageRewards, "Auto Free Spin Wheel", "Putar roda spin gratis otomatis", "autoSpinWheel")
+addAction(pageRewards, "Klaim Semua Hadiah", "Claim All", Colors.Gold, claimRewards)
 
--- SECTION 5: TELEPORTS
-makeHeader("📍 SHORTCUT TELEPORT")
-makeActionBtn("TpBaseBtn", "🏠 Teleport ke My Plot / Base", Color3.fromRGB(40, 70, 110), tpToPlot)
-makeActionBtn("TpTowerBtn", "🏰 Teleport ke Tower Dungeon", Color3.fromRGB(90, 50, 110), tpToTower)
-makeActionBtn("TpWheelBtn", "🎡 Teleport ke Spin Wheel", Color3.fromRGB(110, 80, 40), tpToWheel)
+-- TAB 5: TELEPORT SHORTCUTS
+addAction(pageTeleport, "Teleport ke My Plot", "Teleport", Colors.Accent, tpToPlot)
+addAction(pageTeleport, "Teleport ke Tower", "Teleport", Color3.fromRGB(130, 70, 160), tpToTower)
+addAction(pageTeleport, "Teleport ke Spin Wheel", "Teleport", Color3.fromRGB(180, 120, 50), tpToWheel)
 
 -- Minimize System
 local isMinimized = false
 MinBtn.Activated:Connect(function()
     isMinimized = not isMinimized
     if isMinimized then
-        Scroll.Visible = false
-        StatsFrame.Visible = false
-        Main.Size = UDim2.new(0, 310, 0, 40)
+        Body.Visible = false
+        InfoStrip.Visible = false
+        MainFrame.Size = UDim2.fromOffset(470, 38)
         MinBtn.Text = "+"
     else
-        Main.Size = UDim2.new(0, 310, 0, 420)
-        Scroll.Visible = true
-        StatsFrame.Visible = true
+        MainFrame.Size = UDim2.fromOffset(470, 310)
+        Body.Visible = true
+        InfoStrip.Visible = true
         MinBtn.Text = "—"
     end
 end)
@@ -522,57 +664,48 @@ task.spawn(function()
             if d and d.Money ~= nil then
                 local mStr = NumberFormat.Abbreviate(d.Money)
                 local mpsStr = d.MoneyPerSecond and NumberFormat.Abbreviate(d.MoneyPerSecond) or "0"
-                MoneyDisplay.Text = string.format("💰 $%s (+$%s/s) | Tower: %s", mStr, mpsStr, tostring(d.TowerBest or 1))
+                local tStr = formatTower(d.TowerBest)
+                MoneyDisplay.Text = string.format("💰 $%s (+$%s/s)  |  🏰 Tower: %s", mStr, mpsStr, tStr)
             end
         end)
         task.wait(1)
     end
 end)
 
--- 2. Fast Money Collection Loop (setiap 0.6 detik)
+-- 2. Fast Money Collection
 task.spawn(function()
     while isRunning do
-        if settings.autoCollect then
-            collectMoney()
-        end
+        if settings.autoCollect then collectMoney() end
         task.wait(0.6)
     end
 end)
 
--- 3. Auto Roll & Fast Roll Loop
+-- 3. Auto Roll & Fast Roll
 task.spawn(function()
     while isRunning do
-        if settings.autoRoll then
-            startNativeAutoRoll()
-        end
-        if settings.fastRollPrompt then
-            triggerFastRollPrompt()
-        end
+        if settings.autoRoll then startNativeAutoRoll() end
+        if settings.fastRollPrompt then triggerFastRollPrompt() end
         task.wait(0.3)
     end
 end)
 
--- 4. Auto Tower Loop (setiap 2.5 detik)
+-- 4. Auto Tower
 task.spawn(function()
     while isRunning do
-        if settings.autoTower then
-            stepTower()
-        end
+        if settings.autoTower then stepTower() end
         task.wait(2.5)
     end
 end)
 
--- 5. Auto Upgrade Base Loop (setiap 3 detik)
+-- 5. Auto Upgrade Base (setiap 2 detik dengan dual click & direct call)
 task.spawn(function()
     while isRunning do
-        if settings.autoUpgrade then
-            upgradeBase()
-        end
-        task.wait(3.0)
+        if settings.autoUpgrade then upgradeBase() end
+        task.wait(2.0)
     end
 end)
 
--- 6. Auto Claim Rewards Loop (setiap 10 detik)
+-- 6. Auto Claim Rewards
 task.spawn(function()
     while isRunning do
         claimRewards()
@@ -580,4 +713,4 @@ task.spawn(function()
     end
 end)
 
-print("⚔️ [OK] Anime Army RNG Multi-Tool v1.0 Siap Dijalankan!")
+print("⚔️ [OK] Anime Army RNG Multi-Tool v2.0 (Tabbed UI) Siap Dijalankan!")
