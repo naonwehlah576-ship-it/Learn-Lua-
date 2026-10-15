@@ -818,15 +818,7 @@ local function doOpenReadyCards()
                     end
                 end)
 
-                pcall(function()
-                    for _, desc in ipairs(dropPart:GetDescendants()) do
-                        if desc:IsA("ProximityPrompt") and desc.Enabled and desc.ActionText == "Open" then
-                            triggerPrompt(desc)
-                        end
-                    end
-                end)
-
-                task.wait(0.3)
+                task.wait(0.4)
             end
         end
     end
