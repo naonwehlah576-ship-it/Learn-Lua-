@@ -263,8 +263,9 @@ local VariantColors = {
 
 
 
+
 -- ============================================================================
--- KONFIGURASI PERSISTENT & AUTOSAVE
+-- KONFIGURASI PERSISTENT & AUTOSAVE (DELTA EXECUTOR & PC COMPATIBLE)
 -- ============================================================================
 local CONFIG_FILE = "CardTycoon_V3_2_Config.json"
 
@@ -309,21 +310,36 @@ local Config = {
 
 local toggleRefs = {}
 
-local function saveConfig()
+local function saveConfig(isManual)
     pcall(function()
-        if writefile then
-            local data = HttpService:JSONEncode(Config)
-            writefile(CONFIG_FILE, data)
+        if not writefile then
+            warn("⚠️ [Config] 'writefile' tidak didukung di executor ini.")
+            return
+        end
+        local data = HttpService:JSONEncode(Config)
+        writefile(CONFIG_FILE, data)
+        if isManual then
+            print("💾 [Card Tycoon] Semua settingan berhasil DISIMPAN ke disk (" .. CONFIG_FILE .. ")!")
         end
     end)
 end
 
 local function loadConfig()
     pcall(function()
-        if readfile and isfile and isfile(CONFIG_FILE) then
-            local data = readfile(CONFIG_FILE)
-            local decoded = HttpService:JSONDecode(data)
-            if type(decoded) == "table" then
+        if not readfile then return end
+
+        local success, data = pcall(readfile, CONFIG_FILE)
+        if not success or not data or #data < 2 then
+            -- Fallback coba baca dari nama config versi sebelumnya jika ada
+            local oldOk, oldData = pcall(readfile, "CardTycoon_V3_Config.json")
+            if oldOk and oldData and #oldData > 2 then
+                success, data = oldOk, oldData
+            end
+        end
+
+        if success and data and #data > 2 then
+            local decSuccess, decoded = pcall(function() return HttpService:JSONDecode(data) end)
+            if decSuccess and type(decoded) == "table" then
                 for k, v in pairs(decoded) do
                     if k == "SelectedPacks" and type(v) == "table" then
                         for pK, pV in pairs(v) do
@@ -347,7 +363,10 @@ local function loadConfig()
                         Config[k] = v
                     end
                 end
+                print("💾 [Card Tycoon] Settingan terakhir berhasil DIMUAT dari disk (" .. CONFIG_FILE .. ")!")
             end
+        else
+            print("ℹ️ [Card Tycoon] File config baru dibuat untuk versi ini.")
         end
     end)
 end
@@ -2104,6 +2123,44 @@ tokenDesc.TextSize = 10
 tokenDesc.TextWrapped = true
 tokenDesc.TextXAlignment = Enum.TextXAlignment.Left
 tokenDesc.Parent = BasePage
+
+createSectionHeader(BasePage, "💾 Manajemen Penyimpanan Settingan")
+
+local saveBtn = Instance.new("TextButton")
+saveBtn.Size = UDim2.new(1, 0, 0, 36)
+saveBtn.BackgroundColor3 = Color3.fromRGB(35, 130, 75)
+saveBtn.Text = "💾 Simpan Semua Pengaturan Sekarang"
+saveBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+saveBtn.Font = Enum.Font.GothamBold
+saveBtn.TextSize = 11
+saveBtn.Parent = BasePage
+
+local sbc = Instance.new("UICorner")
+sbc.CornerRadius = UDim.new(0, 8)
+sbc.Parent = saveBtn
+
+bindBtn(saveBtn, function()
+    saveConfig(true)
+    saveBtn.Text = "✅ Berhasil Disimpan ke Disk!"
+    saveBtn.BackgroundColor3 = Color3.fromRGB(50, 180, 95)
+    task.delay(1.5, function()
+        if saveBtn and saveBtn.Parent then
+            saveBtn.Text = "💾 Simpan Semua Pengaturan Sekarang"
+            saveBtn.BackgroundColor3 = Color3.fromRGB(35, 130, 75)
+        end
+    end)
+end)
+
+local saveStatusLabel = Instance.new("TextLabel")
+saveStatusLabel.Size = UDim2.new(1, 0, 0, 32)
+saveStatusLabel.BackgroundTransparency = 1
+saveStatusLabel.Text = "ℹ️ Pengaturan otomatis tersimpan tiap kali kamu mengubah toggle / filter. Tombol di atas untuk memastikan tersimpan ke disk Delta."
+saveStatusLabel.TextColor3 = Color3.fromRGB(140, 155, 185)
+saveStatusLabel.Font = Enum.Font.Gotham
+saveStatusLabel.TextSize = 10
+saveStatusLabel.TextWrapped = true
+saveStatusLabel.TextXAlignment = Enum.TextXAlignment.Left
+saveStatusLabel.Parent = BasePage
 
 -- Inisialisasi Tampilan
 updateAllPacksVisual()
