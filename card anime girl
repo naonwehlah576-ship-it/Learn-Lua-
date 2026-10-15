@@ -1,0 +1,936 @@
+-- ============================================================================
+-- CARD & CRATE TYCOON - ULTIMATE AUTO FARM & UTILITY SCRIPT
+-- Brand New Custom Script (100% Pure Offline UI - No External Loadstring Needed)
+-- Compatibility: PC & Mobile (Touch Friendly, Draggable, Resilient)
+-- ============================================================================
+
+if not game:IsLoaded() then
+    pcall(function() game.Loaded:Wait() end)
+end
+
+-- Cleanup script versi sebelumnya jika di-execute ulang
+pcall(function()
+    local g = (getgenv and getgenv()) or _G
+    if g and g._CardTycoonCleanup then
+        g._CardTycoonCleanup()
+    end
+end)
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Workspace = game:GetService("Workspace")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local CollectionService = game:GetService("CollectionService")
+local CoreGui = game:GetService("CoreGui")
+
+local LocalPlayer = Players.LocalPlayer or Players.PlayerAdded:Wait()
+local Remotes = ReplicatedStorage:WaitForChild("Remotes", 20)
+
+-- ============================================================================
+-- 1. DETEKSI PLOT MILIK PLAYER
+-- ============================================================================
+local function getMyPlot()
+    local plotModels = Workspace:FindFirstChild("Map") and Workspace.Map:FindFirstChild("PlotModels")
+    if not plotModels then return nil end
+
+    -- Cari berdasarkan nama player
+    local myPlot = plotModels:FindFirstChild(LocalPlayer.Name)
+    if myPlot then return myPlot end
+
+    -- Fallback cari plot yang memiliki nama player
+    for _, plot in ipairs(plotModels:GetChildren()) do
+        if plot.Name:find(LocalPlayer.Name) then
+            return plot
+        end
+    end
+    return nil
+end
+
+-- Helper trigger ProximityPrompt
+local function triggerPrompt(prompt)
+    if not prompt or not prompt.Enabled then return false end
+    pcall(function()
+        if typeof(fireproximityprompt) == "function" then
+            fireproximityprompt(prompt)
+        else
+            -- Fallback jika executor tidak ada fireproximityprompt
+            prompt:InputHoldBegin()
+            task.wait(prompt.HoldDuration + 0.05)
+            prompt:InputHoldEnd()
+        end
+    end)
+    return true
+end
+
+-- ============================================================================
+-- 2. STATE & KONFIGURASI
+-- ============================================================================
+local Config = {
+    -- Tab Farm
+    AutoCarryCrate = false,
+    AutoDepositPolisher = false,
+    AutoCollectPolisher = false,
+    AutoSellCrate = false,
+    AutoFullCrateCycle = false, -- Carry -> Deposit -> Collect -> Sell
+    AutoBuyPedestals = false,
+    
+    -- Tab Card / Base
+    AutoRoll = false,
+    AutoOpenDropperBox = false,
+    AutoEquipBest = false,
+    AutoLevelUpUnit = false,
+    AutoConveyorSettings = false,
+    
+    -- Tab Rewards & World
+    AutoCollectTokens = false,
+    AutoCollectObjects = false,
+    AutoClaimRewards = false,
+    
+    -- Tab Player
+    WalkSpeedEnabled = false,
+    WalkSpeedValue = 16,
+    JumpPowerEnabled = false,
+    JumpPowerValue = 50,
+    Noclip = false,
+    InfiniteJump = false
+}
+
+-- ============================================================================
+-- 3. CORE AUTOMATION FUNCTIONS
+-- ============================================================================
+
+-- [FARM] Crate Actions
+local function doCarryCrate()
+    local myPlot = getMyPlot()
+    if not myPlot then return end
+    
+    -- 1. Coba via RemoteEvent
+    pcall(function()
+        if Remotes:FindFirstChild("PickupCrateBox") then
+            Remotes.PickupCrateBox:FireServer()
+        end
+    end)
+    
+    -- 2. Coba via ProximityPrompt di CollectPart
+    pcall(function()
+        local collectPart = myPlot:FindFirstChild("Systems") 
+            and myPlot.Systems:FindFirstChild("TycoonConveyor") 
+            and myPlot.Systems.TycoonConveyor:FindFirstChild("CollectPart")
+            
+        if collectPart then
+            for _, desc in ipairs(collectPart:GetDescendants()) do
+                if desc:IsA("ProximityPrompt") then
+                    triggerPrompt(desc)
+                end
+            end
+        end
+    end)
+end
+
+local function doDepositPolisher()
+    local myPlot = getMyPlot()
+    if not myPlot then return end
+    
+    -- 1. Via Remote
+    pcall(function()
+        if Remotes:FindFirstChild("DepositCrate") then
+            Remotes.DepositCrate:FireServer()
+        end
+    end)
+    
+    -- 2. Via ProximityPrompt di Polisher CollectPart
+    pcall(function()
+        local polisherCollect = myPlot:FindFirstChild("Systems") 
+            and myPlot.Systems:FindFirstChild("PolisherModel")
+            and myPlot.Systems.PolisherModel:FindFirstChild("PhysicalModel")
+            and myPlot.Systems.PolisherModel.PhysicalModel:FindFirstChild("CollectPart")
+            
+        if polisherCollect then
+            for _, desc in ipairs(polisherCollect:GetDescendants()) do
+                if desc:IsA("ProximityPrompt") then
+                    triggerPrompt(desc)
+                end
+            end
+        end
+    end)
+end
+
+local function doCollectPolisher()
+    pcall(function()
+        if Remotes:FindFirstChild("CollectPolisherCrate") then
+            Remotes.CollectPolisherCrate:FireServer()
+        end
+    end)
+end
+
+local function doSellCrates()
+    local myPlot = getMyPlot()
+    if not myPlot then return end
+    
+    -- 1. Via Remote
+    pcall(function()
+        if Remotes:FindFirstChild("SellCrate") then
+            Remotes.SellCrate:FireServer()
+        end
+    end)
+    
+    -- 2. Via ProximityPrompt di sell npc
+    pcall(function()
+        local sellNpcZone = myPlot:FindFirstChild("Systems") 
+            and myPlot.Systems:FindFirstChild("Zones") 
+            and myPlot.Systems.Zones:FindFirstChild("sell npc")
+            
+        if sellNpcZone then
+            for _, desc in ipairs(sellNpcZone:GetDescendants()) do
+                if desc:IsA("ProximityPrompt") then
+                    triggerPrompt(desc)
+                end
+            end
+        end
+    end)
+end
+
+local function doBuyPedestals()
+    local myPlot = getMyPlot()
+    if not myPlot then return end
+    
+    pcall(function()
+        local buttons = myPlot:FindFirstChild("Systems") 
+            and myPlot.Systems:FindFirstChild("Classes") 
+            and myPlot.Systems.Classes:FindFirstChild("Buttons")
+            
+        if buttons then
+            for _, ped in ipairs(buttons:GetChildren()) do
+                for _, prompt in ipairs(ped:GetDescendants()) do
+                    if prompt:IsA("ProximityPrompt") then
+                        triggerPrompt(prompt)
+                    end
+                end
+            end
+        end
+        
+        -- Cek SkipAll
+        local skipAll = myPlot.Systems.Classes:FindFirstChild("SkipAll")
+        if skipAll then
+            for _, prompt in ipairs(skipAll:GetDescendants()) do
+                if prompt:IsA("ProximityPrompt") then
+                    triggerPrompt(prompt)
+                end
+            end
+        end
+        
+        -- PurchaseUpgrade Remote
+        if Remotes:FindFirstChild("PurchaseUpgrade") then
+            Remotes.PurchaseUpgrade:FireServer()
+        end
+    end)
+end
+
+-- [CARDS] Card & Dropper Actions
+local function doRollCard()
+    pcall(function()
+        if Remotes:FindFirstChild("RequestConveyorRoll") then
+            Remotes.RequestConveyorRoll:FireServer()
+        end
+        if Remotes:FindFirstChild("PurchaseConveyorRoll") then
+            Remotes.PurchaseConveyorRoll:FireServer()
+        end
+    end)
+end
+
+local function doOpenDropperBoxes()
+    local myPlot = getMyPlot()
+    if not myPlot then return end
+    
+    pcall(function()
+        -- 1. Coba RemoteFunction OpenBoxOnDropper
+        if Remotes:FindFirstChild("OpenBoxOnDropper") then
+            for i = 1, 10 do
+                pcall(function()
+                    Remotes.OpenBoxOnDropper:InvokeServer(i)
+                end)
+            end
+        end
+        
+        -- 2. Trigger ProximityPrompt di Droppers
+        local droppers = myPlot:FindFirstChild("Systems") 
+            and myPlot.Systems:FindFirstChild("TycoonConveyor") 
+            and myPlot.Systems.TycoonConveyor:FindFirstChild("Conveyors") 
+            and myPlot.Systems.TycoonConveyor.Conveyors:FindFirstChild("Conveyor1") 
+            and myPlot.Systems.TycoonConveyor.Conveyors.Conveyor1:FindFirstChild("Droppers")
+            
+        if droppers then
+            for _, drop in ipairs(droppers:GetChildren()) do
+                for _, prompt in ipairs(drop:GetDescendants()) do
+                    if prompt:IsA("ProximityPrompt") and prompt.ActionText:lower():find("place") then
+                        triggerPrompt(prompt)
+                    end
+                end
+            end
+        end
+    end)
+end
+
+local function doEquipBestCards()
+    pcall(function()
+        if Remotes:FindFirstChild("EquipBestPlayerUnits") then
+            Remotes.EquipBestPlayerUnits:FireServer()
+        end
+    end)
+end
+
+local function doLevelUpUnits()
+    pcall(function()
+        if Remotes:FindFirstChild("RequestPlayerUnitLevelUp") then
+            Remotes.RequestPlayerUnitLevelUp:FireServer()
+        end
+    end)
+end
+
+local function doConveyorSettings()
+    pcall(function()
+        if Remotes:FindFirstChild("RequestSetConveyorAutoSpawn") then
+            Remotes.RequestSetConveyorAutoSpawn:FireServer(true)
+        end
+        if Remotes:FindFirstChild("RequestSetConveyorAutoBuy") then
+            Remotes.RequestSetConveyorAutoBuy:FireServer(true)
+        end
+    end)
+end
+
+-- [REWARDS]
+local function doClaimRewards()
+    pcall(function()
+        if Remotes:FindFirstChild("ClaimPlaytimeReward") then
+            Remotes.ClaimPlaytimeReward:FireServer()
+        end
+        if Remotes:FindFirstChild("ClaimDailyReward") then
+            Remotes.ClaimDailyReward:FireServer()
+        end
+        if Remotes:FindFirstChild("ClaimAllIndexRewards") then
+            Remotes.ClaimAllIndexRewards:FireServer()
+        end
+        if Remotes:FindFirstChild("ClaimObbyBonus") then
+            Remotes.ClaimObbyBonus:FireServer()
+        end
+        if Remotes:FindFirstChild("ClaimOfflineEarnings") then
+            Remotes.ClaimOfflineEarnings:FireServer()
+        end
+        if Remotes:FindFirstChild("JackpotSpin") then
+            Remotes.JackpotSpin:FireServer()
+        end
+    end)
+end
+
+local function doCollectTokens()
+    pcall(function()
+        local tokens = CollectionService:GetTagged("VariantTokenSpawn")
+        for _, token in ipairs(tokens) do
+            if Remotes:FindFirstChild("CollectVariantTokenSpawn") then
+                Remotes.CollectVariantTokenSpawn:FireServer(token)
+                Remotes.CollectVariantTokenSpawn:FireServer(token.Name)
+            end
+        end
+    end)
+end
+
+local function doCollectObjects()
+    pcall(function()
+        local objects = CollectionService:GetTagged("CollectableObject")
+        for _, obj in ipairs(objects) do
+            if Remotes:FindFirstChild("CollectCollectableObject") then
+                Remotes.CollectCollectableObject:FireServer(obj)
+                Remotes.CollectCollectableObject:FireServer(obj.Name)
+            end
+        end
+    end)
+end
+
+-- ============================================================================
+-- 4. BACKGROUND THREADS
+-- ============================================================================
+
+-- Farm Loop
+task.spawn(function()
+    while true do
+        if Config.AutoFullCrateCycle then
+            -- Siklus Lengkap: Ambil Crate -> Masukkan Polisher -> Ambil Hasil Poles -> Jual
+            doCarryCrate()
+            task.wait(0.2)
+            doDepositPolisher()
+            task.wait(0.2)
+            doCollectPolisher()
+            task.wait(0.2)
+            doSellCrates()
+            task.wait(0.3)
+        else
+            -- Individual Toggles
+            if Config.AutoCarryCrate then
+                doCarryCrate()
+            end
+            if Config.AutoDepositPolisher then
+                doDepositPolisher()
+            end
+            if Config.AutoCollectPolisher then
+                doCollectPolisher()
+            end
+            if Config.AutoSellCrate then
+                doSellCrates()
+            end
+            task.wait(0.3)
+        end
+        
+        if Config.AutoBuyPedestals then
+            doBuyPedestals()
+            task.wait(0.5)
+        end
+    end
+end)
+
+-- Card Loop
+task.spawn(function()
+    while true do
+        if Config.AutoRoll then
+            doRollCard()
+            task.wait(0.15)
+        else
+            task.wait(0.5)
+        end
+    end
+end)
+
+task.spawn(function()
+    while true do
+        if Config.AutoOpenDropperBox then
+            doOpenDropperBoxes()
+        end
+        if Config.AutoEquipBest then
+            doEquipBestCards()
+        end
+        if Config.AutoLevelUpUnit then
+            doLevelUpUnits()
+        end
+        if Config.AutoConveyorSettings then
+            doConveyorSettings()
+        end
+        task.wait(0.8)
+    end
+end)
+
+-- Rewards Loop
+task.spawn(function()
+    while true do
+        if Config.AutoClaimRewards then
+            doClaimRewards()
+        end
+        if Config.AutoCollectTokens then
+            doCollectTokens()
+        end
+        if Config.AutoCollectObjects then
+            doCollectObjects()
+        end
+        task.wait(1.5)
+    end
+end)
+
+-- Player Noclip & WalkSpeed Loop
+RunService.Stepped:Connect(function()
+    if Config.Noclip then
+        local char = LocalPlayer.Character
+        if char then
+            for _, part in ipairs(char:GetDescendants()) do
+                if part:IsA("BasePart") and part.CanCollide then
+                    part.CanCollide = false
+                end
+            end
+        end
+    end
+    
+    local char = LocalPlayer.Character
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    if hum then
+        if Config.WalkSpeedEnabled then
+            hum.WalkSpeed = Config.WalkSpeedValue
+        end
+        if Config.JumpPowerEnabled then
+            hum.JumpPower = Config.JumpPowerValue
+            hum.UseJumpPower = true
+        end
+    end
+end)
+
+-- Infinite Jump
+UserInputService.JumpRequest:Connect(function()
+    if Config.InfiniteJump then
+        local char = LocalPlayer.Character
+        local hum = char and char:FindFirstChildOfClass("Humanoid")
+        if hum then
+            hum:ChangeState(Enum.HumanoidStateType.Jumping)
+        end
+    end
+end)
+
+-- ============================================================================
+-- 5. OFFLINE MODERN GUI (100% Standalone)
+-- ============================================================================
+
+local targetGuiParent = (pcall(function() return CoreGui end) and CoreGui) or LocalPlayer:WaitForChild("PlayerGui")
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "CardTycoonOfflineGui"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+pcall(function()
+    ScreenGui.Parent = targetGuiParent
+end)
+
+-- Cleanup Handler
+local g = (getgenv and getgenv()) or _G
+g._CardTycoonCleanup = function()
+    pcall(function() ScreenGui:Destroy() end)
+end
+
+-- Floating Toggle Button
+local FloatBtn = Instance.new("TextButton")
+FloatBtn.Name = "FloatToggle"
+FloatBtn.Size = UDim2.new(0, 50, 0, 50)
+FloatBtn.Position = UDim2.new(0.02, 0, 0.25, 0)
+FloatBtn.BackgroundColor3 = Color3.fromRGB(24, 28, 36)
+FloatBtn.Text = "🃏"
+FloatBtn.TextSize = 24
+FloatBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+FloatBtn.Font = Enum.Font.GothamBold
+FloatBtn.Parent = ScreenGui
+
+local FloatCorner = Instance.new("UICorner")
+FloatCorner.CornerRadius = UDim.new(0, 14)
+FloatCorner.Parent = FloatBtn
+
+local FloatStroke = Instance.new("UIStroke")
+FloatStroke.Color = Color3.fromRGB(70, 130, 255)
+FloatStroke.Thickness = 2
+FloatStroke.Parent = FloatBtn
+
+-- Main Frame
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Size = UDim2.new(0, 550, 0, 360)
+MainFrame.Position = UDim2.new(0.5, -275, 0.5, -180)
+MainFrame.BackgroundColor3 = Color3.fromRGB(18, 20, 28)
+MainFrame.BorderSizePixel = 0
+MainFrame.ClipsDescendants = true
+MainFrame.Parent = ScreenGui
+
+local MainCorner = Instance.new("UICorner")
+MainCorner.CornerRadius = UDim.new(0, 12)
+MainCorner.Parent = MainFrame
+
+local MainStroke = Instance.new("UIStroke")
+MainStroke.Color = Color3.fromRGB(45, 52, 68)
+MainStroke.Thickness = 1.5
+MainStroke.Parent = MainFrame
+
+-- Draggable Logic (PC & Mobile Support)
+local function makeDraggable(topBar, targetFrame)
+    local dragging = false
+    local dragInput, dragStart, startPos
+
+    topBar.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = targetFrame.Position
+
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
+        end
+    end)
+
+    topBar.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+            dragInput = input
+        end
+    end)
+
+    UserInputService.InputChanged:Connect(function(input)
+        if input == dragInput and dragging then
+            local delta = input.Position - dragStart
+            targetFrame.Position = UDim2.new(
+                startPos.X.Scale,
+                startPos.X.Offset + delta.X,
+                startPos.Y.Scale,
+                startPos.Y.Offset + delta.Y
+            )
+        end
+    end)
+end
+
+makeDraggable(FloatBtn, FloatBtn)
+
+-- Topbar
+local TopBar = Instance.new("Frame")
+TopBar.Name = "TopBar"
+TopBar.Size = UDim2.new(1, 0, 0, 42)
+TopBar.BackgroundColor3 = Color3.fromRGB(24, 28, 40)
+TopBar.BorderSizePixel = 0
+TopBar.Parent = MainFrame
+
+local TopBarCorner = Instance.new("UICorner")
+TopBarCorner.CornerRadius = UDim.new(0, 12)
+TopBarCorner.Parent = TopBar
+
+makeDraggable(TopBar, MainFrame)
+
+local TitleLabel = Instance.new("TextLabel")
+TitleLabel.Name = "TitleLabel"
+TitleLabel.Size = UDim2.new(1, -90, 1, 0)
+TitleLabel.Position = UDim2.new(0, 14, 0, 0)
+TitleLabel.BackgroundTransparency = 1
+TitleLabel.Text = "🃏 CARD TYCOON <font color=\"#4A90E2\">AUTOFARM</font>"
+TitleLabel.RichText = true
+TitleLabel.TextColor3 = Color3.fromRGB(240, 240, 255)
+TitleLabel.TextSize = 15
+TitleLabel.Font = Enum.Font.GothamBold
+TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+TitleLabel.Parent = TopBar
+
+local CloseBtn = Instance.new("TextButton")
+CloseBtn.Name = "CloseBtn"
+CloseBtn.Size = UDim2.new(0, 30, 0, 30)
+CloseBtn.Position = UDim2.new(1, -36, 0, 6)
+CloseBtn.BackgroundColor3 = Color3.fromRGB(220, 50, 70)
+CloseBtn.Text = "✕"
+CloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+CloseBtn.Font = Enum.Font.GothamBold
+CloseBtn.TextSize = 14
+CloseBtn.Parent = TopBar
+
+local CloseBtnCorner = Instance.new("UICorner")
+CloseBtnCorner.CornerRadius = UDim.new(0, 8)
+CloseBtnCorner.Parent = CloseBtn
+
+local MinBtn = Instance.new("TextButton")
+MinBtn.Name = "MinBtn"
+MinBtn.Size = UDim2.new(0, 30, 0, 30)
+MinBtn.Position = UDim2.new(1, -72, 0, 6)
+MinBtn.BackgroundColor3 = Color3.fromRGB(45, 55, 75)
+MinBtn.Text = "—"
+MinBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+MinBtn.Font = Enum.Font.GothamBold
+MinBtn.TextSize = 14
+MinBtn.Parent = TopBar
+
+local MinBtnCorner = Instance.new("UICorner")
+MinBtnCorner.CornerRadius = UDim.new(0, 8)
+MinBtnCorner.Parent = MinBtn
+
+CloseBtn.MouseButton1Click:Connect(function()
+    MainFrame.Visible = false
+end)
+
+MinBtn.MouseButton1Click:Connect(function()
+    MainFrame.Visible = false
+end)
+
+FloatBtn.MouseButton1Click:Connect(function()
+    MainFrame.Visible = not MainFrame.Visible
+end)
+
+-- Sidebar Container
+local Sidebar = Instance.new("Frame")
+Sidebar.Name = "Sidebar"
+Sidebar.Size = UDim2.new(0, 130, 1, -42)
+Sidebar.Position = UDim2.new(0, 0, 0, 42)
+Sidebar.BackgroundColor3 = Color3.fromRGB(21, 24, 34)
+Sidebar.BorderSizePixel = 0
+Sidebar.Parent = MainFrame
+
+local SidebarLayout = Instance.new("UIListLayout")
+SidebarLayout.Padding = UDim.new(0, 6)
+SidebarLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+SidebarLayout.SortOrder = Enum.SortOrder.LayoutOrder
+SidebarLayout.Parent = Sidebar
+
+local SidebarPadding = Instance.new("UIPadding")
+SidebarPadding.PaddingTop = UDim.new(0, 10)
+SidebarPadding.Parent = Sidebar
+
+-- Content Container
+local ContentFrame = Instance.new("Frame")
+ContentFrame.Name = "ContentFrame"
+ContentFrame.Size = UDim2.new(1, -135, 1, -47)
+ContentFrame.Position = UDim2.new(0, 133, 0, 45)
+ContentFrame.BackgroundTransparency = 1
+ContentFrame.Parent = MainFrame
+
+-- Tab System
+local tabs = {}
+local activeTab = nil
+
+local function createTab(name, icon, order)
+    local tabBtn = Instance.new("TextButton")
+    tabBtn.Name = name .. "TabBtn"
+    tabBtn.Size = UDim2.new(0, 115, 0, 36)
+    tabBtn.BackgroundColor3 = Color3.fromRGB(28, 33, 46)
+    tabBtn.Text = icon .. "  " .. name
+    tabBtn.TextColor3 = Color3.fromRGB(180, 190, 210)
+    tabBtn.Font = Enum.Font.GothamMedium
+    tabBtn.TextSize = 13
+    tabBtn.LayoutOrder = order
+    tabBtn.Parent = Sidebar
+
+    local btnCorner = Instance.new("UICorner")
+    btnCorner.CornerRadius = UDim.new(0, 8)
+    btnCorner.Parent = tabBtn
+
+    local page = Instance.new("ScrollingFrame")
+    page.Name = name .. "Page"
+    page.Size = UDim2.new(1, 0, 1, 0)
+    page.BackgroundTransparency = 1
+    page.BorderSizePixel = 0
+    page.ScrollBarThickness = 4
+    page.ScrollBarImageColor3 = Color3.fromRGB(70, 130, 255)
+    page.Visible = false
+    page.Parent = ContentFrame
+
+    local pageLayout = Instance.new("UIListLayout")
+    pageLayout.Padding = UDim.new(0, 8)
+    pageLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    pageLayout.Parent = page
+
+    local pagePadding = Instance.new("UIPadding")
+    pagePadding.PaddingTop = UDim.new(0, 6)
+    pagePadding.PaddingLeft = UDim.new(0, 6)
+    pagePadding.PaddingRight = UDim.new(0, 8)
+    pagePadding.PaddingBottom = UDim.new(0, 10)
+    pagePadding.Parent = page
+
+    pageLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        page.CanvasSize = UDim2.new(0, 0, 0, pageLayout.AbsoluteContentSize.Y + 20)
+    end)
+
+    tabBtn.MouseButton1Click:Connect(function()
+        for _, t in pairs(tabs) do
+            t.Page.Visible = false
+            t.Btn.BackgroundColor3 = Color3.fromRGB(28, 33, 46)
+            t.Btn.TextColor3 = Color3.fromRGB(180, 190, 210)
+        end
+        page.Visible = true
+        tabBtn.BackgroundColor3 = Color3.fromRGB(50, 95, 205)
+        tabBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    end)
+
+    tabs[name] = {Btn = tabBtn, Page = page}
+    return page
+end
+
+-- UI Component Helpers
+local function createToggle(page, labelText, defaultVal, callback)
+    local toggleFrame = Instance.new("Frame")
+    toggleFrame.Size = UDim2.new(1, 0, 0, 42)
+    toggleFrame.BackgroundColor3 = Color3.fromRGB(26, 30, 42)
+    toggleFrame.Parent = page
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 8)
+    corner.Parent = toggleFrame
+
+    local stroke = Instance.new("UIStroke")
+    stroke.Color = Color3.fromRGB(40, 48, 65)
+    stroke.Thickness = 1
+    stroke.Parent = toggleFrame
+
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1, -70, 1, 0)
+    label.Position = UDim2.new(0, 12, 0, 0)
+    label.BackgroundTransparency = 1
+    label.Text = labelText
+    label.TextColor3 = Color3.fromRGB(230, 235, 245)
+    label.Font = Enum.Font.GothamMedium
+    label.TextSize = 13
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Parent = toggleFrame
+
+    local switch = Instance.new("TextButton")
+    switch.Size = UDim2.new(0, 50, 0, 26)
+    switch.Position = UDim2.new(1, -60, 0.5, -13)
+    switch.BackgroundColor3 = defaultVal and Color3.fromRGB(50, 185, 95) or Color3.fromRGB(48, 54, 70)
+    switch.Text = defaultVal and "ON" or "OFF"
+    switch.TextColor3 = Color3.fromRGB(255, 255, 255)
+    switch.Font = Enum.Font.GothamBold
+    switch.TextSize = 11
+    switch.Parent = toggleFrame
+
+    local switchCorner = Instance.new("UICorner")
+    switchCorner.CornerRadius = UDim.new(0, 13)
+    switchCorner.Parent = switch
+
+    local state = defaultVal
+    switch.MouseButton1Click:Connect(function()
+        state = not state
+        switch.BackgroundColor3 = state and Color3.fromRGB(50, 185, 95) or Color3.fromRGB(48, 54, 70)
+        switch.Text = state and "ON" or "OFF"
+        callback(state)
+    end)
+
+    return toggleFrame
+end
+
+local function createButton(page, text, color, callback)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1, 0, 0, 38)
+    btn.BackgroundColor3 = color or Color3.fromRGB(40, 80, 180)
+    btn.Text = text
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 13
+    btn.Parent = page
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 8)
+    corner.Parent = btn
+
+    btn.MouseButton1Click:Connect(callback)
+    return btn
+end
+
+-- ============================================================================
+-- 6. ISI TAB & FITUR
+-- ============================================================================
+
+-- TAB 1: 📦 FARM
+local farmPage = createTab("Farm", "📦", 1)
+
+createToggle(farmPage, "⚡ Auto Full Crate Cycle (Carry-Polish-Sell)", Config.AutoFullCrateCycle, function(val)
+    Config.AutoFullCrateCycle = val
+end)
+
+createToggle(farmPage, "🧺 Auto Carry Crate (Conveyor)", Config.AutoCarryCrate, function(val)
+    Config.AutoCarryCrate = val
+end)
+
+createToggle(farmPage, "✨ Auto Deposit to Polisher", Config.AutoDepositPolisher, function(val)
+    Config.AutoDepositPolisher = val
+end)
+
+createToggle(farmPage, "🌟 Auto Collect Polished Crate", Config.AutoCollectPolisher, function(val)
+    Config.AutoCollectPolisher = val
+end)
+
+createToggle(farmPage, "💰 Auto Sell Crates to NPC", Config.AutoSellCrate, function(val)
+    Config.AutoSellCrate = val
+end)
+
+createToggle(farmPage, "⬆️ Auto Buy Upgrades & Pedestals", Config.AutoBuyPedestals, function(val)
+    Config.AutoBuyPedestals = val
+end)
+
+-- TAB 2: 🃏 CARDS / BASE
+local cardPage = createTab("Cards", "🃏", 2)
+
+createToggle(cardPage, "🎰 Auto Roll Cards / Conveyor", Config.AutoRoll, function(val)
+    Config.AutoRoll = val
+end)
+
+createToggle(cardPage, "📦 Auto Open Dropper Box", Config.AutoOpenDropperBox, function(val)
+    Config.AutoOpenDropperBox = val
+end)
+
+createToggle(cardPage, "🛡️ Auto Equip Best Cards", Config.AutoEquipBest, function(val)
+    Config.AutoEquipBest = val
+end)
+
+createToggle(cardPage, "⭐ Auto Level Up Cards", Config.AutoLevelUpUnit, function(val)
+    Config.AutoLevelUpUnit = val
+end)
+
+createToggle(cardPage, "⚙️ Auto Set Conveyor AutoSpawn & Buy", Config.AutoConveyorSettings, function(val)
+    Config.AutoConveyorSettings = val
+end)
+
+-- TAB 3: 🎁 REWARDS & WORLD
+local rewardPage = createTab("Rewards", "🎁", 3)
+
+createToggle(rewardPage, "💎 Auto Claim All Rewards (Daily/Playtime)", Config.AutoClaimRewards, function(val)
+    Config.AutoClaimRewards = val
+end)
+
+createToggle(rewardPage, "🔮 Auto Collect Variant Tokens", Config.AutoCollectTokens, function(val)
+    Config.AutoCollectTokens = val
+end)
+
+createToggle(rewardPage, "🏆 Auto Collect Hidden Objects", Config.AutoCollectObjects, function(val)
+    Config.AutoCollectObjects = val
+end)
+
+createButton(rewardPage, "🎲 Spin Jackpot Sekarang", Color3.fromRGB(180, 100, 30), function()
+    pcall(function()
+        if Remotes:FindFirstChild("JackpotSpin") then
+            Remotes.JackpotSpin:FireServer()
+        end
+    end)
+end)
+
+-- TAB 4: ⚡ PLAYER & TELEPORT
+local playerPage = createTab("Player", "⚡", 4)
+
+createToggle(playerPage, "👻 Noclip (Tembus Tembok)", Config.Noclip, function(val)
+    Config.Noclip = val
+end)
+
+createToggle(playerPage, "🚀 Infinite Jump", Config.InfiniteJump, function(val)
+    Config.InfiniteJump = val
+end)
+
+createToggle(playerPage, "🏃 Speed Boost (Speed: 50)", Config.WalkSpeedEnabled, function(val)
+    Config.WalkSpeedEnabled = val
+    Config.WalkSpeedValue = val and 50 or 16
+    local char = LocalPlayer.Character
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    if hum then hum.WalkSpeed = Config.WalkSpeedValue end
+end)
+
+createButton(playerPage, "📍 Teleport: Conveyor Collect Part", Color3.fromRGB(45, 90, 160), function()
+    local myPlot = getMyPlot()
+    local collectPart = myPlot and myPlot:FindFirstChild("Systems") 
+        and myPlot.Systems:FindFirstChild("TycoonConveyor") 
+        and myPlot.Systems.TycoonConveyor:FindFirstChild("CollectPart")
+    if collectPart and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        LocalPlayer.Character.HumanoidRootPart.CFrame = collectPart.CFrame + Vector3.new(0, 3, 0)
+    end
+end)
+
+createButton(playerPage, "📍 Teleport: Sell NPC", Color3.fromRGB(50, 130, 80), function()
+    local myPlot = getMyPlot()
+    local sellZone = myPlot and myPlot:FindFirstChild("Systems") 
+        and myPlot.Systems:FindFirstChild("Zones") 
+        and myPlot.Systems.Zones:FindFirstChild("sell npc")
+    local targetPart = sellZone and (sellZone:FindFirstChildWhichIsA("BasePart") or sellZone.PrimaryPart)
+    if targetPart and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        LocalPlayer.Character.HumanoidRootPart.CFrame = targetPart.CFrame + Vector3.new(0, 3, 0)
+    end
+end)
+
+createButton(playerPage, "📍 Teleport: Polisher Machine", Color3.fromRGB(140, 70, 160), function()
+    local myPlot = getMyPlot()
+    local polisher = myPlot and myPlot:FindFirstChild("Systems") 
+        and myPlot.Systems:FindFirstChild("PolisherModel")
+        and myPlot.Systems.PolisherModel:FindFirstChild("PhysicalModel")
+        and myPlot.Systems.PolisherModel.PhysicalModel:FindFirstChild("CollectPart")
+    if polisher and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        LocalPlayer.Character.HumanoidRootPart.CFrame = polisher.CFrame + Vector3.new(0, 3, 0)
+    end
+end)
+
+-- Default Buka Tab Farm
+tabs["Farm"].Btn.BackgroundColor3 = Color3.fromRGB(50, 95, 205)
+tabs["Farm"].Btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+tabs["Farm"].Page.Visible = true
+
+print("✅ Card & Crate Tycoon Script Loaded Successfully!")
