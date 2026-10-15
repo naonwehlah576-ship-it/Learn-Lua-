@@ -274,6 +274,7 @@ local Config = {
     AutoRoll = false,
     AutoLevelUp = false,
     AutoOpenReadyCards = false,
+    MaxBuyLimit = 10,
     TargetCardLevel = 35,
     AutoCollectTokens = false,
     AutoTower = false,
@@ -585,11 +586,14 @@ local lastSkippedRollCount = -1
 local lastRollRequestTime = 0
 local lastAffordLogTime = 0
 
+local purchasedCardCount = 0
+
 local function resetAutoRollState()
     lastPurchasedRollCount = -1
     lastSkippedRollCount = -1
     lastRollRequestTime = 0
     lastAffordLogTime = 0
+    purchasedCardCount = 0
 end
 
 local function doRollCard()
@@ -652,7 +656,21 @@ local function doRollCard()
                 end)
 
                 lastPurchasedRollCount = rollCount
-                print(string.format("✅ [Auto Roll] SUKSES BELI: %s (%s) [Roll #%s, $%s]", prettyName, variant, tostring(rollCount), tostring(price or 0)))
+                purchasedCardCount = purchasedCardCount + 1
+                local maxLimit = tonumber(Config.MaxBuyLimit) or 0
+                local limitInfo = maxLimit > 0 and string.format(" | Beli #%d / %d", purchasedCardCount, maxLimit) or string.format(" | Total Beli: %d", purchasedCardCount)
+
+                print(string.format("✅ [Auto Roll] SUKSES BELI: %s (%s) [Roll #%s, $%s%s]", prettyName, variant, tostring(rollCount), tostring(price or 0), limitInfo))
+
+                if maxLimit > 0 and purchasedCardCount >= maxLimit then
+                    print(string.format("🛑 [Auto Roll] BATAS MAKSIMAL TERCAPAI! Telah membeli %d kartu. Auto Roll & Buy otomatis DIMATIKAN.", purchasedCardCount))
+                    Config.AutoRoll = false
+                    if toggleRefs["AutoRoll"] and toggleRefs["AutoRoll"].UpdateUI then
+                        toggleRefs["AutoRoll"].UpdateUI(false)
+                    end
+                    saveConfig()
+                    return
+                end
 
                 task.wait(0.3)
             else
@@ -1634,7 +1652,7 @@ local function createTextBox(page, labelText, configKey, defaultVal)
 
     textBox.FocusLost:Connect(function()
         local num = tonumber(textBox.Text)
-        if num and num > 0 then
+        if num and num >= 0 then
             Config[configKey] = math.floor(num)
             textBox.Text = tostring(Config[configKey])
         else
@@ -1702,6 +1720,19 @@ rollDesc.TextSize = 9.5
 rollDesc.TextWrapped = true
 rollDesc.TextXAlignment = Enum.TextXAlignment.Left
 rollDesc.Parent = RollPage
+
+createTextBox(RollPage, "🎯 Batas Maksimal Buy (0 = Bebas):", "MaxBuyLimit", 10)
+
+local limitDesc = Instance.new("TextLabel")
+limitDesc.Size = UDim2.new(1, 0, 0, 24)
+limitDesc.BackgroundTransparency = 1
+limitDesc.Text = "ℹ️ Jika diisi angka (misal 10), setelah berhasil membeli 10 kartu, Auto Roll otomatis OFF."
+limitDesc.TextColor3 = Color3.fromRGB(140, 155, 185)
+limitDesc.Font = Enum.Font.Gotham
+limitDesc.TextSize = 9.5
+limitDesc.TextWrapped = true
+limitDesc.TextXAlignment = Enum.TextXAlignment.Left
+limitDesc.Parent = RollPage
 
 createSectionHeader(RollPage, "Pilih Pack Dibeli & Filter Mutasi Langsung:")
 
