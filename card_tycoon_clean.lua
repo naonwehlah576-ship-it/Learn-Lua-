@@ -1212,11 +1212,11 @@ makeDraggable(ToggleButton, ToggleButton)
 -- Main Frame: Ultra Compact (310 x 280) Pas Banget di Layar Delta!
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
-MainFrame.Size = UDim2.new(0, 310, 0, 275)
-MainFrame.Position = UDim2.new(0.5, -155, 0.5, -137)
+MainFrame.Size = UDim2.new(0, 320, 0, 315)
+MainFrame.Position = UDim2.new(0.5, -160, 0.5, -157)
 MainFrame.BackgroundColor3 = Color3.fromRGB(15, 17, 24)
 MainFrame.BorderSizePixel = 0
-MainFrame.ClipsDescendants = true
+MainFrame.ClipsDescendants = false
 MainFrame.Parent = ScreenGui
 
 local MainCorner = Instance.new("UICorner")
@@ -1224,14 +1224,14 @@ MainCorner.CornerRadius = UDim.new(0, 10)
 MainCorner.Parent = MainFrame
 
 local MainStroke = Instance.new("UIStroke")
-MainStroke.Color = Color3.fromRGB(35, 45, 70)
+MainStroke.Color = Color3.fromRGB(45, 55, 85)
 MainStroke.Thickness = 1.2
 MainStroke.Parent = MainFrame
 
 -- TopBar Compact
 local TopBar = Instance.new("Frame")
 TopBar.Name = "TopBar"
-TopBar.Size = UDim2.new(1, 0, 0, 34)
+TopBar.Size = UDim2.new(1, 0, 0, 32)
 TopBar.BackgroundColor3 = Color3.fromRGB(20, 24, 35)
 TopBar.BorderSizePixel = 0
 TopBar.Parent = MainFrame
@@ -1247,10 +1247,10 @@ TitleLabel.Name = "TitleLabel"
 TitleLabel.Size = UDim2.new(1, -70, 1, 0)
 TitleLabel.Position = UDim2.new(0, 10, 0, 0)
 TitleLabel.BackgroundTransparency = 1
-TitleLabel.Text = "🃏 <b>CARD TYCOON</b> <font color=\"#4A90E2\">ALL-IN-ONE</font>"
+TitleLabel.Text = "🃏 <b>CARD TYCOON</b> <font color=\"#4A90E2\">AIO</font>"
 TitleLabel.RichText = true
 TitleLabel.TextColor3 = Color3.fromRGB(240, 240, 255)
-TitleLabel.TextSize = 12
+TitleLabel.TextSize = 11.5
 TitleLabel.Font = Enum.Font.GothamBold
 TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
 TitleLabel.Parent = TopBar
@@ -1258,7 +1258,7 @@ TitleLabel.Parent = TopBar
 local CloseBtn = Instance.new("TextButton")
 CloseBtn.Name = "CloseBtn"
 CloseBtn.Size = UDim2.new(0, 24, 0, 24)
-CloseBtn.Position = UDim2.new(1, -29, 0, 5)
+CloseBtn.Position = UDim2.new(1, -29, 0, 4)
 CloseBtn.BackgroundColor3 = Color3.fromRGB(210, 50, 65)
 CloseBtn.Text = "✕"
 CloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -1279,7 +1279,7 @@ ToggleButton.MouseButton1Click:Connect(function()
 end)
 
 -- ============================================================================
--- TAB BAR & MULTI-PAGE NAVIGATION (MOBILE & DELTA FRIENDLY)
+-- TAB BAR (3 TAB: FARM, ROLL & BUY, TOWER)
 -- ============================================================================
 local TabBar = Instance.new("Frame")
 TabBar.Name = "TabBar"
@@ -1321,36 +1321,28 @@ local TabFarmBtn = createTabButton("⚡ Farm", 1)
 local TabRollBtn = createTabButton("🎰 Roll", 2)
 local TabTowerBtn = createTabButton("🏰 Tower", 3)
 
--- Page Containers (Setiap Page punya ScrollFrame sendiri, Anti-Bug CanvasSize!)
-local function createPage(name)
-    local page = Instance.new("ScrollingFrame")
+-- Page Containers (Standard Frames agar 100% Anti-Bug di Delta / MuMu!)
+local function createPageFrame(name)
+    local page = Instance.new("Frame")
     page.Name = "Page_" .. name
     page.Size = UDim2.new(1, -12, 1, -68)
-    page.Position = UDim2.new(0, 6, 0, 64)
+    page.Position = UDim2.new(0, 6, 0, 66)
     page.BackgroundTransparency = 1
     page.BorderSizePixel = 0
-    page.ScrollBarThickness = 4
-    page.ScrollBarImageColor3 = Color3.fromRGB(65, 120, 230)
-    page.CanvasSize = UDim2.new(0, 0, 0, 230)
     page.Visible = false
     page.Parent = MainFrame
 
     local layout = Instance.new("UIListLayout")
     layout.SortOrder = Enum.SortOrder.LayoutOrder
-    layout.Padding = UDim.new(0, 6)
+    layout.Padding = UDim.new(0, 5)
     layout.Parent = page
-
-    layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-        local h = math.max(220, layout.AbsoluteContentSize.Y + 20)
-        page.CanvasSize = UDim2.new(0, 0, 0, h)
-    end)
 
     return page, layout
 end
 
-local PageFarm, FarmLayout = createPage("Farm")
-local PageRoll, RollLayout = createPage("Roll")
-local PageTower, TowerLayout = createPage("Tower")
+local PageFarm, FarmLayout = createPageFrame("Farm")
+local PageRoll, RollLayout = createPageFrame("Roll")
+local PageTower, TowerLayout = createPageFrame("Tower")
 
 local function switchTab(tab)
     PageFarm.Visible = (tab == "Farm")
@@ -1367,17 +1359,17 @@ local function switchTab(tab)
     TabTowerBtn.TextColor3 = (tab == "Tower") and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(150, 165, 195)
 end
 
-TabFarmBtn.MouseButton1Click:Connect(function() switchTab("Farm") end)
-TabRollBtn.MouseButton1Click:Connect(function() switchTab("Roll") end)
-TabTowerBtn.MouseButton1Click:Connect(function() switchTab("Tower") end)
+TabFarmBtn.Activated:Connect(function() switchTab("Farm") end)
+TabRollBtn.Activated:Connect(function() switchTab("Roll") end)
+TabTowerBtn.Activated:Connect(function() switchTab("Tower") end)
 
--- Compact UI Helpers
+-- UI Helpers
 local function createSectionHeader(title, parent)
     local lbl = Instance.new("TextLabel")
-    lbl.Size = UDim2.new(1, 0, 0, 16)
+    lbl.Size = UDim2.new(1, 0, 0, 15)
     lbl.BackgroundTransparency = 1
     lbl.Text = "— " .. title:upper() .. " —"
-    lbl.TextColor3 = Color3.fromRGB(100, 120, 160)
+    lbl.TextColor3 = Color3.fromRGB(105, 125, 170)
     lbl.Font = Enum.Font.GothamBold
     lbl.TextSize = 9
     lbl.TextXAlignment = Enum.TextXAlignment.Left
@@ -1389,7 +1381,7 @@ local function createToggle(labelText, configKey, callback, parent)
     local defaultVal = Config[configKey] or false
     
     local toggleFrame = Instance.new("Frame")
-    toggleFrame.Size = UDim2.new(1, 0, 0, 32)
+    toggleFrame.Size = UDim2.new(1, 0, 0, 30)
     toggleFrame.BackgroundColor3 = Color3.fromRGB(22, 26, 36)
     toggleFrame.Parent = parent
 
@@ -1411,10 +1403,11 @@ local function createToggle(labelText, configKey, callback, parent)
     label.Font = Enum.Font.GothamMedium
     label.TextSize = 10
     label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Active = false
     label.Parent = toggleFrame
 
     local switch = Instance.new("TextButton")
-    switch.Size = UDim2.new(0, 42, 0, 20)
+    switch.Size = UDim2.new(0, 44, 0, 20)
     switch.Position = UDim2.new(1, -48, 0.5, -10)
     switch.BackgroundColor3 = defaultVal and Color3.fromRGB(45, 170, 85) or Color3.fromRGB(42, 48, 62)
     switch.Text = defaultVal and "ON" or "OFF"
@@ -1434,7 +1427,7 @@ local function createToggle(labelText, configKey, callback, parent)
         switch.Text = state and "ON" or "OFF"
     end
 
-    switch.MouseButton1Click:Connect(function()
+    switch.Activated:Connect(function()
         setVisualState(not state)
         Config[configKey] = state
         if callback then callback(state) end
@@ -1456,7 +1449,7 @@ local function createTextBox(labelText, configKey, defaultVal, parent)
     Config[configKey] = val
 
     local boxFrame = Instance.new("Frame")
-    boxFrame.Size = UDim2.new(1, 0, 0, 32)
+    boxFrame.Size = UDim2.new(1, 0, 0, 30)
     boxFrame.BackgroundColor3 = Color3.fromRGB(22, 26, 36)
     boxFrame.Parent = parent
 
@@ -1478,6 +1471,7 @@ local function createTextBox(labelText, configKey, defaultVal, parent)
     label.Font = Enum.Font.GothamMedium
     label.TextSize = 10
     label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Active = false
     label.Parent = boxFrame
 
     local textBox = Instance.new("TextBox")
@@ -1510,7 +1504,7 @@ local function createTextBox(labelText, configKey, defaultVal, parent)
 end
 
 -- ============================================================================
--- 1. TAB FARM: CRATE FARM, LEVEL UP, TOKEN
+-- 1. TAB FARM: AUTO CRATE, AUTO LEVEL UP, VARIANT TOKEN
 -- ============================================================================
 createSectionHeader("1. Auto Crate Farm", PageFarm)
 createToggle("⚡ Auto Full Crate Cycle (Jeda 10s)", "AutoFullCrateCycle", nil, PageFarm)
@@ -1523,109 +1517,39 @@ createSectionHeader("3. Variant Token Collector", PageFarm)
 createToggle("🔮 Auto Teleport Token & Pasti Balik", "AutoCollectTokens", nil, PageFarm)
 
 -- ============================================================================
--- 2. TAB ROLL & BUY: AUTO ROLL, FILTER PACK & MUTATION MODAL
--- ============================================================================
-createSectionHeader("Conveyor Roll & Smart Buy", PageRoll)
-createToggle("🎰 Auto Roll & Auto Buy [Key: Q]", "AutoRoll", function(state)
-    if state then resetAutoRollState() end
-end, PageRoll)
-
-local function getSelectedPackCount()
-    local cnt = 0
-    for _, isSel in pairs(Config.SelectedPacks) do
-        if isSel then cnt = cnt + 1 end
-    end
-    return cnt
-end
-
-local packDropContainer = Instance.new("Frame")
-packDropContainer.Name = "PackDropContainer"
-packDropContainer.Size = UDim2.new(1, 0, 0, 32)
-packDropContainer.BackgroundColor3 = Color3.fromRGB(22, 26, 36)
-packDropContainer.ClipsDescendants = true
-packDropContainer.Parent = PageRoll
-
-local dropCorner = Instance.new("UICorner")
-dropCorner.CornerRadius = UDim.new(0, 6)
-dropCorner.Parent = packDropContainer
-
-local dropStroke = Instance.new("UIStroke")
-dropStroke.Color = Color3.fromRGB(35, 42, 58)
-dropStroke.Thickness = 1
-dropStroke.Parent = packDropContainer
-
-local dropHeaderBtn = Instance.new("TextButton")
-dropHeaderBtn.Size = UDim2.new(1, 0, 0, 32)
-dropHeaderBtn.BackgroundTransparency = 1
-dropHeaderBtn.Text = ""
-dropHeaderBtn.Parent = packDropContainer
-
-local dropTitle = Instance.new("TextLabel")
-dropTitle.Size = UDim2.new(1, -95, 1, 0)
-dropTitle.Position = UDim2.new(0, 8, 0, 0)
-dropTitle.BackgroundTransparency = 1
-dropTitle.Text = "📦 Filter Pack Dibeli:"
-dropTitle.TextColor3 = Color3.fromRGB(225, 230, 240)
-dropTitle.Font = Enum.Font.GothamMedium
-dropTitle.TextSize = 10
-dropTitle.TextXAlignment = Enum.TextXAlignment.Left
-dropTitle.Parent = dropHeaderBtn
-
-local dropCountBadge = Instance.new("TextLabel")
-dropCountBadge.Size = UDim2.new(0, 85, 0, 20)
-dropCountBadge.Position = UDim2.new(1, -90, 0.5, -10)
-dropCountBadge.BackgroundColor3 = Color3.fromRGB(32, 38, 52)
-dropCountBadge.Text = string.format("%d Pack ▾", getSelectedPackCount())
-dropCountBadge.TextColor3 = Color3.fromRGB(110, 175, 255)
-dropCountBadge.Font = Enum.Font.GothamBold
-dropCountBadge.TextSize = 9
-dropCountBadge.Parent = dropHeaderBtn
-
-local badgeCorner = Instance.new("UICorner")
-badgeCorner.CornerRadius = UDim.new(0, 5)
-badgeCorner.Parent = dropCountBadge
-
-local dropBody = Instance.new("Frame")
-dropBody.Size = UDim2.new(1, -12, 0, 160)
-dropBody.Position = UDim2.new(0, 6, 0, 34)
-dropBody.BackgroundTransparency = 1
-dropBody.Visible = false
-dropBody.Parent = packDropContainer
-
-local actionRow = Instance.new("Frame")
-actionRow.Size = UDim2.new(1, 0, 0, 20)
-actionRow.BackgroundTransparency = 1
-actionRow.Parent = dropBody
-
--- ============================================================================
--- MODAL SUB-MENU: FILTER MUTASI PER PACK
+-- MODAL POPUP SUB-MENU: FILTER MUTASI PER PACK (FLOATING POPUP)
 -- ============================================================================
 local MutationModal = Instance.new("Frame")
 MutationModal.Name = "MutationModal"
-MutationModal.Size = UDim2.new(1, 0, 1, 0)
-MutationModal.Position = UDim2.new(0, 0, 0, 0)
+MutationModal.Size = UDim2.new(0, 310, 0, 290)
+MutationModal.Position = UDim2.new(0.5, -155, 0.5, -145)
 MutationModal.BackgroundColor3 = Color3.fromRGB(15, 17, 26)
 MutationModal.BorderSizePixel = 0
 MutationModal.Visible = false
-MutationModal.ZIndex = 40
-MutationModal.Parent = MainFrame
+MutationModal.ZIndex = 50
+MutationModal.Parent = ScreenGui
 
 local modalCorner = Instance.new("UICorner")
 modalCorner.CornerRadius = UDim.new(0, 10)
 modalCorner.Parent = MutationModal
 
+local modalStroke = Instance.new("UIStroke")
+modalStroke.Color = Color3.fromRGB(65, 120, 230)
+modalStroke.Thickness = 1.5
+modalStroke.Parent = MutationModal
+
 local modalTopBar = Instance.new("Frame")
 modalTopBar.Size = UDim2.new(1, 0, 0, 32)
 modalTopBar.BackgroundColor3 = Color3.fromRGB(22, 26, 38)
 modalTopBar.BorderSizePixel = 0
-modalTopBar.ZIndex = 41
+modalTopBar.ZIndex = 51
 modalTopBar.Parent = MutationModal
 
 local mtCorner = Instance.new("UICorner")
 mtCorner.CornerRadius = UDim.new(0, 10)
 mtCorner.Parent = modalTopBar
 
-makeDraggable(modalTopBar, MainFrame)
+makeDraggable(modalTopBar, MutationModal)
 
 local modalTitle = Instance.new("TextLabel")
 modalTitle.Size = UDim2.new(1, -60, 1, 0)
@@ -1637,7 +1561,7 @@ modalTitle.TextColor3 = Color3.fromRGB(240, 240, 255)
 modalTitle.TextSize = 11
 modalTitle.Font = Enum.Font.GothamBold
 modalTitle.TextXAlignment = Enum.TextXAlignment.Left
-modalTitle.ZIndex = 42
+modalTitle.ZIndex = 52
 modalTitle.Parent = modalTopBar
 
 local modalCloseBtn = Instance.new("TextButton")
@@ -1648,7 +1572,7 @@ modalCloseBtn.Text = "✕"
 modalCloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 modalCloseBtn.Font = Enum.Font.GothamBold
 modalCloseBtn.TextSize = 10
-modalCloseBtn.ZIndex = 42
+modalCloseBtn.ZIndex = 52
 modalCloseBtn.Parent = modalTopBar
 
 local mcCorner = Instance.new("UICorner")
@@ -1664,14 +1588,14 @@ modalSubTitle.TextColor3 = Color3.fromRGB(140, 150, 175)
 modalSubTitle.Font = Enum.Font.GothamMedium
 modalSubTitle.TextSize = 9
 modalSubTitle.TextXAlignment = Enum.TextXAlignment.Left
-modalSubTitle.ZIndex = 41
+modalSubTitle.ZIndex = 51
 modalSubTitle.Parent = MutationModal
 
 local mPresetRow = Instance.new("Frame")
-mPresetRow.Size = UDim2.new(1, -16, 0, 20)
+mPresetRow.Size = UDim2.new(1, -16, 0, 22)
 mPresetRow.Position = UDim2.new(0, 8, 0, 52)
 mPresetRow.BackgroundTransparency = 1
-mPresetRow.ZIndex = 41
+mPresetRow.ZIndex = 51
 mPresetRow.Parent = MutationModal
 
 local mPresetLayout = Instance.new("UIListLayout")
@@ -1681,24 +1605,20 @@ mPresetLayout.Padding = UDim.new(0, 4)
 mPresetLayout.Parent = mPresetRow
 
 local mGridScroll = Instance.new("ScrollingFrame")
-mGridScroll.Size = UDim2.new(1, -16, 1, -112)
-mGridScroll.Position = UDim2.new(0, 8, 0, 76)
+mGridScroll.Size = UDim2.new(1, -16, 1, -114)
+mGridScroll.Position = UDim2.new(0, 8, 0, 78)
 mGridScroll.BackgroundTransparency = 1
 mGridScroll.BorderSizePixel = 0
 mGridScroll.ScrollBarThickness = 3
-mGridScroll.ScrollBarImageColor3 = Color3.fromRGB(60, 80, 120)
+mGridScroll.ScrollBarImageColor3 = Color3.fromRGB(65, 120, 230)
 mGridScroll.CanvasSize = UDim2.new(0, 0, 0, 190)
-mGridScroll.ZIndex = 41
+mGridScroll.ZIndex = 51
 mGridScroll.Parent = MutationModal
 
 local mGridLayout = Instance.new("UIGridLayout")
-mGridLayout.CellSize = UDim2.new(0.5, -3, 0, 22)
+mGridLayout.CellSize = UDim2.new(0.5, -3, 0, 24)
 mGridLayout.CellPadding = UDim2.new(0, 4, 0, 4)
 mGridLayout.Parent = mGridScroll
-
-mGridLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-    mGridScroll.CanvasSize = UDim2.new(0, 0, 0, math.max(180, mGridLayout.AbsoluteContentSize.Y + 10))
-end)
 
 local mDoneBtn = Instance.new("TextButton")
 mDoneBtn.Size = UDim2.new(1, -16, 0, 26)
@@ -1708,7 +1628,7 @@ mDoneBtn.Text = "✓ SIMPAN & SELESAI"
 mDoneBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 mDoneBtn.Font = Enum.Font.GothamBold
 mDoneBtn.TextSize = 10
-mDoneBtn.ZIndex = 42
+mDoneBtn.ZIndex = 52
 mDoneBtn.Parent = MutationModal
 
 local mdCorner = Instance.new("UICorner")
@@ -1743,7 +1663,6 @@ local function updatePacksVisual()
         btns.Gear.TextColor3 = isCustom and Color3.fromRGB(255, 215, 0) or Color3.fromRGB(180, 190, 215)
         btns.Gear.Text = isCustom and "⚙️*" or "⚙️"
     end
-    dropCountBadge.Text = string.format("%d Pack %s", getSelectedPackCount(), dropBody.Visible and "▴" or "▾")
     saveConfig()
 end
 
@@ -1755,14 +1674,14 @@ local function createModalPreset(name, width, onClick)
     btn.TextColor3 = Color3.fromRGB(200, 215, 240)
     btn.Font = Enum.Font.GothamBold
     btn.TextSize = 8.5
-    btn.ZIndex = 42
+    btn.ZIndex = 52
     btn.Parent = mPresetRow
 
     local c = Instance.new("UICorner")
     c.CornerRadius = UDim.new(0, 4)
     c.Parent = btn
 
-    btn.MouseButton1Click:Connect(function()
+    btn.Activated:Connect(function()
         if not currentModalPack then return end
         onClick()
         updateVariantButtonsVisual()
@@ -1798,14 +1717,14 @@ for _, vName in ipairs(AllVariantNames) do
     btn.TextColor3 = VariantColors[vName] or Color3.fromRGB(255, 255, 255)
     btn.Font = Enum.Font.GothamBold
     btn.TextSize = 8.5
-    btn.ZIndex = 42
+    btn.ZIndex = 52
     btn.Parent = mGridScroll
 
     local bCorner = Instance.new("UICorner")
     bCorner.CornerRadius = UDim.new(0, 4)
     bCorner.Parent = btn
 
-    btn.MouseButton1Click:Connect(function()
+    btn.Activated:Connect(function()
         if not currentModalPack then return end
         local varCfg = getPackVariantConfig(currentModalPack)
         varCfg[vName] = not varCfg[vName]
@@ -1822,8 +1741,8 @@ local function closeMutationModal()
     saveConfig()
 end
 
-modalCloseBtn.MouseButton1Click:Connect(closeMutationModal)
-mDoneBtn.MouseButton1Click:Connect(closeMutationModal)
+modalCloseBtn.Activated:Connect(closeMutationModal)
+mDoneBtn.Activated:Connect(closeMutationModal)
 
 local function openMutationModal(packName)
     currentModalPack = packName
@@ -1834,6 +1753,21 @@ local function openMutationModal(packName)
     updateVariantButtonsVisual()
     MutationModal.Visible = true
 end
+
+-- ============================================================================
+-- 2. TAB ROLL & BUY: AUTO ROLL, PERMANENT PACK GRID & ⚙️ MUTASI
+-- ============================================================================
+createSectionHeader("Conveyor Roll & Smart Buy", PageRoll)
+createToggle("🎰 Auto Roll & Auto Buy [Key: Q]", "AutoRoll", function(state)
+    if state then resetAutoRollState() end
+end, PageRoll)
+
+createSectionHeader("Filter Pack Dibeli & Mutasi (⚙️)", PageRoll)
+
+local actionRow = Instance.new("Frame")
+actionRow.Size = UDim2.new(1, 0, 0, 22)
+actionRow.BackgroundTransparency = 1
+actionRow.Parent = PageRoll
 
 local function createPresetBtn(text, posX, width, onClick)
     local btn = Instance.new("TextButton")
@@ -1850,42 +1784,39 @@ local function createPresetBtn(text, posX, width, onClick)
     c.CornerRadius = UDim.new(0, 4)
     c.Parent = btn
 
-    btn.MouseButton1Click:Connect(onClick)
+    btn.Activated:Connect(onClick)
 end
 
-createPresetBtn("Semua", 0, 65, function()
+createPresetBtn("Pilih Semua", 0, 80, function()
     for _, p in ipairs(AllPackNames) do Config.SelectedPacks[p] = true end
     updatePacksVisual()
 end)
 
-createPresetBtn("6 Pertama", 70, 65, function()
+createPresetBtn("6 Pertama", 86, 75, function()
     for idx, p in ipairs(AllPackNames) do Config.SelectedPacks[p] = (idx <= 6) end
     updatePacksVisual()
 end)
 
-createPresetBtn("Reset", 140, 50, function()
+createPresetBtn("Reset", 167, 55, function()
     for _, p in ipairs(AllPackNames) do Config.SelectedPacks[p] = false end
     updatePacksVisual()
 end)
 
-local gridScroll = Instance.new("ScrollingFrame")
-gridScroll.Size = UDim2.new(1, 0, 0, 130)
-gridScroll.Position = UDim2.new(0, 0, 0, 24)
-gridScroll.BackgroundTransparency = 1
-gridScroll.BorderSizePixel = 0
-gridScroll.ScrollBarThickness = 3
-gridScroll.ScrollBarImageColor3 = Color3.fromRGB(50, 70, 110)
-gridScroll.CanvasSize = UDim2.new(0, 0, 0, 180)
-gridScroll.Parent = dropBody
+-- Dedicated Scroll Frame for 16 Packs (Fixed CanvasSize, always scrollable!)
+local packScroll = Instance.new("ScrollingFrame")
+packScroll.Name = "PackScroll"
+packScroll.Size = UDim2.new(1, 0, 1, -110)
+packScroll.BackgroundTransparency = 1
+packScroll.BorderSizePixel = 0
+packScroll.ScrollBarThickness = 3
+packScroll.ScrollBarImageColor3 = Color3.fromRGB(65, 120, 230)
+packScroll.CanvasSize = UDim2.new(0, 0, 0, 225)
+packScroll.Parent = PageRoll
 
 local gridLayout = Instance.new("UIGridLayout")
-gridLayout.CellSize = UDim2.new(0.5, -4, 0, 22)
+gridLayout.CellSize = UDim2.new(0.5, -4, 0, 24)
 gridLayout.CellPadding = UDim2.new(0, 4, 0, 4)
-gridLayout.Parent = gridScroll
-
-gridLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-    gridScroll.CanvasSize = UDim2.new(0, 0, 0, math.max(160, gridLayout.AbsoluteContentSize.Y + 10))
-end)
+gridLayout.Parent = packScroll
 
 for _, pName in ipairs(AllPackNames) do
     local isSel = Config.SelectedPacks[pName] == true
@@ -1895,10 +1826,10 @@ for _, pName in ipairs(AllPackNames) do
     slot.Name = "Slot_" .. pName
     slot.Size = UDim2.new(1, 0, 1, 0)
     slot.BackgroundTransparency = 1
-    slot.Parent = gridScroll
+    slot.Parent = packScroll
 
     local chip = Instance.new("TextButton")
-    chip.Size = UDim2.new(1, -23, 1, 0)
+    chip.Size = UDim2.new(1, -25, 1, 0)
     chip.Position = UDim2.new(0, 0, 0, 0)
     chip.BackgroundColor3 = isSel and Color3.fromRGB(32, 70, 130) or Color3.fromRGB(26, 30, 40)
     chip.Text = (isSel and "✓ " or "") .. pName
@@ -1912,8 +1843,8 @@ for _, pName in ipairs(AllPackNames) do
     chipCorner.Parent = chip
 
     local gearBtn = Instance.new("TextButton")
-    gearBtn.Size = UDim2.new(0, 20, 1, 0)
-    gearBtn.Position = UDim2.new(1, -20, 0, 0)
+    gearBtn.Size = UDim2.new(0, 22, 1, 0)
+    gearBtn.Position = UDim2.new(1, -22, 0, 0)
     gearBtn.BackgroundColor3 = isCustom and Color3.fromRGB(85, 45, 130) or Color3.fromRGB(30, 35, 48)
     gearBtn.Text = isCustom and "⚙️*" or "⚙️"
     gearBtn.TextColor3 = isCustom and Color3.fromRGB(255, 215, 0) or Color3.fromRGB(180, 190, 215)
@@ -1925,12 +1856,12 @@ for _, pName in ipairs(AllPackNames) do
     gearCorner.CornerRadius = UDim.new(0, 5)
     gearCorner.Parent = gearBtn
 
-    chip.MouseButton1Click:Connect(function()
+    chip.Activated:Connect(function()
         Config.SelectedPacks[pName] = not Config.SelectedPacks[pName]
         updatePacksVisual()
     end)
 
-    gearBtn.MouseButton1Click:Connect(function()
+    gearBtn.Activated:Connect(function()
         openMutationModal(pName)
     end)
 
@@ -1939,15 +1870,6 @@ for _, pName in ipairs(AllPackNames) do
         Gear = gearBtn,
     }
 end
-
-local isExpanded = false
-dropHeaderBtn.MouseButton1Click:Connect(function()
-    isExpanded = not isExpanded
-    dropBody.Visible = isExpanded
-    packDropContainer.Size = isExpanded and UDim2.new(1, 0, 0, 205) or UDim2.new(1, 0, 0, 32)
-    dropCountBadge.Text = string.format("%d Pack %s", getSelectedPackCount(), isExpanded and "▴" or "▾")
-    PageRoll.CanvasSize = UDim2.new(0, 0, 0, isExpanded and 270 or 120)
-end)
 
 -- ============================================================================
 -- 3. TAB TOWER: INFINITY TOWER BATTLE (MODE, CHECKBOXES, AUTO HIDE)
@@ -1983,6 +1905,7 @@ modeLabel.TextColor3 = Color3.fromRGB(180, 190, 215)
 modeLabel.Font = Enum.Font.GothamMedium
 modeLabel.TextSize = 10
 modeLabel.TextXAlignment = Enum.TextXAlignment.Left
+modeLabel.Active = false
 modeLabel.Parent = modeFrame
 
 local singleBtn = Instance.new("TextButton")
@@ -2022,19 +1945,19 @@ local function updateModeVisual()
     saveConfig()
 end
 
-singleBtn.MouseButton1Click:Connect(function()
+singleBtn.Activated:Connect(function()
     Config.TowerMode = "Single"
     updateModeVisual()
 end)
 
-rotateBtn.MouseButton1Click:Connect(function()
+rotateBtn.Activated:Connect(function()
     Config.TowerMode = "Rotate"
     updateModeVisual()
 end)
 
 -- Checkboxes for 3 Towers
 local towerCheckListFrame = Instance.new("Frame")
-towerCheckListFrame.Size = UDim2.new(1, 0, 0, 80)
+towerCheckListFrame.Size = UDim2.new(1, 0, 0, 82)
 towerCheckListFrame.BackgroundTransparency = 1
 towerCheckListFrame.Parent = PageTower
 
@@ -2067,25 +1990,26 @@ for _, tId in ipairs(TowerOrder) do
     tLbl.Text = TowerDisplayNames[tId] or tId
     tLbl.TextColor3 = Color3.fromRGB(225, 230, 240)
     tLbl.Font = Enum.Font.GothamMedium
-    tLbl.TextSize = 9
+    tLbl.TextSize = 9.5
     tLbl.TextXAlignment = Enum.TextXAlignment.Left
+    tLbl.Active = false
     tLbl.Parent = tFrame
 
     local tCheck = Instance.new("TextButton")
-    tCheck.Size = UDim2.new(0, 48, 0, 18)
-    tCheck.Position = UDim2.new(1, -54, 0.5, -9)
+    tCheck.Size = UDim2.new(0, 50, 0, 18)
+    tCheck.Position = UDim2.new(1, -55, 0.5, -9)
     tCheck.BackgroundColor3 = isChecked and Color3.fromRGB(65, 120, 230) or Color3.fromRGB(32, 38, 52)
     tCheck.Text = isChecked and "✓ ON" or "OFF"
     tCheck.TextColor3 = Color3.fromRGB(255, 255, 255)
     tCheck.Font = Enum.Font.GothamBold
-    tCheck.TextSize = 8
+    tCheck.TextSize = 8.5
     tCheck.Parent = tFrame
 
     local tcCorner = Instance.new("UICorner")
     tcCorner.CornerRadius = UDim.new(0, 4)
     tcCorner.Parent = tCheck
 
-    tCheck.MouseButton1Click:Connect(function()
+    tCheck.Activated:Connect(function()
         Config.SelectedTowers[tId] = not Config.SelectedTowers[tId]
         local nowState = Config.SelectedTowers[tId]
         tCheck.BackgroundColor3 = nowState and Color3.fromRGB(65, 120, 230) or Color3.fromRGB(32, 38, 52)
@@ -2096,7 +2020,8 @@ end
 
 createToggle("👁️ Auto Hide Layar Battle", "AutoHideTowerBattle", nil, PageTower)
 
--- Inisialisasi Tab Awal
+-- Inisialisasi Tampilan & Tab Awal
+updatePacksVisual()
 switchTab("Farm")
 
-print("✅ Card & Crate Tycoon All-In-One (Tab UI) Loaded Successfully!")
+print("✅ Card & Crate Tycoon All-In-One (V2 Tab UI) Loaded Successfully!")
