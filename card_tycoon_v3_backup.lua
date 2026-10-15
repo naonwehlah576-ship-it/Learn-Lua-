@@ -81,71 +81,280 @@ local function clickButton(btn)
     return true
 end
 
--- Modul Game
+-- Modul Game & Services dengan Safe Dynamic Getters (Kompatibel Delta & PC)
 local BoxService = nil
-pcall(function()
-    BoxService = require(ReplicatedStorage.Shared.Services.BoxService)
-end)
+local function getBoxService()
+    if not BoxService then
+        pcall(function()
+            local s = ReplicatedStorage:FindFirstChild("Shared") and ReplicatedStorage.Shared:FindFirstChild("Services")
+            if s and s:FindFirstChild("BoxService") then
+                BoxService = require(s.BoxService)
+            else
+                for _, desc in ipairs(ReplicatedStorage:GetDescendants()) do
+                    if desc.Name == "BoxService" and desc:IsA("ModuleScript") then
+                        BoxService = require(desc)
+                        break
+                    end
+                end
+            end
+        end)
+    end
+    return BoxService
+end
 
 local PlayerUnitService = nil
-pcall(function()
-    PlayerUnitService = require(ReplicatedStorage.Shared.Services.PlayerUnitService)
-end)
+local function getPlayerUnitService()
+    if not PlayerUnitService then
+        pcall(function()
+            local s = ReplicatedStorage:FindFirstChild("Shared") and ReplicatedStorage.Shared:FindFirstChild("Services")
+            if s and s:FindFirstChild("PlayerUnitService") then
+                PlayerUnitService = require(s.PlayerUnitService)
+            else
+                for _, desc in ipairs(ReplicatedStorage:GetDescendants()) do
+                    if desc.Name == "PlayerUnitService" and desc:IsA("ModuleScript") then
+                        PlayerUnitService = require(desc)
+                        break
+                    end
+                end
+            end
+        end)
+    end
+    return PlayerUnitService
+end
 
 local CurrencyService = nil
-pcall(function()
-    CurrencyService = require(ReplicatedStorage.Shared.Services.CurrencyService)
-end)
+local function getCurrencyService()
+    if not CurrencyService then
+        pcall(function()
+            local s = ReplicatedStorage:FindFirstChild("Shared") and ReplicatedStorage.Shared:FindFirstChild("Services")
+            if s and s:FindFirstChild("CurrencyService") then
+                CurrencyService = require(s.CurrencyService)
+            else
+                for _, desc in ipairs(ReplicatedStorage:GetDescendants()) do
+                    if desc.Name == "CurrencyService" and desc:IsA("ModuleScript") then
+                        CurrencyService = require(desc)
+                        break
+                    end
+                end
+            end
+        end)
+    end
+    return CurrencyService
+end
+
+local ClientDataManager = nil
+local function getClientDataManager()
+    if not ClientDataManager then
+        pcall(function()
+            local c = ReplicatedStorage:FindFirstChild("Client") and ReplicatedStorage.Client:FindFirstChild("Data")
+            if c and c:FindFirstChild("ClientDataManager") then
+                ClientDataManager = require(c.ClientDataManager)
+            else
+                for _, desc in ipairs(ReplicatedStorage:GetDescendants()) do
+                    if desc.Name == "ClientDataManager" and desc:IsA("ModuleScript") then
+                        ClientDataManager = require(desc)
+                        break
+                    end
+                end
+            end
+        end)
+    end
+    return ClientDataManager
+end
+
+local BoxesLibrary = nil
+local function getBoxesLibrary()
+    if not BoxesLibrary then
+        pcall(function()
+            local bMod = ReplicatedStorage:FindFirstChild("Shared")
+                and ReplicatedStorage.Shared:FindFirstChild("Core")
+                and ReplicatedStorage.Shared.Core:FindFirstChild("Storage")
+                and ReplicatedStorage.Shared.Core.Storage:FindFirstChild("Game")
+                and ReplicatedStorage.Shared.Core.Storage.Game:FindFirstChild("BoxesLibrary")
+            if bMod then
+                BoxesLibrary = require(bMod)
+            else
+                for _, desc in ipairs(ReplicatedStorage:GetDescendants()) do
+                    if desc.Name == "BoxesLibrary" and desc:IsA("ModuleScript") then
+                        BoxesLibrary = require(desc)
+                        break
+                    end
+                end
+            end
+        end)
+    end
+    return BoxesLibrary
+end
 
 local InfinityTowerGuiClient = nil
 pcall(function()
     InfinityTowerGuiClient = require(ReplicatedStorage.Client.Core.Gui.InfinityTowerGuiClient)
 end)
 
--- Cek saldo Cash pemain
-local function getPlayerCash()
-    local cash = nil
-    pcall(function()
-        if CurrencyService and CurrencyService.GetCurrency then
-            cash = CurrencyService.GetCurrency(LocalPlayer, "Cash")
-        end
-    end)
-    if typeof(cash) == "number" then return cash end
+-- Inisialisasi awal services jika sudah siap di memory
+pcall(getBoxService)
+pcall(getPlayerUnitService)
+pcall(getCurrencyService)
+pcall(getClientDataManager)
+pcall(getBoxesLibrary)
 
+-- Helper Parse Angka Berformat ($1.5M, $250K, $ 50,000, dll)
+local function parseFormattedNumber(text)
+    if not text or type(text) ~= "string" then return nil end
+    local clean = text:gsub("[%$,%s]", "")
+    local num, suffix = clean:match("^([%d%.]+)%s*([A-Za-z]*)$")
+    if num then
+        local val = tonumber(num)
+        if not val then return nil end
+        suffix = suffix:upper()
+        if suffix == "K" then val = val * 1e3
+        elseif suffix == "M" then val = val * 1e6
+        elseif suffix == "B" then val = val * 1e9
+        elseif suffix == "T" then val = val * 1e12
+        elseif suffix == "QA" or suffix == "Q" then val = val * 1e15
+        end
+        return val
+    end
+    return nil
+end
+
+-- Deteksi Saldo Cash Pemain Multi-Source (100% Akurat)
+local function getPlayerCash()
+    -- 1. Cek ClientDataManager
+    local cdm = getClientDataManager()
+    if cdm and cdm.GetData then
+        local ok, data = pcall(cdm.GetData)
+        if ok and type(data) == "table" then
+            if typeof(data.Cash) == "number" then return data.Cash end
+            if type(data.Currencies) == "table" and typeof(data.Currencies.Cash) == "number" then
+                return data.Currencies.Cash
+            end
+        end
+    end
+
+    -- 2. Cek CurrencyService.GetCurrency
+    local cs = getCurrencyService()
+    if cs and cs.GetCurrency then
+        local ok, cash = pcall(cs.GetCurrency, LocalPlayer, "Cash")
+        if ok and typeof(cash) == "number" then return cash end
+    end
+
+    -- 3. Cek leaderstats
     pcall(function()
         local leaderstats = LocalPlayer:FindFirstChild("leaderstats")
         if leaderstats and leaderstats:FindFirstChild("Cash") then
-            cash = leaderstats.Cash.Value
+            local val = leaderstats.Cash.Value
+            if typeof(val) == "number" then return val end
         end
     end)
-    if typeof(cash) == "number" then return cash end
 
+    -- 4. Cek Attribute
     pcall(function()
         local cAttr = LocalPlayer:GetAttribute("Cash")
-        if typeof(cAttr) == "number" then cash = cAttr end
+        if typeof(cAttr) == "number" then return cAttr end
     end)
-    if typeof(cash) == "number" then return cash end
+
+    -- 5. Cek Topbar / UI Cash Label di PlayerGui
+    local uiCash = nil
+    pcall(function()
+        if LocalPlayer:FindFirstChild("PlayerGui") then
+            for _, gui in ipairs(LocalPlayer.PlayerGui:GetChildren()) do
+                if gui:IsA("ScreenGui") and gui.Enabled and gui.Name ~= "CardTycoonV3Gui" then
+                    for _, desc in ipairs(gui:GetDescendants()) do
+                        if desc:IsA("TextLabel") and desc.Visible and desc.Text:find("%$") then
+                            local n = parseFormattedNumber(desc.Text)
+                            if n and n > 0 then
+                                uiCash = n
+                                break
+                            end
+                        end
+                    end
+                end
+                if uiCash then break end
+            end
+        end
+    end)
+    if uiCash ~= nil then return uiCash end
 
     return nil
 end
 
-local function canAffordPrice(price)
-    if not price or price <= 0 then return true end
-    
-    local canAfford = nil
+-- Ambil Harga Box Conveyor Multi-Source (BoxService -> BoxesLibrary -> UI RollStation)
+local function getConveyorBoxPrice(boxNameInternal, variant)
+    -- 1. Via BoxService.GetConveyorBoxPrice
+    local bs = getBoxService()
+    if bs and bs.GetConveyorBoxPrice then
+        local ok, val = pcall(bs.GetConveyorBoxPrice, boxNameInternal, variant)
+        if ok and typeof(val) == "number" and val > 0 then
+            return val
+        end
+    end
+
+    -- 2. Via BoxesLibrary & Multipliers
+    local boxesLib = getBoxesLibrary()
+    if boxesLib and boxesLib[boxNameInternal] then
+        local bData = boxesLib[boxNameInternal]
+        local base = bData.Price or bData.Cost or bData.ConveyorPrice
+        if typeof(base) == "number" and base > 0 then
+            local mults = {
+                ["Normal"] = 1, ["Gold"] = 1.5, ["Diamond"] = 2, ["Jade"] = 3,
+                ["Honey"] = 5, ["Rose"] = 10, ["Astral"] = 15, ["Aurora"] = 20,
+                ["Starweaver"] = 30, ["Rainbow"] = 50, ["Admin"] = 75, ["Unwritten"] = 90
+            }
+            local m = mults[variant] or 1
+            return math.floor(base * m)
+        end
+    end
+
+    -- 3. Via UI / TextLabel parsing on RollStation
+    local uiPrice = nil
     pcall(function()
-        if CurrencyService and CurrencyService.CanAfford then
-            canAfford = CurrencyService.CanAfford(LocalPlayer, "Cash", price)
+        local myPlot = getMyPlot()
+        if myPlot then
+            local rs = myPlot:FindFirstChild("Systems") and myPlot.Systems:FindFirstChild("RollStation")
+            if rs then
+                for _, desc in ipairs(rs:GetDescendants()) do
+                    if desc:IsA("TextLabel") and (desc.Name:lower():find("price") or desc.Text:find("%$")) then
+                        local parsed = parseFormattedNumber(desc.Text)
+                        if parsed and parsed > 0 then
+                            uiPrice = parsed
+                            break
+                        end
+                    end
+                end
+            end
         end
     end)
-    if canAfford ~= nil then return canAfford end
+    if uiPrice and uiPrice > 0 then return uiPrice end
 
+    return 0
+end
+
+-- Validasi Kemampuan Beli (Strict & Anti-Skip)
+local function canAffordPrice(price)
+    if not price or price <= 0 then
+        local cur = getPlayerCash()
+        if cur and cur > 0 then return true end
+        return true
+    end
+    
+    -- 1. Cek langsung via CurrencyService.CanAfford
+    local cs = getCurrencyService()
+    if cs and cs.CanAfford then
+        local ok, res = pcall(cs.CanAfford, LocalPlayer, "Cash", price)
+        if ok and typeof(res) == "boolean" then
+            return res
+        end
+    end
+
+    -- 2. Cek saldo via getPlayerCash()
     local currentCash = getPlayerCash()
     if currentCash ~= nil then
         return currentCash >= price
     end
 
-    return true
+    -- Jika harga > 0 dan saldo gagal terdeteksi, tolak beli demi keamanan (mencegah skip kartu target)
+    return false
 end
 
 -- ============================================================================
@@ -158,15 +367,15 @@ local AllPackNames = {
     "Pirate Pack",
     "Romcom Pack",
     "Sword Pack",
-    "Knight Pack",
-    "Assassin Pack",
-    "Ninja Pack",
-    "Mage Pack",
-    "Hero Pack",
-    "Devil Pack",
     "Genius Pack",
-    "Idol Pack",
+    "Knight Pack",
+    "Mage Pack",
     "Slayer Pack",
+    "Ninja Pack",
+    "Assassin Pack",
+    "Devil Pack",
+    "Idol Pack",
+    "Hero Pack",
     "Titan Pack",
 }
 
@@ -263,8 +472,9 @@ local VariantColors = {
 
 
 
+
 -- ============================================================================
--- KONFIGURASI PERSISTENT & AUTOSAVE
+-- KONFIGURASI PERSISTENT & AUTOSAVE (DELTA EXECUTOR & PC COMPATIBLE)
 -- ============================================================================
 local CONFIG_FILE = "CardTycoon_V3_2_Config.json"
 
@@ -272,6 +482,8 @@ local Config = {
     AutoFullCrateCycle = false,
     AutoRoll = false,
     AutoLevelUp = false,
+    AutoOpenReadyCards = false,
+    MaxBuyLimit = 10,
     TargetCardLevel = 35,
     AutoCollectTokens = false,
     AutoTower = false,
@@ -291,15 +503,15 @@ local Config = {
         ["Pirate Pack"]   = true,
         ["Romcom Pack"]   = true,
         ["Sword Pack"]    = true,
-        ["Knight Pack"]   = false,
-        ["Assassin Pack"] = false,
-        ["Ninja Pack"]    = false,
-        ["Mage Pack"]     = false,
-        ["Hero Pack"]     = false,
-        ["Devil Pack"]    = false,
         ["Genius Pack"]   = false,
-        ["Idol Pack"]     = false,
+        ["Knight Pack"]   = false,
+        ["Mage Pack"]     = false,
         ["Slayer Pack"]   = false,
+        ["Ninja Pack"]    = false,
+        ["Assassin Pack"] = false,
+        ["Devil Pack"]    = false,
+        ["Idol Pack"]     = false,
+        ["Hero Pack"]     = false,
         ["Titan Pack"]    = false,
     },
     
@@ -308,21 +520,36 @@ local Config = {
 
 local toggleRefs = {}
 
-local function saveConfig()
+local function saveConfig(isManual)
     pcall(function()
-        if writefile then
-            local data = HttpService:JSONEncode(Config)
-            writefile(CONFIG_FILE, data)
+        if not writefile then
+            warn("⚠️ [Config] 'writefile' tidak didukung di executor ini.")
+            return
+        end
+        local data = HttpService:JSONEncode(Config)
+        writefile(CONFIG_FILE, data)
+        if isManual then
+            print("💾 [Card Tycoon] Semua settingan berhasil DISIMPAN ke disk (" .. CONFIG_FILE .. ")!")
         end
     end)
 end
 
 local function loadConfig()
     pcall(function()
-        if readfile and isfile and isfile(CONFIG_FILE) then
-            local data = readfile(CONFIG_FILE)
-            local decoded = HttpService:JSONDecode(data)
-            if type(decoded) == "table" then
+        if not readfile then return end
+
+        local success, data = pcall(readfile, CONFIG_FILE)
+        if not success or not data or #data < 2 then
+            -- Fallback coba baca dari nama config versi sebelumnya jika ada
+            local oldOk, oldData = pcall(readfile, "CardTycoon_V3_Config.json")
+            if oldOk and oldData and #oldData > 2 then
+                success, data = oldOk, oldData
+            end
+        end
+
+        if success and data and #data > 2 then
+            local decSuccess, decoded = pcall(function() return HttpService:JSONDecode(data) end)
+            if decSuccess and type(decoded) == "table" then
                 for k, v in pairs(decoded) do
                     if k == "SelectedPacks" and type(v) == "table" then
                         for pK, pV in pairs(v) do
@@ -346,7 +573,10 @@ local function loadConfig()
                         Config[k] = v
                     end
                 end
+                print("💾 [Card Tycoon] Settingan terakhir berhasil DIMUAT dari disk (" .. CONFIG_FILE .. ")!")
             end
+        else
+            print("ℹ️ [Card Tycoon] File config baru dibuat untuk versi ini.")
         end
     end)
 end
@@ -564,12 +794,14 @@ local lastPurchasedRollCount = -1
 local lastSkippedRollCount = -1
 local lastRollRequestTime = 0
 local lastAffordLogTime = 0
+local purchasedCardCount = 0
 
 local function resetAutoRollState()
     lastPurchasedRollCount = -1
     lastSkippedRollCount = -1
     lastRollRequestTime = 0
     lastAffordLogTime = 0
+    purchasedCardCount = 0
 end
 
 local function doRollCard()
@@ -584,37 +816,33 @@ local function doRollCard()
     local variant = rollPart:GetAttribute("Variant") or "Normal"
     local packModel = rollPart:FindFirstChild("PackModel")
 
+    local hasBoxOnConveyor = (boxNameInternal ~= nil and boxNameInternal ~= "") and (packModel ~= nil or rollCount > 0)
+
     -- TAHAP 1: CEK PACK DI ATAS CONVEYOR SEKARANG
-    if boxNameInternal and boxNameInternal ~= "" and (packModel ~= nil or rollCount > 0) then
-        if rollCount ~= lastPurchasedRollCount and rollCount ~= lastSkippedRollCount then
-            local prettyName = InternalToPrettyMap[boxNameInternal] or boxNameInternal:gsub("Pack", " Pack")
-            local isWanted = (Config.SelectedPacks[prettyName] == true) or (Config.SelectedPacks[boxNameInternal] == true)
-            local isVariantAllowed = isVariantAllowedForPack(prettyName, variant) and isVariantAllowedForPack(boxNameInternal, variant)
+    if hasBoxOnConveyor then
+        local prettyName = InternalToPrettyMap[boxNameInternal] or boxNameInternal:gsub("Pack", " Pack")
+        local isWanted = (Config.SelectedPacks[prettyName] == true) or (Config.SelectedPacks[boxNameInternal] == true)
+        local isVariantAllowed = isVariantAllowedForPack(prettyName, variant) and isVariantAllowedForPack(boxNameInternal, variant)
 
-            if isWanted and isVariantAllowed then
-                -- 1. Hitung harga akurat via BoxService
-                local price = 0
-                pcall(function()
-                    if BoxService and BoxService.GetConveyorBoxPrice then
-                        price = BoxService.GetConveyorBoxPrice(boxNameInternal, variant)
-                    end
-                end)
+        if isWanted and isVariantAllowed then
+            -- Ini adalah pack target yang kita cari!
+            local price = getConveyorBoxPrice(boxNameInternal, variant)
+            local affordable = canAffordPrice(price)
 
-                -- 2. Cek apakah uang cukup untuk beli pack ini
-                if not canAffordPrice(price) then
-                    local myCash = getPlayerCash() or 0
-                    if now - lastAffordLogTime > 4.0 then
-                        lastAffordLogTime = now
-                        print(string.format("⏳ [Auto Roll] Menunggu saldo terkumpul untuk beli %s (%s) [Harga: $%s | Saldo: $%s]...", prettyName, variant, tostring(price or 0), tostring(myCash)))
-                    end
-                    -- Berhenti roll sementara dan pertahankan pack ini di conveyor sampai uang cukup
-                    return
+            if not affordable then
+                local myCash = getPlayerCash() or 0
+                if now - lastAffordLogTime > 3.0 then
+                    lastAffordLogTime = now
+                    print(string.format("⏳ [Auto Roll] Uang belum cukup untuk beli %s (%s)! [Harga: $%s | Saldo: $%s]. Menahan conveyor sampai uang terkumpul...", 
+                        prettyName, variant, tostring(price or 0), tostring(myCash)))
                 end
+                -- TAHAN CONVEYOR! Jangan roll, jangan skip, biarkan box tetap di conveyor sampai uang terkumpul!
+                return
+            end
 
-                -- Uang sudah cukup: jeda sedikit 0.3s agar transaksi server mulus
-                task.wait(0.3)
-
-                -- 3. Beli pack via remote PurchaseConveyorRoll
+            -- Uang cukup! Beli box sekarang jika belum dibeli di rollCount ini
+            if rollCount ~= lastPurchasedRollCount then
+                task.wait(0.2)
                 local buyRemote = getRemote("PurchaseConveyorRoll")
                 if buyRemote then
                     pcall(function()
@@ -622,7 +850,6 @@ local function doRollCard()
                     end)
                 end
 
-                -- 4. Trigger prompt jika ada di rollPart atau packModel
                 pcall(function()
                     for _, desc in ipairs(rollPart:GetDescendants()) do
                         if desc:IsA("ProximityPrompt") then
@@ -632,11 +859,27 @@ local function doRollCard()
                 end)
 
                 lastPurchasedRollCount = rollCount
-                print(string.format("✅ [Auto Roll] SUKSES BELI: %s (%s) [Roll #%s, $%s]", prettyName, variant, tostring(rollCount), tostring(price or 0)))
+                purchasedCardCount = purchasedCardCount + 1
+                local maxLimit = tonumber(Config.MaxBuyLimit) or 0
+                local limitInfo = maxLimit > 0 and string.format(" | Beli #%d / %d", purchasedCardCount, maxLimit) or string.format(" | Total Beli: %d", purchasedCardCount)
+
+                print(string.format("✅ [Auto Roll] SUKSES BELI: %s (%s) [Roll #%s, $%s%s]", prettyName, variant, tostring(rollCount), tostring(price or 0), limitInfo))
+
+                if maxLimit > 0 and purchasedCardCount >= maxLimit then
+                    print(string.format("🛑 [Auto Roll] BATAS MAKSIMAL TERCAPAI! Telah membeli %d kartu. Auto Roll & Buy otomatis DIMATIKAN.", purchasedCardCount))
+                    Config.AutoRoll = false
+                    if toggleRefs["AutoRoll"] and toggleRefs["AutoRoll"].UpdateUI then
+                        toggleRefs["AutoRoll"].UpdateUI(false)
+                    end
+                    saveConfig()
+                    return
+                end
 
                 task.wait(0.3)
-            else
-                -- Bukan pack yang dicari atau mutasi tidak diizinkan -> tandai sudah diskip agar langsung lanjut roll
+            end
+        else
+            -- Bukan pack target atau mutasi tidak diizinkan -> Skip agar conveyor lanjut roll
+            if rollCount ~= lastSkippedRollCount then
                 lastSkippedRollCount = rollCount
                 if isWanted and not isVariantAllowed then
                     print(string.format("⏭️ [Auto Roll] Lewati %s (%s) [Roll #%s] (Mutasi %s di-skip untuk pack ini)", prettyName, variant, tostring(rollCount), variant))
@@ -647,7 +890,22 @@ local function doRollCard()
         end
     end
 
-    -- TAHAP 2: ROLL BARU JIKA TIDAK ADA PACK YANG MENUNGGU DIBELI
+    -- TAHAP 2: ROLL BARU JIKA TIDAK ADA PACK TARGET YANG MENUNGGU UANG / DIBELI
+    -- JIKA DI CONVEYOR ADA PACK TARGET DAN BELUM BERHASIL DIBELI -> JANGAN SEKALI-KALI ROLL!
+    if hasBoxOnConveyor then
+        local prettyName = InternalToPrettyMap[boxNameInternal] or boxNameInternal:gsub("Pack", " Pack")
+        local isWanted = (Config.SelectedPacks[prettyName] == true) or (Config.SelectedPacks[boxNameInternal] == true)
+        local isVariantAllowed = isVariantAllowedForPack(prettyName, variant) and isVariantAllowedForPack(boxNameInternal, variant)
+
+        if isWanted and isVariantAllowed then
+            -- Pack ini adalah target! Jika belum terbeli (misal uang belum cukup), TAHAN & JANGAN ROLL!
+            if rollCount ~= lastPurchasedRollCount then
+                return
+            end
+        end
+    end
+
+    -- Cek cooldown roll station
     local cooldownUntil = rollPart:GetAttribute("RollCooldownUntil")
     if cooldownUntil and workspace:GetServerTimeNow() < cooldownUntil then
         return
@@ -657,10 +915,7 @@ local function doRollCard()
         return
     end
 
-    if boxNameInternal and boxNameInternal ~= "" and packModel ~= nil and rollCount ~= lastPurchasedRollCount and rollCount ~= lastSkippedRollCount then
-        return
-    end
-
+    -- Hanya roll jika conveyor kosong ATAU pack sudah diskip / sudah dibeli
     local rollRemote = getRemote("RequestConveyorRoll")
     if rollRemote then
         lastRollRequestTime = now
@@ -751,93 +1006,192 @@ local function doLevelUpCards()
     end
 end
 
--- ============================================================================
--- 4. AUTO TELEPORT VARIANT TOKEN & PASTI BALIK KE POSISI AWAL
--- ============================================================================
-local function findActiveVariantToken()
-    local folder = Workspace:FindFirstChild("Systems") and Workspace.Systems:FindFirstChild("VariantTokenSpawns")
-    if not folder then return nil end
 
-    for _, child in ipairs(folder:GetChildren()) do
-        if child:GetAttribute("Occupied") == true then
-            return child
+-- ============================================================================
+-- 3B. AUTO OPEN READY CARDS (PADA DROPPER BASE SAAT COUNTDOWN 0S / READY)
+-- ============================================================================
+local function doOpenReadyCards()
+    if not Config.AutoOpenReadyCards then return end
+    local myPlot = getMyPlot()
+    if not myPlot then return end
+
+    local droppers = getAllDropperParts(myPlot)
+    if #droppers == 0 then return end
+
+    local openRemote = getRemote("OpenBoxOnDropper")
+
+    for _, dropPart in ipairs(droppers) do
+        if not Config.AutoOpenReadyCards then break end
+
+        local bType = dropPart:GetAttribute("Type")
+        local boxName = dropPart:GetAttribute("BoxName")
+        local placedAt = dropPart:GetAttribute("PlacedAt")
+        local variant = dropPart:GetAttribute("Variant") or "Normal"
+        local isUnlocked = dropPart:GetAttribute("Unlocked")
+
+        if (bType == "Box" or boxName ~= nil) and isUnlocked ~= false then
+            local isReady = false
+
+            -- 1. Cek via BoxService.IsBoxReady
+            pcall(function()
+                if BoxService and BoxService.IsBoxReady then
+                    isReady = BoxService.IsBoxReady(boxName, placedAt, variant)
+                end
+            end)
+
+            -- 2. Cek via ProximityPrompt (Action == "Open")
+            if not isReady then
+                pcall(function()
+                    for _, desc in ipairs(dropPart:GetDescendants()) do
+                        if desc:IsA("ProximityPrompt") and desc.Enabled and desc.ActionText == "Open" then
+                            isReady = true
+                            break
+                        end
+                    end
+                end)
+            end
+
+            -- 3. Cek via TimerLabel Text == "Ready"
+            if not isReady then
+                pcall(function()
+                    for _, desc in ipairs(dropPart:GetDescendants()) do
+                        if desc:IsA("TextLabel") and desc.Text == "Ready" then
+                            isReady = true
+                            break
+                        end
+                    end
+                end)
+            end
+
+            if isReady then
+                print(string.format("🎁 [Auto Open] Membuka kartu ready: %s (%s) di %s", tostring(boxName), tostring(variant), dropPart.Name))
+
+                pcall(function()
+                    if openRemote then
+                        openRemote:InvokeServer(dropPart)
+                    end
+                end)
+
+                task.wait(0.4)
+            end
+        end
+    end
+end
+
+
+-- ============================================================================
+-- 4. AUTO TELEPORT COLLECT ALL TOKENS & POTIONS (PASTI BALIK KE POSISI AWAL)
+-- Mendukung: Trait Token, Grade Token, Luck Potion, Cash Potion, & Variant Tokens
+-- ============================================================================
+
+local function findActiveCollectable()
+    local systems = Workspace:FindFirstChild("Systems")
+    if not systems then return nil end
+
+    -- 1. Cek CollectableObjects (TraitToken, GradeToken, LuckPotion, CashPotion)
+    local colFolder = systems:FindFirstChild("CollectableObjects")
+    if colFolder then
+        for _, child in ipairs(colFolder:GetChildren()) do
+            if child:GetAttribute("Occupied") == true then
+                local objKey = child:GetAttribute("ObjectKey") or "Collectable"
+                return {
+                    Node = child,
+                    Type = "Collectable",
+                    Key = objKey,
+                    Name = tostring(objKey)
+                }
+            end
         end
     end
 
-    for _, part in ipairs(CollectionService:GetTagged("VariantTokenSpawn")) do
-        if part:GetAttribute("Occupied") == true then
-            return part
+    -- 2. Cek VariantTokenSpawns (Aurora, Admin, Unwritten, Rainbow, Starweaver)
+    local varFolder = systems:FindFirstChild("VariantTokenSpawns")
+    if varFolder then
+        for _, child in ipairs(varFolder:GetChildren()) do
+            if child:GetAttribute("Occupied") == true then
+                local varName = child:GetAttribute("Variant") or "Variant"
+                return {
+                    Node = child,
+                    Type = "VariantToken",
+                    Key = varName,
+                    Name = tostring(varName) .. " Token"
+                }
+            end
+        end
+    end
+
+    -- Fallback via CollectionService tags
+    for _, child in ipairs(CollectionService:GetTagged("CollectableObject")) do
+        if child:GetAttribute("Occupied") == true then
+            local objKey = child:GetAttribute("ObjectKey") or "Collectable"
+            return {
+                Node = child,
+                Type = "Collectable",
+                Key = objKey,
+                Name = tostring(objKey)
+            }
+        end
+    end
+
+    for _, child in ipairs(CollectionService:GetTagged("VariantTokenSpawn")) do
+        if child:GetAttribute("Occupied") == true then
+            local varName = child:GetAttribute("Variant") or "Variant"
+            return {
+                Node = child,
+                Type = "VariantToken",
+                Key = varName,
+                Name = tostring(varName) .. " Token"
+            }
         end
     end
 
     return nil
 end
 
-local isCollectingToken = false
-local function collectVariantToken(targetObj)
-    if isCollectingToken then return end
-    isCollectingToken = true
+local isCollectingItem = false
+local function collectMapItem(itemData)
+    if isCollectingItem then return end
+    isCollectingItem = true
 
     local char = LocalPlayer.Character
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
-    if not hrp or not targetObj then 
-        isCollectingToken = false
+    if not hrp or not itemData or not itemData.Node then 
+        isCollectingItem = false
         return 
     end
 
-    local targetPart = targetObj:IsA("BasePart") and targetObj or targetObj:FindFirstChildWhichIsA("BasePart")
-    if not targetPart then 
-        isCollectingToken = false
-        return 
-    end
-
-    -- Simpan posisi persis player saat ini sebelum teleport
+    local node = itemData.Node
     local returnCFrame = hrp.CFrame
-    print("🔮 [Variant Token] Menemukan token di: " .. targetObj.Name .. "! Teleport ke token...")
+    print(string.format("🔮 [Auto Collect] Menemukan %s di %s! Teleport mengambil...", tostring(itemData.Name), node.Name))
 
-    -- 1. Teleport ke lokasi token
+    -- 1. Teleport ke part item (jarak aman < 3 stud agar proximity check <= 5 stud tembus 100%)
     hrp.AssemblyLinearVelocity = Vector3.zero
-    hrp.CFrame = targetPart.CFrame + Vector3.new(0, 3.5, 0)
-    task.wait(0.3)
+    hrp.CFrame = CFrame.new(node.Position + Vector3.new(0, 2.0, 0))
+    task.wait(0.2)
 
-    -- 2. Simulasi sentuhan fisik (firetouchinterest)
-    if typeof(firetouchinterest) == "function" then
-        pcall(function()
-            firetouchinterest(hrp, targetPart, 0)
-            task.wait(0.02)
-            firetouchinterest(hrp, targetPart, 1)
-        end)
-    end
-
-    -- 3. Trigger ProximityPrompt jika ada
-    for _, desc in ipairs(targetObj:GetDescendants()) do
-        if desc:IsA("ProximityPrompt") then
-            triggerPrompt(desc)
+    -- 2. Tembak remote sesuai tipe
+    if itemData.Type == "Collectable" then
+        local rem = getRemote("CollectCollectableObject")
+        if rem then
+            pcall(function() rem:FireServer(node) end)
+        end
+    elseif itemData.Type == "VariantToken" then
+        local rem = getRemote("CollectVariantTokenSpawn")
+        if rem then
+            pcall(function() rem:FireServer(node) end)
         end
     end
 
-    -- 4. Tembak Remote Collect & Found
-    local remFound = getRemote("VariantTokenFound")
-    if remFound then
-        pcall(function() remFound:FireServer(targetObj) end)
-        pcall(function() remFound:FireServer(targetObj.Name) end)
-    end
-    local remCollect = getRemote("CollectVariantTokenSpawn")
-    if remCollect then
-        pcall(function() remCollect:FireServer(targetObj) end)
-        pcall(function() remCollect:FireServer(targetObj.Name) end)
-    end
-
-    -- 4. Tunggu sampai token benar-benar hilang / Occupied = false (maksimal 3.5 detik)
+    -- 3. Tunggu sampai item terambil (Occupied = false) maksimal 2 detik
     local waitStart = os.clock()
-    while os.clock() - waitStart < 3.5 do
-        if not targetObj.Parent or targetObj:GetAttribute("Occupied") == false then
+    while os.clock() - waitStart < 2.0 do
+        if not node.Parent or node:GetAttribute("Occupied") == false then
             break
         end
-        task.wait(0.2)
+        task.wait(0.1)
     end
 
-    -- 5. Teleport PASTI KEMBALI ke posisi semula sebelum teleport
+    -- 4. Teleport PASTI KEMBALI ke posisi semula sebelum teleport
     pcall(function()
         local curChar = LocalPlayer.Character
         local curHrp = curChar and curChar:FindFirstChild("HumanoidRootPart")
@@ -846,33 +1200,34 @@ local function collectVariantToken(targetObj)
             curHrp.CFrame = returnCFrame
             task.wait(0.08)
             curHrp.CFrame = returnCFrame
-            print("✅ [Variant Token] Token hilang & berhasil diambil! Kembali ke posisi awal.")
+            print(string.format("✅ [Auto Collect] %s berhasil diambil! Kembali ke posisi semula.", tostring(itemData.Name)))
         end
     end)
 
-    -- Cooldown kecil agar tidak spam mendeteksi sisa part token lama
-    task.wait(1.5)
-    isCollectingToken = false
+    task.wait(0.5)
+    isCollectingItem = false
 end
 
--- Listener Event Token Spawned
+-- Listener otomatis tiap ada part yang berubah menjadi Occupied = true
 pcall(function()
-    local remSpawned = getRemote("VariantTokenSpawned")
-    if remSpawned then
-        remSpawned.OnClientEvent:Connect(function(tokenInstance)
-            if Config.AutoCollectTokens then
-                task.wait(0.5)
-                if tokenInstance and typeof(tokenInstance) == "Instance" then
-                    collectVariantToken(tokenInstance)
-                else
-                    local activeToken = findActiveVariantToken()
-                    if activeToken then
-                        collectVariantToken(activeToken)
+    local function bindSpawns(folderName)
+        local f = Workspace:FindFirstChild("Systems") and Workspace.Systems:FindFirstChild(folderName)
+        if f then
+            for _, node in ipairs(f:GetChildren()) do
+                node:GetAttributeChangedSignal("Occupied"):Connect(function()
+                    if Config.AutoCollectTokens and node:GetAttribute("Occupied") == true then
+                        task.wait(0.1)
+                        local item = findActiveCollectable()
+                        if item then
+                            collectMapItem(item)
+                        end
                     end
-                end
+                end)
             end
-        end)
+        end
     end
+    bindSpawns("CollectableObjects")
+    bindSpawns("VariantTokenSpawns")
 end)
 
 -- ============================================================================
@@ -1081,18 +1436,31 @@ task.spawn(function()
     end
 end)
 
--- Variant Token Loop
+
+-- Auto Open Ready Cards Loop
+task.spawn(function()
+    while true do
+        if Config.AutoOpenReadyCards then
+            pcall(doOpenReadyCards)
+        end
+        task.wait(1.0)
+    end
+end)
+
+
+-- All Tokens & Potions Loop
 task.spawn(function()
     while true do
         if Config.AutoCollectTokens then
-            local activeToken = findActiveVariantToken()
-            if activeToken then
-                collectVariantToken(activeToken)
+            local activeItem = findActiveCollectable()
+            if activeItem then
+                collectMapItem(activeItem)
             end
         end
-        task.wait(2.0)
+        task.wait(1.0)
     end
 end)
+
 
 -- Infinity Tower Loop
 task.spawn(function()
@@ -1130,6 +1498,27 @@ end)
 -- ============================================================================
 -- CARD TYCOON V3.2 - UNIFIED 4-TAB GUI (PC & DELTA EXECUTOR)
 -- ============================================================================
+
+-- Auto cleanup existing GUI so re-execution always replaces cleanly
+pcall(function()
+    local g = (getgenv and getgenv()) or _G
+    if g and g._CardTycoonV3Cleanup then
+        pcall(g._CardTycoonV3Cleanup)
+    end
+    local targets = {}
+    if gethui then table.insert(targets, gethui()) end
+    if CoreGui then table.insert(targets, CoreGui) end
+    if LocalPlayer and LocalPlayer:FindFirstChild("PlayerGui") then
+        table.insert(targets, LocalPlayer.PlayerGui)
+    end
+    for _, container in ipairs(targets) do
+        for _, c in ipairs(container:GetChildren()) do
+            if c.Name == "CardTycoonV3Gui" then
+                pcall(function() c:Destroy() end)
+            end
+        end
+    end
+end)
 
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "CardTycoonV3Gui"
@@ -1531,7 +1920,7 @@ local function createTextBox(page, labelText, configKey, defaultVal)
 
     textBox.FocusLost:Connect(function()
         local num = tonumber(textBox.Text)
-        if num and num > 0 then
+        if num and num >= 0 then
             Config[configKey] = math.floor(num)
             textBox.Text = tostring(Config[configKey])
         else
@@ -1600,6 +1989,19 @@ rollDesc.TextWrapped = true
 rollDesc.TextXAlignment = Enum.TextXAlignment.Left
 rollDesc.Parent = RollPage
 
+createTextBox(RollPage, "🎯 Batas Maksimal Buy (0 = Bebas):", "MaxBuyLimit", 10)
+
+local limitDesc = Instance.new("TextLabel")
+limitDesc.Size = UDim2.new(1, 0, 0, 24)
+limitDesc.BackgroundTransparency = 1
+limitDesc.Text = "ℹ️ Jika diisi angka (misal 10), setelah berhasil membeli 10 kartu, Auto Roll otomatis OFF."
+limitDesc.TextColor3 = Color3.fromRGB(140, 155, 185)
+limitDesc.Font = Enum.Font.Gotham
+limitDesc.TextSize = 9.5
+limitDesc.TextWrapped = true
+limitDesc.TextXAlignment = Enum.TextXAlignment.Left
+limitDesc.Parent = RollPage
+
 createSectionHeader(RollPage, "Pilih Pack Dibeli & Filter Mutasi Langsung:")
 
 local rollPresetBar = Instance.new("Frame")
@@ -1666,13 +2068,14 @@ createPresetBtn("Reset Beli", 75, function()
     updateAllPacksVisual()
 end)
 
--- List of 16 Unified Pack Cards
-for _, pName in ipairs(AllPackNames) do
+-- List of 16 Unified Pack Cards (Exact In-Game Conveyor Order 1-16)
+for idx, pName in ipairs(AllPackNames) do
     local isSel = Config.SelectedPacks[pName] == true
     local pColor = PackColors[pName] or Color3.fromRGB(255, 255, 255)
 
     local card = Instance.new("Frame")
-    card.Name = "Card_" .. pName
+    card.Name = string.format("Card_%02d_%s", idx, pName)
+    card.LayoutOrder = 20 + idx
     card.Size = UDim2.new(1, 0, 0, 36)
     card.BackgroundColor3 = Color3.fromRGB(22, 26, 38)
     card.ClipsDescendants = true
@@ -1989,23 +2392,75 @@ createToggle(TowerPage, "👁️ Auto Hide Layar Battle", "AutoHideTowerBattle")
 -- ============================================================================
 local BasePage = createTab("Base & Token", "⭐", 4)
 
+createSectionHeader(BasePage, "Auto Open Ready Cards (Dropper Base)")
+createToggle(BasePage, "🎁 Auto Open Card (Saat Countdown 0s / Ready)", "AutoOpenReadyCards")
+
+local openDesc = Instance.new("TextLabel")
+openDesc.Size = UDim2.new(1, 0, 0, 36)
+openDesc.BackgroundTransparency = 1
+openDesc.Text = "ℹ️ Otomatis mendeteksi box/kartu di dropper base yang countdown-nya sudah 0 (Ready) dan langsung membukanya."
+openDesc.TextColor3 = Color3.fromRGB(140, 155, 185)
+openDesc.Font = Enum.Font.Gotham
+openDesc.TextSize = 10
+openDesc.TextWrapped = true
+openDesc.TextXAlignment = Enum.TextXAlignment.Left
+openDesc.Parent = BasePage
+
 createSectionHeader(BasePage, "Auto Level Up Kartu")
 createToggle(BasePage, "⭐ Auto Level Up (Kartu Base Terendah)", "AutoLevelUp")
 createTextBox(BasePage, "🎯 Target Maksimal Level Up:", "TargetCardLevel", 35)
 
-createSectionHeader(BasePage, "Variant Token Collector")
-createToggle(BasePage, "🔮 Auto Teleport Token & Pasti Balik", "AutoCollectTokens")
+createSectionHeader(BasePage, "Kolektor Semua Token & Potion (Map)")
+createToggle(BasePage, "🔮 Auto Collect Semua Token & Potion", "AutoCollectTokens")
 
 local tokenDesc = Instance.new("TextLabel")
-tokenDesc.Size = UDim2.new(1, 0, 0, 45)
+tokenDesc.Size = UDim2.new(1, 0, 0, 42)
 tokenDesc.BackgroundTransparency = 1
-tokenDesc.Text = "ℹ️ Jika ada Variant Token spawn di map, karakter akan teleport instan ke token, menunggu sampai token berhasil diambil, lalu teleport kembali ke posisi semula."
+tokenDesc.Text = "ℹ️ Otomatis mendeteksi Trait Token, Grade Token, Luck/Cash Potion, & Variant Token di map, teleport mengambilnya, lalu instan kembali ke posisi semula."
 tokenDesc.TextColor3 = Color3.fromRGB(140, 155, 185)
 tokenDesc.Font = Enum.Font.Gotham
 tokenDesc.TextSize = 10
 tokenDesc.TextWrapped = true
 tokenDesc.TextXAlignment = Enum.TextXAlignment.Left
 tokenDesc.Parent = BasePage
+
+createSectionHeader(BasePage, "💾 Manajemen Penyimpanan Settingan")
+
+local saveBtn = Instance.new("TextButton")
+saveBtn.Size = UDim2.new(1, 0, 0, 36)
+saveBtn.BackgroundColor3 = Color3.fromRGB(35, 130, 75)
+saveBtn.Text = "💾 Simpan Semua Pengaturan Sekarang"
+saveBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+saveBtn.Font = Enum.Font.GothamBold
+saveBtn.TextSize = 11
+saveBtn.Parent = BasePage
+
+local sbc = Instance.new("UICorner")
+sbc.CornerRadius = UDim.new(0, 8)
+sbc.Parent = saveBtn
+
+bindBtn(saveBtn, function()
+    saveConfig(true)
+    saveBtn.Text = "✅ Berhasil Disimpan ke Disk!"
+    saveBtn.BackgroundColor3 = Color3.fromRGB(50, 180, 95)
+    task.delay(1.5, function()
+        if saveBtn and saveBtn.Parent then
+            saveBtn.Text = "💾 Simpan Semua Pengaturan Sekarang"
+            saveBtn.BackgroundColor3 = Color3.fromRGB(35, 130, 75)
+        end
+    end)
+end)
+
+local saveStatusLabel = Instance.new("TextLabel")
+saveStatusLabel.Size = UDim2.new(1, 0, 0, 32)
+saveStatusLabel.BackgroundTransparency = 1
+saveStatusLabel.Text = "ℹ️ Pengaturan otomatis tersimpan tiap kali kamu mengubah toggle / filter. Tombol di atas untuk memastikan tersimpan ke disk Delta."
+saveStatusLabel.TextColor3 = Color3.fromRGB(140, 155, 185)
+saveStatusLabel.Font = Enum.Font.Gotham
+saveStatusLabel.TextSize = 10
+saveStatusLabel.TextWrapped = true
+saveStatusLabel.TextXAlignment = Enum.TextXAlignment.Left
+saveStatusLabel.Parent = BasePage
 
 -- Inisialisasi Tampilan
 updateAllPacksVisual()
