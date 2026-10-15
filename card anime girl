@@ -1,6 +1,8 @@
 -- ============================================================================
--- CARD & CRATE TYCOON - ULTIMATE AUTO FARM & UTILITY SCRIPT (v1.1)
+-- CARD & CRATE TYCOON - ULTIMATE AUTO FARM & UTILITY SCRIPT (v1.2)
 -- Brand New Custom Script (100% Pure Offline UI - No External Loadstring Needed)
+-- Features: Persistent Settings (Auto Save/Load Config), Auto Full Crate Cycle (10s delay),
+-- Auto Open Dropper Box, Enhanced Token Collector, Player Utilities
 -- Compatibility: PC & Mobile (Touch Friendly, Draggable, Resilient)
 -- ============================================================================
 
@@ -23,6 +25,7 @@ local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local CollectionService = game:GetService("CollectionService")
+local HttpService = game:GetService("HttpService")
 local CoreGui = game:GetService("CoreGui")
 
 local LocalPlayer = Players.LocalPlayer or Players.PlayerAdded:Wait()
@@ -46,7 +49,6 @@ local function getMyPlot()
     return nil
 end
 
--- Helper trigger ProximityPrompt dengan bypass jarak & Line of Sight
 local function triggerPrompt(prompt)
     if not prompt or not prompt.Enabled then return false end
     pcall(function()
@@ -70,11 +72,13 @@ local function triggerPrompt(prompt)
 end
 
 -- ============================================================================
--- 2. STATE & KONFIGURASI
+-- 2. PERSISTENT SETTINGS (SAVE & LOAD CONFIG JSON)
 -- ============================================================================
+local CONFIG_FILE = "CardTycoon_Config.json"
+
 local Config = {
     -- Tab Farm
-    AutoFullCrateCycle = false, -- Carry -> Deposit -> Collect -> Sell (Jeda 10 detik)
+    AutoFullCrateCycle = false,
     
     -- Tab Card / Base
     AutoRoll = false,
@@ -94,6 +98,34 @@ local Config = {
     Noclip = false,
     InfiniteJump = false
 }
+
+local function saveConfig()
+    pcall(function()
+        if writefile then
+            local encoded = HttpService:JSONEncode(Config)
+            writefile(CONFIG_FILE, encoded)
+        end
+    end)
+end
+
+local function loadConfig()
+    pcall(function()
+        if isfile and readfile and isfile(CONFIG_FILE) then
+            local content = readfile(CONFIG_FILE)
+            local decoded = HttpService:JSONDecode(content)
+            if type(decoded) == "table" then
+                for k, v in pairs(decoded) do
+                    if Config[k] ~= nil then
+                        Config[k] = v
+                    end
+                end
+            end
+        end
+    end)
+end
+
+-- Muat konfigurasi yang tersimpan sebelumnya
+loadConfig()
 
 -- ============================================================================
 -- 3. CORE AUTOMATION FUNCTIONS
@@ -184,7 +216,6 @@ local function doSellCrates()
     end)
 end
 
--- Eksekusi 1 putaran cycle penuh
 local function runSingleCycle()
     doCarryCrate()
     task.wait(0.3)
@@ -270,14 +301,12 @@ local function doClaimRewards()
     end)
 end
 
--- Enhanced Variant Token Collector (Multi-Method: Touch, Remote, Proximity)
 local function doCollectTokens()
     pcall(function()
         local tokens = CollectionService:GetTagged("VariantTokenSpawn")
         local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
         
         for _, token in ipairs(tokens) do
-            -- 1. Fire Remote Collect & Found
             if Remotes:FindFirstChild("VariantTokenFound") then
                 pcall(function() Remotes.VariantTokenFound:FireServer(token) end)
                 pcall(function() Remotes.VariantTokenFound:FireServer(token.Name) end)
@@ -287,14 +316,12 @@ local function doCollectTokens()
                 pcall(function() Remotes.CollectVariantTokenSpawn:FireServer(token.Name) end)
             end
             
-            -- 2. Trigger ProximityPrompt jika ada
             for _, desc in ipairs(token:GetDescendants()) do
                 if desc:IsA("ProximityPrompt") then
                     triggerPrompt(desc)
                 end
             end
             
-            -- 3. Touch Interest bypass jika executor support
             if hrp and typeof(firetouchinterest) == "function" then
                 local tokenPart = (token:IsA("BasePart") and token) or token:FindFirstChildWhichIsA("BasePart")
                 if tokenPart then
@@ -349,7 +376,6 @@ task.spawn(function()
     while true do
         if Config.AutoFullCrateCycle then
             runSingleCycle()
-            -- Hitung mundur jeda 10 detik dengan pengecekan interrupt
             for i = 1, 100 do
                 if not Config.AutoFullCrateCycle then break end
                 task.wait(0.1)
@@ -365,7 +391,7 @@ task.spawn(function()
     while true do
         if Config.AutoRoll then
             doRollCard()
-            task.wait(0.15)
+            task.wait(0.2)
         else
             task.wait(0.5)
         end
@@ -557,7 +583,7 @@ TitleLabel.Name = "TitleLabel"
 TitleLabel.Size = UDim2.new(1, -90, 1, 0)
 TitleLabel.Position = UDim2.new(0, 14, 0, 0)
 TitleLabel.BackgroundTransparency = 1
-TitleLabel.Text = "🃏 CARD TYCOON <font color=\"#4A90E2\">AUTOFARM v1.1</font>"
+TitleLabel.Text = "🃏 CARD TYCOON <font color=\"#4A90E2\">AUTOFARM v1.2</font>"
 TitleLabel.RichText = true
 TitleLabel.TextColor3 = Color3.fromRGB(240, 240, 255)
 TitleLabel.TextSize = 15
@@ -694,8 +720,10 @@ local function createTab(name, icon, order)
     return page
 end
 
--- UI Component Helpers
-local function createToggle(page, labelText, defaultVal, callback)
+-- UI Component Helper dengan Auto-Save
+local function createToggle(page, labelText, configKey, callback)
+    local defaultVal = Config[configKey] or false
+    
     local toggleFrame = Instance.new("Frame")
     toggleFrame.Size = UDim2.new(1, 0, 0, 42)
     toggleFrame.BackgroundColor3 = Color3.fromRGB(26, 30, 42)
@@ -738,9 +766,11 @@ local function createToggle(page, labelText, defaultVal, callback)
     local state = defaultVal
     switch.MouseButton1Click:Connect(function()
         state = not state
+        Config[configKey] = state
         switch.BackgroundColor3 = state and Color3.fromRGB(50, 185, 95) or Color3.fromRGB(48, 54, 70)
         switch.Text = state and "ON" or "OFF"
-        callback(state)
+        if callback then callback(state) end
+        saveConfig()
     end)
 
     return toggleFrame
@@ -771,9 +801,7 @@ end
 -- TAB 1: 📦 FARM
 local farmPage = createTab("Farm", "📦", 1)
 
-createToggle(farmPage, "⚡ Auto Full Crate Cycle (Jeda 10s Tiap Cycle)", Config.AutoFullCrateCycle, function(val)
-    Config.AutoFullCrateCycle = val
-end)
+createToggle(farmPage, "⚡ Auto Full Crate Cycle (Jeda 10s Tiap Cycle)", "AutoFullCrateCycle")
 
 createButton(farmPage, "🔄 Jalankan 1x Siklus Crate Sekarang", Color3.fromRGB(45, 120, 210), function()
     runSingleCycle()
@@ -782,32 +810,16 @@ end)
 -- TAB 2: 🃏 CARDS / BASE
 local cardPage = createTab("Cards", "🃏", 2)
 
-createToggle(cardPage, "🎰 Auto Roll Cards / Conveyor", Config.AutoRoll, function(val)
-    Config.AutoRoll = val
-end)
-
-createToggle(cardPage, "📦 Auto Open Dropper Box", Config.AutoOpenDropperBox, function(val)
-    Config.AutoOpenDropperBox = val
-end)
-
-createToggle(cardPage, "🛡️ Auto Equip Best Cards", Config.AutoEquipBest, function(val)
-    Config.AutoEquipBest = val
-end)
+createToggle(cardPage, "🎰 Auto Roll Cards / Conveyor", "AutoRoll")
+createToggle(cardPage, "📦 Auto Open Dropper Box", "AutoOpenDropperBox")
+createToggle(cardPage, "🛡️ Auto Equip Best Cards", "AutoEquipBest")
 
 -- TAB 3: 🎁 REWARDS & WORLD
 local rewardPage = createTab("Rewards", "🎁", 3)
 
-createToggle(rewardPage, "💎 Auto Claim All Rewards (Daily/Playtime/Index)", Config.AutoClaimRewards, function(val)
-    Config.AutoClaimRewards = val
-end)
-
-createToggle(rewardPage, "🔮 Auto Collect Variant Tokens (Enhanced)", Config.AutoCollectTokens, function(val)
-    Config.AutoCollectTokens = val
-end)
-
-createToggle(rewardPage, "🏆 Auto Collect Hidden Objects", Config.AutoCollectObjects, function(val)
-    Config.AutoCollectObjects = val
-end)
+createToggle(rewardPage, "💎 Auto Claim All Rewards (Daily/Playtime/Index)", "AutoClaimRewards")
+createToggle(rewardPage, "🔮 Auto Collect Variant Tokens (Enhanced)", "AutoCollectTokens")
+createToggle(rewardPage, "🏆 Auto Collect Hidden Objects", "AutoCollectObjects")
 
 createButton(rewardPage, "🎲 Spin Jackpot Sekarang", Color3.fromRGB(180, 100, 30), function()
     pcall(function()
@@ -820,16 +832,10 @@ end)
 -- TAB 4: ⚡ PLAYER & TELEPORT
 local playerPage = createTab("Player", "⚡", 4)
 
-createToggle(playerPage, "👻 Noclip (Tembus Tembok)", Config.Noclip, function(val)
-    Config.Noclip = val
-end)
+createToggle(playerPage, "👻 Noclip (Tembus Tembok)", "Noclip")
+createToggle(playerPage, "🚀 Infinite Jump", "InfiniteJump")
 
-createToggle(playerPage, "🚀 Infinite Jump", Config.InfiniteJump, function(val)
-    Config.InfiniteJump = val
-end)
-
-createToggle(playerPage, "🏃 Speed Boost (Speed: 50)", Config.WalkSpeedEnabled, function(val)
-    Config.WalkSpeedEnabled = val
+createToggle(playerPage, "🏃 Speed Boost (Speed: 50)", "WalkSpeedEnabled", function(val)
     Config.WalkSpeedValue = val and 50 or 16
     local char = LocalPlayer.Character
     local hum = char and char:FindFirstChildOfClass("Humanoid")
@@ -873,4 +879,4 @@ tabs["Farm"].Btn.BackgroundColor3 = Color3.fromRGB(50, 95, 205)
 tabs["Farm"].Btn.TextColor3 = Color3.fromRGB(255, 255, 255)
 tabs["Farm"].Page.Visible = true
 
-print("✅ Card & Crate Tycoon Script v1.1 Loaded Successfully!")
+print("✅ Card & Crate Tycoon Script v1.2 with Auto Save/Load Config Loaded!")
