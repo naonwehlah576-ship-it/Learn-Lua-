@@ -186,6 +186,184 @@ local function getBoxesLibrary()
     return BoxesLibrary
 end
 
+local PotionService = nil
+local function getPotionService()
+    if not PotionService then
+        pcall(function()
+            local s = ReplicatedStorage:FindFirstChild("Shared") and ReplicatedStorage.Shared:FindFirstChild("Services")
+            if s and s:FindFirstChild("PotionService") then
+                PotionService = require(s.PotionService)
+            else
+                for _, desc in ipairs(ReplicatedStorage:GetDescendants()) do
+                    if desc.Name == "PotionService" and desc:IsA("ModuleScript") then
+                        PotionService = require(desc)
+                        break
+                    end
+                end
+            end
+        end)
+    end
+    return PotionService
+end
+
+local ItemService = nil
+local function getItemService()
+    if not ItemService then
+        pcall(function()
+            local s = ReplicatedStorage:FindFirstChild("Shared") and ReplicatedStorage.Shared:FindFirstChild("Services")
+            if s and s:FindFirstChild("ItemService") then
+                ItemService = require(s.ItemService)
+            else
+                for _, desc in ipairs(ReplicatedStorage:GetDescendants()) do
+                    if desc.Name == "ItemService" and desc:IsA("ModuleScript") then
+                        ItemService = require(desc)
+                        break
+                    end
+                end
+            end
+        end)
+    end
+    return ItemService
+end
+
+local PotionsLibrary = nil
+local function getPotionsLibrary()
+    if not PotionsLibrary then
+        pcall(function()
+            local bMod = ReplicatedStorage:FindFirstChild("Shared")
+                and ReplicatedStorage.Shared:FindFirstChild("Core")
+                and ReplicatedStorage.Shared.Core:FindFirstChild("Storage")
+                and ReplicatedStorage.Shared.Core.Storage:FindFirstChild("Game")
+                and ReplicatedStorage.Shared.Core.Storage.Game:FindFirstChild("PotionsLibrary")
+            if bMod then
+                PotionsLibrary = require(bMod)
+            else
+                for _, desc in ipairs(ReplicatedStorage:GetDescendants()) do
+                    if desc.Name == "PotionsLibrary" and desc:IsA("ModuleScript") then
+                        PotionsLibrary = require(desc)
+                        break
+                    end
+                end
+            end
+        end)
+    end
+    return PotionsLibrary
+end
+
+local PotionList = {
+    {
+        Id = "LuckPotion",
+        Name = "Luck Potion",
+        ConfigKey = "AutoUseLuckPotion",
+        Description = "+1 Luck",
+        Color = Color3.fromRGB(110, 220, 140)
+    },
+    {
+        Id = "CashPotion",
+        Name = "Cash Potion",
+        ConfigKey = "AutoUseCashPotion",
+        Description = "x2 Cash",
+        Color = Color3.fromRGB(255, 215, 60)
+    },
+    {
+        Id = "GradeSpeedPotion",
+        Name = "Token Speed Potion",
+        ConfigKey = "AutoUseGradeSpeedPotion",
+        Description = "+25% Token Speed",
+        Color = Color3.fromRGB(255, 90, 80)
+    },
+    {
+        Id = "DuckPotion",
+        Name = "Duck Potion",
+        ConfigKey = "AutoUseDuckPotion",
+        Description = "x3 Walk Speed",
+        Color = Color3.fromRGB(255, 230, 80)
+    }
+}
+
+local function getPotionSecondsLeft(potionId)
+    local timeLeft = nil
+    pcall(function()
+        local ps = getPotionService()
+        if ps and ps.GetPotionTimeLeft then
+            local sec = ps.GetPotionTimeLeft(LocalPlayer, potionId)
+            if typeof(sec) == "number" then timeLeft = sec end
+        end
+    end)
+    if timeLeft ~= nil then return timeLeft end
+
+    pcall(function()
+        local potFolder = LocalPlayer:FindFirstChild("Potions")
+        if potFolder then
+            local sec = potFolder:GetAttribute(potionId)
+            if typeof(sec) == "number" then timeLeft = sec end
+        end
+    end)
+    if timeLeft ~= nil then return timeLeft end
+
+    return 0
+end
+
+local function getPotionStock(potionId)
+    local amount = nil
+    pcall(function()
+        local is = getItemService()
+        if is and is.GetAmountOfItem then
+            local cnt = is.GetAmountOfItem(LocalPlayer, potionId)
+            if typeof(cnt) == "number" then amount = cnt end
+        end
+    end)
+    if amount ~= nil then return amount end
+
+    pcall(function()
+        local cdm = getClientDataManager()
+        if cdm and cdm.GetData then
+            local data = cdm.GetData()
+            if data and data.Potions and typeof(data.Potions[potionId]) == "number" then
+                amount = data.Potions[potionId]
+            end
+        end
+    end)
+    if amount ~= nil then return amount end
+
+    return 0
+end
+
+local function usePotion(potionId)
+    local rem = getRemote("UseItem")
+    if rem then
+        pcall(function()
+            rem:FireServer(potionId)
+        end)
+        return true
+    end
+    return false
+end
+
+local lastPotionUseTime = {}
+local function checkAndAutoUsePotions()
+    for _, pot in ipairs(PotionList) do
+        if Config[pot.ConfigKey] == true then
+            local stock = getPotionStock(pot.Id)
+            if stock > 0 then
+                local secLeft = getPotionSecondsLeft(pot.Id)
+                if secLeft <= 120 then
+                    local now = os.clock()
+                    if not lastPotionUseTime[pot.Id] or (now - lastPotionUseTime[pot.Id] > 3.0) then
+                        lastPotionUseTime[pot.Id] = now
+                        local m = math.floor(secLeft / 60)
+                        local s = math.floor(secLeft % 60)
+                        local timeStr = secLeft > 0 and string.format("%02dm %02ds", m, s) or "0s (Habis)"
+                        print(string.format("🧪 [Auto Potion] Sisa durasi %s adalah %s (<= 2m) [Stok: %d]. Meminum potion...", pot.Name, timeStr, stock))
+                        usePotion(pot.Id)
+                        task.wait(0.5)
+                    end
+                end
+            end
+        end
+    end
+end
+
 local InfinityTowerGuiClient = nil
 pcall(function()
     InfinityTowerGuiClient = require(ReplicatedStorage.Client.Core.Gui.InfinityTowerGuiClient)
@@ -197,6 +375,9 @@ pcall(getPlayerUnitService)
 pcall(getCurrencyService)
 pcall(getClientDataManager)
 pcall(getBoxesLibrary)
+pcall(getPotionService)
+pcall(getItemService)
+pcall(getPotionsLibrary)
 
 -- Helper Parse Angka Berformat ($1.5M, $250K, $ 50,000, dll)
 local function parseFormattedNumber(text)
@@ -489,6 +670,11 @@ local Config = {
     AutoTower = false,
     TowerMode = "Single", -- "Single" atau "Rotate"
     AutoHideTowerBattle = true,
+
+    AutoUseLuckPotion = false,
+    AutoUseCashPotion = false,
+    AutoUseGradeSpeedPotion = false,
+    AutoUseDuckPotion = false,
     
     SelectedTowers = {
         ["DistantCastle"] = true,
@@ -1458,6 +1644,15 @@ task.spawn(function()
             end
         end
         task.wait(1.0)
+    end
+end)
+
+
+-- Auto Use Potions Loop (Cek durasi sisa <= 2 menit)
+task.spawn(function()
+    while true do
+        pcall(checkAndAutoUsePotions)
+        task.wait(1.5)
     end
 end)
 
@@ -2459,8 +2654,154 @@ saveStatusLabel.TextColor3 = Color3.fromRGB(140, 155, 185)
 saveStatusLabel.Font = Enum.Font.Gotham
 saveStatusLabel.TextSize = 10
 saveStatusLabel.TextWrapped = true
-saveStatusLabel.TextXAlignment = Enum.TextXAlignment.Left
 saveStatusLabel.Parent = BasePage
+
+-- ============================================================================
+-- TAB 5: 🧪 POTIONS (AUTO USE IF UNDER 2M)
+-- ============================================================================
+local PotionPage = createTab("Potions", "🧪", 5)
+
+createSectionHeader(PotionPage, "Auto Minum Potion Saat Sisa Durasi <= 2 Menit")
+
+local potDesc = Instance.new("TextLabel")
+potDesc.Size = UDim2.new(1, 0, 0, 36)
+potDesc.BackgroundTransparency = 1
+potDesc.Text = "ℹ️ Tiap potion dipisah togglenya. Jika ON, script otomatis meminum potion saat sisa durasi aktif <= 2 menit (atau sedang tidak aktif) selama stok masih ada."
+potDesc.TextColor3 = Color3.fromRGB(140, 155, 185)
+potDesc.Font = Enum.Font.Gotham
+potDesc.TextSize = 10
+potDesc.TextWrapped = true
+potDesc.TextXAlignment = Enum.TextXAlignment.Left
+potDesc.Parent = PotionPage
+
+local potionUiCards = {}
+for idx, pot in ipairs(PotionList) do
+    local card = Instance.new("Frame")
+    card.Name = "PotionCard_" .. pot.Id
+    card.LayoutOrder = idx
+    card.Size = UDim2.new(1, 0, 0, 68)
+    card.BackgroundColor3 = Color3.fromRGB(24, 28, 40)
+    card.Parent = PotionPage
+
+    local cardCorner = Instance.new("UICorner")
+    cardCorner.CornerRadius = UDim.new(0, 8)
+    cardCorner.Parent = card
+
+    local cardStroke = Instance.new("UIStroke")
+    cardStroke.Color = Color3.fromRGB(38, 46, 66)
+    cardStroke.Thickness = 1
+    cardStroke.Parent = card
+
+    local nameLbl = Instance.new("TextLabel")
+    nameLbl.Size = UDim2.new(1, -125, 0, 20)
+    nameLbl.Position = UDim2.new(0, 12, 0, 8)
+    nameLbl.BackgroundTransparency = 1
+    nameLbl.Text = "🧪 " .. pot.Name .. " (" .. pot.Description .. ")"
+    nameLbl.TextColor3 = pot.Color or Color3.fromRGB(240, 245, 255)
+    nameLbl.Font = Enum.Font.GothamBold
+    nameLbl.TextSize = 11.5
+    nameLbl.TextXAlignment = Enum.TextXAlignment.Left
+    nameLbl.Parent = card
+
+    local statusLbl = Instance.new("TextLabel")
+    statusLbl.Size = UDim2.new(1, -125, 0, 18)
+    statusLbl.Position = UDim2.new(0, 12, 0, 30)
+    statusLbl.BackgroundTransparency = 1
+    statusLbl.Text = "Stok: ... | Sisa Aktif: ..."
+    statusLbl.TextColor3 = Color3.fromRGB(160, 175, 200)
+    statusLbl.Font = Enum.Font.Gotham
+    statusLbl.TextSize = 10.5
+    statusLbl.TextXAlignment = Enum.TextXAlignment.Left
+    statusLbl.Parent = card
+
+    local isPotOn = Config[pot.ConfigKey] == true
+    local togBtn = Instance.new("TextButton")
+    togBtn.Size = UDim2.new(0, 100, 0, 26)
+    togBtn.Position = UDim2.new(1, -112, 0, 8)
+    togBtn.BackgroundColor3 = isPotOn and Color3.fromRGB(45, 175, 85) or Color3.fromRGB(45, 52, 68)
+    togBtn.Text = isPotOn and "AUTO ON (<2m)" or "AUTO OFF"
+    togBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    togBtn.Font = Enum.Font.GothamBold
+    togBtn.TextSize = 9.5
+    togBtn.Parent = card
+
+    local togCorner = Instance.new("UICorner")
+    togCorner.CornerRadius = UDim.new(0, 6)
+    togCorner.Parent = togBtn
+
+    bindBtn(togBtn, function()
+        Config[pot.ConfigKey] = not Config[pot.ConfigKey]
+        local nowOn = Config[pot.ConfigKey]
+        togBtn.BackgroundColor3 = nowOn and Color3.fromRGB(45, 175, 85) or Color3.fromRGB(45, 52, 68)
+        togBtn.Text = nowOn and "AUTO ON (<2m)" or "AUTO OFF"
+        saveConfig()
+    end)
+
+    local useBtn = Instance.new("TextButton")
+    useBtn.Size = UDim2.new(0, 100, 0, 22)
+    useBtn.Position = UDim2.new(1, -112, 0, 38)
+    useBtn.BackgroundColor3 = Color3.fromRGB(34, 40, 56)
+    useBtn.Text = "Minum Sekarang"
+    useBtn.TextColor3 = Color3.fromRGB(210, 225, 250)
+    useBtn.Font = Enum.Font.GothamMedium
+    useBtn.TextSize = 9
+    useBtn.Parent = card
+
+    local useCorner = Instance.new("UICorner")
+    useCorner.CornerRadius = UDim.new(0, 5)
+    useCorner.Parent = useBtn
+
+    bindBtn(useBtn, function()
+        local stock = getPotionStock(pot.Id)
+        if stock > 0 then
+            usePotion(pot.Id)
+            useBtn.Text = "Diminum!"
+            task.delay(1, function()
+                if useBtn and useBtn.Parent then useBtn.Text = "Minum Sekarang" end
+            end)
+        else
+            useBtn.Text = "Stok Habis!"
+            task.delay(1, function()
+                if useBtn and useBtn.Parent then useBtn.Text = "Minum Sekarang" end
+            end)
+        end
+    end)
+
+    potionUiCards[pot.Id] = {
+        Card = card,
+        StatusLabel = statusLbl,
+        ToggleBtn = togBtn
+    }
+end
+
+-- Real-time Potion Status Updater Task
+task.spawn(function()
+    while true do
+        pcall(function()
+            for _, pot in ipairs(PotionList) do
+                local ui = potionUiCards[pot.Id]
+                if ui and ui.StatusLabel and ui.StatusLabel.Parent then
+                    local stock = getPotionStock(pot.Id)
+                    local secLeft = getPotionSecondsLeft(pot.Id)
+                    local m = math.floor(secLeft / 60)
+                    local s = math.floor(secLeft % 60)
+                    local timeStr = secLeft > 0 and string.format("%02d:%02d", m, s) or "Tidak Aktif"
+                    
+                    if secLeft > 120 then
+                        ui.StatusLabel.TextColor3 = Color3.fromRGB(110, 220, 140)
+                    elseif secLeft > 0 then
+                        ui.StatusLabel.TextColor3 = Color3.fromRGB(255, 185, 50)
+                    else
+                        ui.StatusLabel.TextColor3 = Color3.fromRGB(160, 175, 195)
+                    end
+                    
+                    ui.StatusLabel.Text = string.format("Stok: %d  |  Sisa Aktif: %s", stock, timeStr)
+                end
+            end
+        end)
+        task.wait(1.0)
+    end
+end)
 
 -- Inisialisasi Tampilan
 updateAllPacksVisual()
@@ -2472,4 +2813,4 @@ if tabs["Farm"] then
     tabs["Farm"].Btn.TextColor3 = Color3.fromRGB(255, 255, 255)
 end
 
-print("✅ Card & Crate Tycoon ALL-IN-ONE v3.2 Loaded Successfully!")
+print("✅ Card & Crate Tycoon ALL-IN-ONE v3.3 Loaded Successfully!")
