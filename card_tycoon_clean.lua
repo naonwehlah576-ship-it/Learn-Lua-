@@ -1278,26 +1278,101 @@ ToggleButton.MouseButton1Click:Connect(function()
     MainFrame.Visible = not MainFrame.Visible
 end)
 
--- Content ScrollFrame
-local Content = Instance.new("ScrollingFrame")
-Content.Name = "Content"
-Content.Size = UDim2.new(1, -12, 1, -40)
-Content.Position = UDim2.new(0, 6, 0, 37)
-Content.BackgroundTransparency = 1
-Content.BorderSizePixel = 0
-Content.ScrollBarThickness = 3
-Content.ScrollBarImageColor3 = Color3.fromRGB(50, 70, 110)
-Content.CanvasSize = UDim2.new(0, 0, 0, 0)
-Content.AutomaticCanvasSize = Enum.AutomaticSize.Y
-Content.Parent = MainFrame
+-- ============================================================================
+-- TAB BAR & MULTI-PAGE NAVIGATION (MOBILE & DELTA FRIENDLY)
+-- ============================================================================
+local TabBar = Instance.new("Frame")
+TabBar.Name = "TabBar"
+TabBar.Size = UDim2.new(1, -12, 0, 26)
+TabBar.Position = UDim2.new(0, 6, 0, 36)
+TabBar.BackgroundTransparency = 1
+TabBar.Parent = MainFrame
 
-local ContentLayout = Instance.new("UIListLayout")
-ContentLayout.SortOrder = Enum.SortOrder.LayoutOrder
-ContentLayout.Padding = UDim.new(0, 6)
-ContentLayout.Parent = Content
+local TabLayout = Instance.new("UIListLayout")
+TabLayout.FillDirection = Enum.FillDirection.Horizontal
+TabLayout.SortOrder = Enum.SortOrder.LayoutOrder
+TabLayout.Padding = UDim.new(0, 4)
+TabLayout.Parent = TabBar
 
--- Compact Builders
-local function createSectionHeader(title)
+local function createTabButton(text, order)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(0.333, -3, 1, 0)
+    btn.BackgroundColor3 = Color3.fromRGB(24, 28, 40)
+    btn.Text = text
+    btn.TextColor3 = Color3.fromRGB(150, 165, 195)
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 9.5
+    btn.LayoutOrder = order
+    btn.Parent = TabBar
+
+    local c = Instance.new("UICorner")
+    c.CornerRadius = UDim.new(0, 6)
+    c.Parent = btn
+
+    local s = Instance.new("UIStroke")
+    s.Color = Color3.fromRGB(38, 46, 68)
+    s.Thickness = 1
+    s.Parent = btn
+
+    return btn
+end
+
+local TabFarmBtn = createTabButton("⚡ Farm", 1)
+local TabRollBtn = createTabButton("🎰 Roll", 2)
+local TabTowerBtn = createTabButton("🏰 Tower", 3)
+
+-- Page Containers (Setiap Page punya ScrollFrame sendiri, Anti-Bug CanvasSize!)
+local function createPage(name)
+    local page = Instance.new("ScrollingFrame")
+    page.Name = "Page_" .. name
+    page.Size = UDim2.new(1, -12, 1, -68)
+    page.Position = UDim2.new(0, 6, 0, 64)
+    page.BackgroundTransparency = 1
+    page.BorderSizePixel = 0
+    page.ScrollBarThickness = 4
+    page.ScrollBarImageColor3 = Color3.fromRGB(65, 120, 230)
+    page.CanvasSize = UDim2.new(0, 0, 0, 230)
+    page.Visible = false
+    page.Parent = MainFrame
+
+    local layout = Instance.new("UIListLayout")
+    layout.SortOrder = Enum.SortOrder.LayoutOrder
+    layout.Padding = UDim.new(0, 6)
+    layout.Parent = page
+
+    layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        local h = math.max(220, layout.AbsoluteContentSize.Y + 20)
+        page.CanvasSize = UDim2.new(0, 0, 0, h)
+    end)
+
+    return page, layout
+end
+
+local PageFarm, FarmLayout = createPage("Farm")
+local PageRoll, RollLayout = createPage("Roll")
+local PageTower, TowerLayout = createPage("Tower")
+
+local function switchTab(tab)
+    PageFarm.Visible = (tab == "Farm")
+    PageRoll.Visible = (tab == "Roll")
+    PageTower.Visible = (tab == "Tower")
+
+    TabFarmBtn.BackgroundColor3 = (tab == "Farm") and Color3.fromRGB(65, 120, 230) or Color3.fromRGB(24, 28, 40)
+    TabFarmBtn.TextColor3 = (tab == "Farm") and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(150, 165, 195)
+
+    TabRollBtn.BackgroundColor3 = (tab == "Roll") and Color3.fromRGB(65, 120, 230) or Color3.fromRGB(24, 28, 40)
+    TabRollBtn.TextColor3 = (tab == "Roll") and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(150, 165, 195)
+
+    TabTowerBtn.BackgroundColor3 = (tab == "Tower") and Color3.fromRGB(65, 120, 230) or Color3.fromRGB(24, 28, 40)
+    TabTowerBtn.TextColor3 = (tab == "Tower") and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(150, 165, 195)
+end
+
+TabFarmBtn.MouseButton1Click:Connect(function() switchTab("Farm") end)
+TabRollBtn.MouseButton1Click:Connect(function() switchTab("Roll") end)
+TabTowerBtn.MouseButton1Click:Connect(function() switchTab("Tower") end)
+
+-- Compact UI Helpers
+local function createSectionHeader(title, parent)
     local lbl = Instance.new("TextLabel")
     lbl.Size = UDim2.new(1, 0, 0, 16)
     lbl.BackgroundTransparency = 1
@@ -1306,17 +1381,17 @@ local function createSectionHeader(title)
     lbl.Font = Enum.Font.GothamBold
     lbl.TextSize = 9
     lbl.TextXAlignment = Enum.TextXAlignment.Left
-    lbl.Parent = Content
+    lbl.Parent = parent
     return lbl
 end
 
-local function createToggle(labelText, configKey, callback)
+local function createToggle(labelText, configKey, callback, parent)
     local defaultVal = Config[configKey] or false
     
     local toggleFrame = Instance.new("Frame")
     toggleFrame.Size = UDim2.new(1, 0, 0, 32)
     toggleFrame.BackgroundColor3 = Color3.fromRGB(22, 26, 36)
-    toggleFrame.Parent = Content
+    toggleFrame.Parent = parent
 
     local corner = Instance.new("UICorner")
     corner.CornerRadius = UDim.new(0, 6)
@@ -1376,14 +1451,14 @@ local function createToggle(labelText, configKey, callback)
     return toggleFrame
 end
 
-local function createTextBox(labelText, configKey, defaultVal)
+local function createTextBox(labelText, configKey, defaultVal, parent)
     local val = Config[configKey] or defaultVal
     Config[configKey] = val
 
     local boxFrame = Instance.new("Frame")
     boxFrame.Size = UDim2.new(1, 0, 0, 32)
     boxFrame.BackgroundColor3 = Color3.fromRGB(22, 26, 36)
-    boxFrame.Parent = Content
+    boxFrame.Parent = parent
 
     local corner = Instance.new("UICorner")
     corner.CornerRadius = UDim.new(0, 6)
@@ -1435,20 +1510,26 @@ local function createTextBox(labelText, configKey, defaultVal)
 end
 
 -- ============================================================================
--- MEMBANGUN TAMPILAN GUI
+-- 1. TAB FARM: CRATE FARM, LEVEL UP, TOKEN
 -- ============================================================================
+createSectionHeader("1. Auto Crate Farm", PageFarm)
+createToggle("⚡ Auto Full Crate Cycle (Jeda 10s)", "AutoFullCrateCycle", nil, PageFarm)
 
--- 1. SEKSI CRATE FARM
-createSectionHeader("1. Auto Crate Farm")
-createToggle("⚡ Auto Full Crate Cycle (Jeda 10s)", "AutoFullCrateCycle")
+createSectionHeader("2. Auto Level Up Base Cards", PageFarm)
+createToggle("⭐ Auto Level Up (Kartu Base)", "AutoLevelUp", nil, PageFarm)
+createTextBox("🎯 Target Level Up:", "TargetCardLevel", 35, PageFarm)
 
--- 2. SEKSI ROLL & BUY FILTER
-createSectionHeader("2. Conveyor Roll & Smart Buy")
+createSectionHeader("3. Variant Token Collector", PageFarm)
+createToggle("🔮 Auto Teleport Token & Pasti Balik", "AutoCollectTokens", nil, PageFarm)
+
+-- ============================================================================
+-- 2. TAB ROLL & BUY: AUTO ROLL, FILTER PACK & MUTATION MODAL
+-- ============================================================================
+createSectionHeader("Conveyor Roll & Smart Buy", PageRoll)
 createToggle("🎰 Auto Roll & Auto Buy [Key: Q]", "AutoRoll", function(state)
     if state then resetAutoRollState() end
-end)
+end, PageRoll)
 
--- Dropdown Filter Pack (Compact)
 local function getSelectedPackCount()
     local cnt = 0
     for _, isSel in pairs(Config.SelectedPacks) do
@@ -1462,7 +1543,7 @@ packDropContainer.Name = "PackDropContainer"
 packDropContainer.Size = UDim2.new(1, 0, 0, 32)
 packDropContainer.BackgroundColor3 = Color3.fromRGB(22, 26, 36)
 packDropContainer.ClipsDescendants = true
-packDropContainer.Parent = Content
+packDropContainer.Parent = PageRoll
 
 local dropCorner = Instance.new("UICorner")
 dropCorner.CornerRadius = UDim.new(0, 6)
@@ -1604,10 +1685,9 @@ mGridScroll.Size = UDim2.new(1, -16, 1, -112)
 mGridScroll.Position = UDim2.new(0, 8, 0, 76)
 mGridScroll.BackgroundTransparency = 1
 mGridScroll.BorderSizePixel = 0
-mGridScroll.ScrollBarThickness = 2
+mGridScroll.ScrollBarThickness = 3
 mGridScroll.ScrollBarImageColor3 = Color3.fromRGB(60, 80, 120)
-mGridScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
-mGridScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+mGridScroll.CanvasSize = UDim2.new(0, 0, 0, 190)
 mGridScroll.ZIndex = 41
 mGridScroll.Parent = MutationModal
 
@@ -1615,6 +1695,10 @@ local mGridLayout = Instance.new("UIGridLayout")
 mGridLayout.CellSize = UDim2.new(0.5, -3, 0, 22)
 mGridLayout.CellPadding = UDim2.new(0, 4, 0, 4)
 mGridLayout.Parent = mGridScroll
+
+mGridLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    mGridScroll.CanvasSize = UDim2.new(0, 0, 0, math.max(180, mGridLayout.AbsoluteContentSize.Y + 10))
+end)
 
 local mDoneBtn = Instance.new("TextButton")
 mDoneBtn.Size = UDim2.new(1, -16, 0, 26)
@@ -1789,16 +1873,19 @@ gridScroll.Size = UDim2.new(1, 0, 0, 130)
 gridScroll.Position = UDim2.new(0, 0, 0, 24)
 gridScroll.BackgroundTransparency = 1
 gridScroll.BorderSizePixel = 0
-gridScroll.ScrollBarThickness = 2
+gridScroll.ScrollBarThickness = 3
 gridScroll.ScrollBarImageColor3 = Color3.fromRGB(50, 70, 110)
-gridScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
-gridScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+gridScroll.CanvasSize = UDim2.new(0, 0, 0, 180)
 gridScroll.Parent = dropBody
 
 local gridLayout = Instance.new("UIGridLayout")
 gridLayout.CellSize = UDim2.new(0.5, -4, 0, 22)
 gridLayout.CellPadding = UDim2.new(0, 4, 0, 4)
 gridLayout.Parent = gridScroll
+
+gridLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    gridScroll.CanvasSize = UDim2.new(0, 0, 0, math.max(160, gridLayout.AbsoluteContentSize.Y + 10))
+end)
 
 for _, pName in ipairs(AllPackNames) do
     local isSel = Config.SelectedPacks[pName] == true
@@ -1857,32 +1944,26 @@ local isExpanded = false
 dropHeaderBtn.MouseButton1Click:Connect(function()
     isExpanded = not isExpanded
     dropBody.Visible = isExpanded
-    packDropContainer.Size = isExpanded and UDim2.new(1, 0, 0, 195) or UDim2.new(1, 0, 0, 32)
+    packDropContainer.Size = isExpanded and UDim2.new(1, 0, 0, 205) or UDim2.new(1, 0, 0, 32)
     dropCountBadge.Text = string.format("%d Pack %s", getSelectedPackCount(), isExpanded and "▴" or "▾")
+    PageRoll.CanvasSize = UDim2.new(0, 0, 0, isExpanded and 270 or 120)
 end)
 
--- 3. SEKSI LEVEL UP BASE
-createSectionHeader("3. Auto Level Up Base Cards")
-createToggle("⭐ Auto Level Up (Kartu Base)", "AutoLevelUp")
-createTextBox("🎯 Target Level Up:", "TargetCardLevel", 35)
-
--- 4. SEKSI VARIANT TOKEN
-createSectionHeader("4. Variant Token Collector")
-createToggle("🔮 Auto Teleport Token & Pasti Balik", "AutoCollectTokens")
-
--- 5. SEKSI INFINITY TOWER
-createSectionHeader("5. Infinity Tower Battle")
+-- ============================================================================
+-- 3. TAB TOWER: INFINITY TOWER BATTLE (MODE, CHECKBOXES, AUTO HIDE)
+-- ============================================================================
+createSectionHeader("Infinity Tower Battle", PageTower)
 createToggle("🏰 Auto Tower Battle (Repeat)", "AutoTower", function(state)
     if state then
         task.spawn(pcall, runTowerCycle)
     end
-end)
+end, PageTower)
 
 -- Mode Selector: Single vs Rotate
 local modeFrame = Instance.new("Frame")
 modeFrame.Size = UDim2.new(1, 0, 0, 28)
 modeFrame.BackgroundColor3 = Color3.fromRGB(22, 26, 36)
-modeFrame.Parent = Content
+modeFrame.Parent = PageTower
 
 local modeCorner = Instance.new("UICorner")
 modeCorner.CornerRadius = UDim.new(0, 6)
@@ -1955,7 +2036,7 @@ end)
 local towerCheckListFrame = Instance.new("Frame")
 towerCheckListFrame.Size = UDim2.new(1, 0, 0, 80)
 towerCheckListFrame.BackgroundTransparency = 1
-towerCheckListFrame.Parent = Content
+towerCheckListFrame.Parent = PageTower
 
 local tListLayout = Instance.new("UIListLayout")
 tListLayout.SortOrder = Enum.SortOrder.LayoutOrder
@@ -2013,6 +2094,9 @@ for _, tId in ipairs(TowerOrder) do
     end)
 end
 
-createToggle("👁️ Auto Hide Layar Battle", "AutoHideTowerBattle")
+createToggle("👁️ Auto Hide Layar Battle", "AutoHideTowerBattle", nil, PageTower)
 
-print("✅ Card & Crate Tycoon All-In-One Loaded Successfully!")
+-- Inisialisasi Tab Awal
+switchTab("Farm")
+
+print("✅ Card & Crate Tycoon All-In-One (Tab UI) Loaded Successfully!")
