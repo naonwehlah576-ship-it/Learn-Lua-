@@ -290,7 +290,10 @@ local function getPotionSecondsLeft(potionId)
             if typeof(sec) == "number" then timeLeft = sec end
         end
     end)
-    if timeLeft ~= nil then return timeLeft end
+    if timeLeft ~= nil then
+        if timeLeft < 0 then timeLeft = 0 end
+        return timeLeft
+    end
 
     pcall(function()
         local potFolder = LocalPlayer:FindFirstChild("Potions")
@@ -299,7 +302,10 @@ local function getPotionSecondsLeft(potionId)
             if typeof(sec) == "number" then timeLeft = sec end
         end
     end)
-    if timeLeft ~= nil then return timeLeft end
+    if timeLeft ~= nil then
+        if timeLeft < 0 then timeLeft = 0 end
+        return timeLeft
+    end
 
     return 0
 end
@@ -1654,7 +1660,7 @@ local function checkAndAutoUsePotions()
             if stock > 0 then
                 local secLeft = getPotionSecondsLeft(pot.Id)
                 if secLeft <= 120 then
-                    local now = os.clock()
+                    local now = tick()
                     if not lastPotionUseTime[pot.Id] or (now - lastPotionUseTime[pot.Id] > 3.0) then
                         lastPotionUseTime[pot.Id] = now
                         local m = math.floor(secLeft / 60)
@@ -1662,7 +1668,6 @@ local function checkAndAutoUsePotions()
                         local timeStr = secLeft > 0 and string.format("%02dm %02ds", m, s) or "0s (Habis)"
                         print(string.format("🧪 [Auto Potion] Sisa durasi %s adalah %s (<= 2m) [Stok: %d]. Meminum potion...", pot.Name, timeStr, stock))
                         usePotion(pot.Id)
-                        task.wait(0.5)
                     end
                 end
             end
@@ -1881,7 +1886,7 @@ TitleLabel.Name = "TitleLabel"
 TitleLabel.Size = UDim2.new(1, -90, 1, 0)
 TitleLabel.Position = UDim2.new(0, 14, 0, 0)
 TitleLabel.BackgroundTransparency = 1
-TitleLabel.Text = "🃏 <b>CARD TYCOON</b> <font color=\"#4A90E2\">ALL-IN-ONE v3.3</font>"
+TitleLabel.Text = "🃏 <b>CARD TYCOON</b> <font color=\"#4A90E2\">ALL-IN-ONE v3.4</font>"
 TitleLabel.RichText = true
 TitleLabel.TextColor3 = Color3.fromRGB(240, 240, 255)
 TitleLabel.TextSize = 14
@@ -2754,12 +2759,19 @@ for idx, pot in ipairs(PotionList) do
     togCorner.CornerRadius = UDim.new(0, 6)
     togCorner.Parent = togBtn
 
+    local thisPot = pot
+    local thisKey = pot.ConfigKey
+    local thisId = pot.Id
+
     bindBtn(togBtn, function()
-        Config[pot.ConfigKey] = not Config[pot.ConfigKey]
-        local nowOn = Config[pot.ConfigKey]
+        Config[thisKey] = not Config[thisKey]
+        local nowOn = Config[thisKey]
         togBtn.BackgroundColor3 = nowOn and Color3.fromRGB(45, 175, 85) or Color3.fromRGB(45, 52, 68)
         togBtn.Text = nowOn and "AUTO ON (<2m)" or "AUTO OFF"
         saveConfig()
+        if nowOn then
+            pcall(checkAndAutoUsePotions)
+        end
     end)
 
     local useBtn = Instance.new("TextButton")
@@ -2777,9 +2789,9 @@ for idx, pot in ipairs(PotionList) do
     useCorner.Parent = useBtn
 
     bindBtn(useBtn, function()
-        local stock = getPotionStock(pot.Id)
+        local stock = getPotionStock(thisId)
         if stock > 0 then
-            usePotion(pot.Id)
+            usePotion(thisId)
             useBtn.Text = "Diminum!"
             task.delay(1, function()
                 if useBtn and useBtn.Parent then useBtn.Text = "Minum Sekarang" end
@@ -2792,22 +2804,22 @@ for idx, pot in ipairs(PotionList) do
         end
     end)
 
-    potionUiCards[pot.Id] = {
+    potionUiCards[thisId] = {
         Card = card,
         StatusLabel = statusLbl,
         ToggleBtn = togBtn
     }
 end
 
--- Real-time Potion Status Updater Task
+-- Real-time Potion Status Updater & Auto-Use Task
 task.spawn(function()
     while true do
         pcall(function()
             for _, pot in ipairs(PotionList) do
                 local ui = potionUiCards[pot.Id]
+                local stock = getPotionStock(pot.Id)
+                local secLeft = getPotionSecondsLeft(pot.Id)
                 if ui and ui.StatusLabel and ui.StatusLabel.Parent then
-                    local stock = getPotionStock(pot.Id)
-                    local secLeft = getPotionSecondsLeft(pot.Id)
                     local m = math.floor(secLeft / 60)
                     local s = math.floor(secLeft % 60)
                     local timeStr = secLeft > 0 and string.format("%02d:%02d", m, s) or "Tidak Aktif"
@@ -2823,6 +2835,7 @@ task.spawn(function()
                     ui.StatusLabel.Text = string.format("Stok: %d  |  Sisa Aktif: %s", stock, timeStr)
                 end
             end
+            checkAndAutoUsePotions()
         end)
         task.wait(1.0)
     end
@@ -2838,4 +2851,4 @@ if tabs["Farm"] then
     tabs["Farm"].Btn.TextColor3 = Color3.fromRGB(255, 255, 255)
 end
 
-print("✅ Card & Crate Tycoon ALL-IN-ONE v3.3 Loaded Successfully!")
+print("✅ Card & Crate Tycoon ALL-IN-ONE v3.4 Loaded Successfully!")
