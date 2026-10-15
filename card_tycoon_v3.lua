@@ -272,6 +272,7 @@ local Config = {
     AutoFullCrateCycle = false,
     AutoRoll = false,
     AutoLevelUp = false,
+    AutoOpenReadyCards = false,
     TargetCardLevel = 35,
     AutoCollectTokens = false,
     AutoTower = false,
@@ -751,6 +752,86 @@ local function doLevelUpCards()
     end
 end
 
+
+-- ============================================================================
+-- 3B. AUTO OPEN READY CARDS (PADA DROPPER BASE SAAT COUNTDOWN 0S / READY)
+-- ============================================================================
+local function doOpenReadyCards()
+    if not Config.AutoOpenReadyCards then return end
+    local myPlot = getMyPlot()
+    if not myPlot then return end
+
+    local droppers = getAllDropperParts(myPlot)
+    if #droppers == 0 then return end
+
+    local openRemote = getRemote("OpenBoxOnDropper")
+
+    for _, dropPart in ipairs(droppers) do
+        if not Config.AutoOpenReadyCards then break end
+
+        local bType = dropPart:GetAttribute("Type")
+        local boxName = dropPart:GetAttribute("BoxName")
+        local placedAt = dropPart:GetAttribute("PlacedAt")
+        local variant = dropPart:GetAttribute("Variant") or "Normal"
+        local isUnlocked = dropPart:GetAttribute("Unlocked")
+
+        if (bType == "Box" or boxName ~= nil) and isUnlocked ~= false then
+            local isReady = false
+
+            -- 1. Cek via BoxService.IsBoxReady
+            pcall(function()
+                if BoxService and BoxService.IsBoxReady then
+                    isReady = BoxService.IsBoxReady(boxName, placedAt, variant)
+                end
+            end)
+
+            -- 2. Cek via ProximityPrompt (Action == "Open")
+            if not isReady then
+                pcall(function()
+                    for _, desc in ipairs(dropPart:GetDescendants()) do
+                        if desc:IsA("ProximityPrompt") and desc.Enabled and desc.ActionText == "Open" then
+                            isReady = true
+                            break
+                        end
+                    end
+                end)
+            end
+
+            -- 3. Cek via TimerLabel Text == "Ready"
+            if not isReady then
+                pcall(function()
+                    for _, desc in ipairs(dropPart:GetDescendants()) do
+                        if desc:IsA("TextLabel") and desc.Text == "Ready" then
+                            isReady = true
+                            break
+                        end
+                    end
+                end)
+            end
+
+            if isReady then
+                print(string.format("🎁 [Auto Open] Membuka kartu ready: %s (%s) di %s", tostring(boxName), tostring(variant), dropPart.Name))
+
+                pcall(function()
+                    if openRemote then
+                        openRemote:InvokeServer(dropPart)
+                    end
+                end)
+
+                pcall(function()
+                    for _, desc in ipairs(dropPart:GetDescendants()) do
+                        if desc:IsA("ProximityPrompt") and desc.Enabled and desc.ActionText == "Open" then
+                            triggerPrompt(desc)
+                        end
+                    end
+                end)
+
+                task.wait(0.3)
+            end
+        end
+    end
+end
+
 -- ============================================================================
 -- 4. AUTO TELEPORT VARIANT TOKEN & PASTI BALIK KE POSISI AWAL
 -- ============================================================================
@@ -1078,6 +1159,17 @@ task.spawn(function()
             pcall(doLevelUpCards)
         end
         task.wait(0.6)
+    end
+end)
+
+
+-- Auto Open Ready Cards Loop
+task.spawn(function()
+    while true do
+        if Config.AutoOpenReadyCards then
+            pcall(doOpenReadyCards)
+        end
+        task.wait(1.0)
     end
 end)
 
@@ -1988,6 +2080,20 @@ createToggle(TowerPage, "👁️ Auto Hide Layar Battle", "AutoHideTowerBattle")
 -- TAB 4: ⭐ BASE & TOKEN
 -- ============================================================================
 local BasePage = createTab("Base & Token", "⭐", 4)
+
+createSectionHeader(BasePage, "Auto Open Ready Cards (Dropper Base)")
+createToggle(BasePage, "🎁 Auto Open Card (Saat Countdown 0s / Ready)", "AutoOpenReadyCards")
+
+local openDesc = Instance.new("TextLabel")
+openDesc.Size = UDim2.new(1, 0, 0, 36)
+openDesc.BackgroundTransparency = 1
+openDesc.Text = "ℹ️ Otomatis mendeteksi box/kartu di dropper base yang countdown-nya sudah 0 (Ready) dan langsung membukanya."
+openDesc.TextColor3 = Color3.fromRGB(140, 155, 185)
+openDesc.Font = Enum.Font.Gotham
+openDesc.TextSize = 10
+openDesc.TextWrapped = true
+openDesc.TextXAlignment = Enum.TextXAlignment.Left
+openDesc.Parent = BasePage
 
 createSectionHeader(BasePage, "Auto Level Up Kartu")
 createToggle(BasePage, "⭐ Auto Level Up (Kartu Base Terendah)", "AutoLevelUp")
