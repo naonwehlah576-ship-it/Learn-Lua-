@@ -81,71 +81,280 @@ local function clickButton(btn)
     return true
 end
 
--- Modul Game
+-- Modul Game & Services dengan Safe Dynamic Getters (Kompatibel Delta & PC)
 local BoxService = nil
-pcall(function()
-    BoxService = require(ReplicatedStorage.Shared.Services.BoxService)
-end)
+local function getBoxService()
+    if not BoxService then
+        pcall(function()
+            local s = ReplicatedStorage:FindFirstChild("Shared") and ReplicatedStorage.Shared:FindFirstChild("Services")
+            if s and s:FindFirstChild("BoxService") then
+                BoxService = require(s.BoxService)
+            else
+                for _, desc in ipairs(ReplicatedStorage:GetDescendants()) do
+                    if desc.Name == "BoxService" and desc:IsA("ModuleScript") then
+                        BoxService = require(desc)
+                        break
+                    end
+                end
+            end
+        end)
+    end
+    return BoxService
+end
 
 local PlayerUnitService = nil
-pcall(function()
-    PlayerUnitService = require(ReplicatedStorage.Shared.Services.PlayerUnitService)
-end)
+local function getPlayerUnitService()
+    if not PlayerUnitService then
+        pcall(function()
+            local s = ReplicatedStorage:FindFirstChild("Shared") and ReplicatedStorage.Shared:FindFirstChild("Services")
+            if s and s:FindFirstChild("PlayerUnitService") then
+                PlayerUnitService = require(s.PlayerUnitService)
+            else
+                for _, desc in ipairs(ReplicatedStorage:GetDescendants()) do
+                    if desc.Name == "PlayerUnitService" and desc:IsA("ModuleScript") then
+                        PlayerUnitService = require(desc)
+                        break
+                    end
+                end
+            end
+        end)
+    end
+    return PlayerUnitService
+end
 
 local CurrencyService = nil
-pcall(function()
-    CurrencyService = require(ReplicatedStorage.Shared.Services.CurrencyService)
-end)
+local function getCurrencyService()
+    if not CurrencyService then
+        pcall(function()
+            local s = ReplicatedStorage:FindFirstChild("Shared") and ReplicatedStorage.Shared:FindFirstChild("Services")
+            if s and s:FindFirstChild("CurrencyService") then
+                CurrencyService = require(s.CurrencyService)
+            else
+                for _, desc in ipairs(ReplicatedStorage:GetDescendants()) do
+                    if desc.Name == "CurrencyService" and desc:IsA("ModuleScript") then
+                        CurrencyService = require(desc)
+                        break
+                    end
+                end
+            end
+        end)
+    end
+    return CurrencyService
+end
+
+local ClientDataManager = nil
+local function getClientDataManager()
+    if not ClientDataManager then
+        pcall(function()
+            local c = ReplicatedStorage:FindFirstChild("Client") and ReplicatedStorage.Client:FindFirstChild("Data")
+            if c and c:FindFirstChild("ClientDataManager") then
+                ClientDataManager = require(c.ClientDataManager)
+            else
+                for _, desc in ipairs(ReplicatedStorage:GetDescendants()) do
+                    if desc.Name == "ClientDataManager" and desc:IsA("ModuleScript") then
+                        ClientDataManager = require(desc)
+                        break
+                    end
+                end
+            end
+        end)
+    end
+    return ClientDataManager
+end
+
+local BoxesLibrary = nil
+local function getBoxesLibrary()
+    if not BoxesLibrary then
+        pcall(function()
+            local bMod = ReplicatedStorage:FindFirstChild("Shared")
+                and ReplicatedStorage.Shared:FindFirstChild("Core")
+                and ReplicatedStorage.Shared.Core:FindFirstChild("Storage")
+                and ReplicatedStorage.Shared.Core.Storage:FindFirstChild("Game")
+                and ReplicatedStorage.Shared.Core.Storage.Game:FindFirstChild("BoxesLibrary")
+            if bMod then
+                BoxesLibrary = require(bMod)
+            else
+                for _, desc in ipairs(ReplicatedStorage:GetDescendants()) do
+                    if desc.Name == "BoxesLibrary" and desc:IsA("ModuleScript") then
+                        BoxesLibrary = require(desc)
+                        break
+                    end
+                end
+            end
+        end)
+    end
+    return BoxesLibrary
+end
 
 local InfinityTowerGuiClient = nil
 pcall(function()
     InfinityTowerGuiClient = require(ReplicatedStorage.Client.Core.Gui.InfinityTowerGuiClient)
 end)
 
--- Cek saldo Cash pemain
-local function getPlayerCash()
-    local cash = nil
-    pcall(function()
-        if CurrencyService and CurrencyService.GetCurrency then
-            cash = CurrencyService.GetCurrency(LocalPlayer, "Cash")
-        end
-    end)
-    if typeof(cash) == "number" then return cash end
+-- Inisialisasi awal services jika sudah siap di memory
+pcall(getBoxService)
+pcall(getPlayerUnitService)
+pcall(getCurrencyService)
+pcall(getClientDataManager)
+pcall(getBoxesLibrary)
 
+-- Helper Parse Angka Berformat ($1.5M, $250K, $ 50,000, dll)
+local function parseFormattedNumber(text)
+    if not text or type(text) ~= "string" then return nil end
+    local clean = text:gsub("[%$,%s]", "")
+    local num, suffix = clean:match("^([%d%.]+)%s*([A-Za-z]*)$")
+    if num then
+        local val = tonumber(num)
+        if not val then return nil end
+        suffix = suffix:upper()
+        if suffix == "K" then val = val * 1e3
+        elseif suffix == "M" then val = val * 1e6
+        elseif suffix == "B" then val = val * 1e9
+        elseif suffix == "T" then val = val * 1e12
+        elseif suffix == "QA" or suffix == "Q" then val = val * 1e15
+        end
+        return val
+    end
+    return nil
+end
+
+-- Deteksi Saldo Cash Pemain Multi-Source (100% Akurat)
+local function getPlayerCash()
+    -- 1. Cek ClientDataManager
+    local cdm = getClientDataManager()
+    if cdm and cdm.GetData then
+        local ok, data = pcall(cdm.GetData)
+        if ok and type(data) == "table" then
+            if typeof(data.Cash) == "number" then return data.Cash end
+            if type(data.Currencies) == "table" and typeof(data.Currencies.Cash) == "number" then
+                return data.Currencies.Cash
+            end
+        end
+    end
+
+    -- 2. Cek CurrencyService.GetCurrency
+    local cs = getCurrencyService()
+    if cs and cs.GetCurrency then
+        local ok, cash = pcall(cs.GetCurrency, LocalPlayer, "Cash")
+        if ok and typeof(cash) == "number" then return cash end
+    end
+
+    -- 3. Cek leaderstats
     pcall(function()
         local leaderstats = LocalPlayer:FindFirstChild("leaderstats")
         if leaderstats and leaderstats:FindFirstChild("Cash") then
-            cash = leaderstats.Cash.Value
+            local val = leaderstats.Cash.Value
+            if typeof(val) == "number" then return val end
         end
     end)
-    if typeof(cash) == "number" then return cash end
 
+    -- 4. Cek Attribute
     pcall(function()
         local cAttr = LocalPlayer:GetAttribute("Cash")
-        if typeof(cAttr) == "number" then cash = cAttr end
+        if typeof(cAttr) == "number" then return cAttr end
     end)
-    if typeof(cash) == "number" then return cash end
+
+    -- 5. Cek Topbar / UI Cash Label di PlayerGui
+    local uiCash = nil
+    pcall(function()
+        if LocalPlayer:FindFirstChild("PlayerGui") then
+            for _, gui in ipairs(LocalPlayer.PlayerGui:GetChildren()) do
+                if gui:IsA("ScreenGui") and gui.Enabled and gui.Name ~= "CardTycoonV3Gui" then
+                    for _, desc in ipairs(gui:GetDescendants()) do
+                        if desc:IsA("TextLabel") and desc.Visible and desc.Text:find("%$") then
+                            local n = parseFormattedNumber(desc.Text)
+                            if n and n > 0 then
+                                uiCash = n
+                                break
+                            end
+                        end
+                    end
+                end
+                if uiCash then break end
+            end
+        end
+    end)
+    if uiCash ~= nil then return uiCash end
 
     return nil
 end
 
-local function canAffordPrice(price)
-    if not price or price <= 0 then return true end
-    
-    local canAfford = nil
+-- Ambil Harga Box Conveyor Multi-Source (BoxService -> BoxesLibrary -> UI RollStation)
+local function getConveyorBoxPrice(boxNameInternal, variant)
+    -- 1. Via BoxService.GetConveyorBoxPrice
+    local bs = getBoxService()
+    if bs and bs.GetConveyorBoxPrice then
+        local ok, val = pcall(bs.GetConveyorBoxPrice, boxNameInternal, variant)
+        if ok and typeof(val) == "number" and val > 0 then
+            return val
+        end
+    end
+
+    -- 2. Via BoxesLibrary & Multipliers
+    local boxesLib = getBoxesLibrary()
+    if boxesLib and boxesLib[boxNameInternal] then
+        local bData = boxesLib[boxNameInternal]
+        local base = bData.Price or bData.Cost or bData.ConveyorPrice
+        if typeof(base) == "number" and base > 0 then
+            local mults = {
+                ["Normal"] = 1, ["Gold"] = 1.5, ["Diamond"] = 2, ["Jade"] = 3,
+                ["Honey"] = 5, ["Rose"] = 10, ["Astral"] = 15, ["Aurora"] = 20,
+                ["Starweaver"] = 30, ["Rainbow"] = 50, ["Admin"] = 75, ["Unwritten"] = 90
+            }
+            local m = mults[variant] or 1
+            return math.floor(base * m)
+        end
+    end
+
+    -- 3. Via UI / TextLabel parsing on RollStation
+    local uiPrice = nil
     pcall(function()
-        if CurrencyService and CurrencyService.CanAfford then
-            canAfford = CurrencyService.CanAfford(LocalPlayer, "Cash", price)
+        local myPlot = getMyPlot()
+        if myPlot then
+            local rs = myPlot:FindFirstChild("Systems") and myPlot.Systems:FindFirstChild("RollStation")
+            if rs then
+                for _, desc in ipairs(rs:GetDescendants()) do
+                    if desc:IsA("TextLabel") and (desc.Name:lower():find("price") or desc.Text:find("%$")) then
+                        local parsed = parseFormattedNumber(desc.Text)
+                        if parsed and parsed > 0 then
+                            uiPrice = parsed
+                            break
+                        end
+                    end
+                end
+            end
         end
     end)
-    if canAfford ~= nil then return canAfford end
+    if uiPrice and uiPrice > 0 then return uiPrice end
 
+    return 0
+end
+
+-- Validasi Kemampuan Beli (Strict & Anti-Skip)
+local function canAffordPrice(price)
+    if not price or price <= 0 then
+        local cur = getPlayerCash()
+        if cur and cur > 0 then return true end
+        return true
+    end
+    
+    -- 1. Cek langsung via CurrencyService.CanAfford
+    local cs = getCurrencyService()
+    if cs and cs.CanAfford then
+        local ok, res = pcall(cs.CanAfford, LocalPlayer, "Cash", price)
+        if ok and typeof(res) == "boolean" then
+            return res
+        end
+    end
+
+    -- 2. Cek saldo via getPlayerCash()
     local currentCash = getPlayerCash()
     if currentCash ~= nil then
         return currentCash >= price
     end
 
-    return true
+    -- Jika harga > 0 dan saldo gagal terdeteksi, tolak beli demi keamanan (mencegah skip kartu target)
+    return false
 end
 
 -- ============================================================================
@@ -585,7 +794,6 @@ local lastPurchasedRollCount = -1
 local lastSkippedRollCount = -1
 local lastRollRequestTime = 0
 local lastAffordLogTime = 0
-
 local purchasedCardCount = 0
 
 local function resetAutoRollState()
@@ -608,37 +816,33 @@ local function doRollCard()
     local variant = rollPart:GetAttribute("Variant") or "Normal"
     local packModel = rollPart:FindFirstChild("PackModel")
 
+    local hasBoxOnConveyor = (boxNameInternal ~= nil and boxNameInternal ~= "") and (packModel ~= nil or rollCount > 0)
+
     -- TAHAP 1: CEK PACK DI ATAS CONVEYOR SEKARANG
-    if boxNameInternal and boxNameInternal ~= "" and (packModel ~= nil or rollCount > 0) then
-        if rollCount ~= lastPurchasedRollCount and rollCount ~= lastSkippedRollCount then
-            local prettyName = InternalToPrettyMap[boxNameInternal] or boxNameInternal:gsub("Pack", " Pack")
-            local isWanted = (Config.SelectedPacks[prettyName] == true) or (Config.SelectedPacks[boxNameInternal] == true)
-            local isVariantAllowed = isVariantAllowedForPack(prettyName, variant) and isVariantAllowedForPack(boxNameInternal, variant)
+    if hasBoxOnConveyor then
+        local prettyName = InternalToPrettyMap[boxNameInternal] or boxNameInternal:gsub("Pack", " Pack")
+        local isWanted = (Config.SelectedPacks[prettyName] == true) or (Config.SelectedPacks[boxNameInternal] == true)
+        local isVariantAllowed = isVariantAllowedForPack(prettyName, variant) and isVariantAllowedForPack(boxNameInternal, variant)
 
-            if isWanted and isVariantAllowed then
-                -- 1. Hitung harga akurat via BoxService
-                local price = 0
-                pcall(function()
-                    if BoxService and BoxService.GetConveyorBoxPrice then
-                        price = BoxService.GetConveyorBoxPrice(boxNameInternal, variant)
-                    end
-                end)
+        if isWanted and isVariantAllowed then
+            -- Ini adalah pack target yang kita cari!
+            local price = getConveyorBoxPrice(boxNameInternal, variant)
+            local affordable = canAffordPrice(price)
 
-                -- 2. Cek apakah uang cukup untuk beli pack ini
-                if not canAffordPrice(price) then
-                    local myCash = getPlayerCash() or 0
-                    if now - lastAffordLogTime > 4.0 then
-                        lastAffordLogTime = now
-                        print(string.format("⏳ [Auto Roll] Menunggu saldo terkumpul untuk beli %s (%s) [Harga: $%s | Saldo: $%s]...", prettyName, variant, tostring(price or 0), tostring(myCash)))
-                    end
-                    -- Berhenti roll sementara dan pertahankan pack ini di conveyor sampai uang cukup
-                    return
+            if not affordable then
+                local myCash = getPlayerCash() or 0
+                if now - lastAffordLogTime > 3.0 then
+                    lastAffordLogTime = now
+                    print(string.format("⏳ [Auto Roll] Uang belum cukup untuk beli %s (%s)! [Harga: $%s | Saldo: $%s]. Menahan conveyor sampai uang terkumpul...", 
+                        prettyName, variant, tostring(price or 0), tostring(myCash)))
                 end
+                -- TAHAN CONVEYOR! Jangan roll, jangan skip, biarkan box tetap di conveyor sampai uang terkumpul!
+                return
+            end
 
-                -- Uang sudah cukup: jeda sedikit 0.3s agar transaksi server mulus
-                task.wait(0.3)
-
-                -- 3. Beli pack via remote PurchaseConveyorRoll
+            -- Uang cukup! Beli box sekarang jika belum dibeli di rollCount ini
+            if rollCount ~= lastPurchasedRollCount then
+                task.wait(0.2)
                 local buyRemote = getRemote("PurchaseConveyorRoll")
                 if buyRemote then
                     pcall(function()
@@ -646,7 +850,6 @@ local function doRollCard()
                     end)
                 end
 
-                -- 4. Trigger prompt jika ada di rollPart atau packModel
                 pcall(function()
                     for _, desc in ipairs(rollPart:GetDescendants()) do
                         if desc:IsA("ProximityPrompt") then
@@ -673,8 +876,10 @@ local function doRollCard()
                 end
 
                 task.wait(0.3)
-            else
-                -- Bukan pack yang dicari atau mutasi tidak diizinkan -> tandai sudah diskip agar langsung lanjut roll
+            end
+        else
+            -- Bukan pack target atau mutasi tidak diizinkan -> Skip agar conveyor lanjut roll
+            if rollCount ~= lastSkippedRollCount then
                 lastSkippedRollCount = rollCount
                 if isWanted and not isVariantAllowed then
                     print(string.format("⏭️ [Auto Roll] Lewati %s (%s) [Roll #%s] (Mutasi %s di-skip untuk pack ini)", prettyName, variant, tostring(rollCount), variant))
@@ -685,7 +890,22 @@ local function doRollCard()
         end
     end
 
-    -- TAHAP 2: ROLL BARU JIKA TIDAK ADA PACK YANG MENUNGGU DIBELI
+    -- TAHAP 2: ROLL BARU JIKA TIDAK ADA PACK TARGET YANG MENUNGGU UANG / DIBELI
+    -- JIKA DI CONVEYOR ADA PACK TARGET DAN BELUM BERHASIL DIBELI -> JANGAN SEKALI-KALI ROLL!
+    if hasBoxOnConveyor then
+        local prettyName = InternalToPrettyMap[boxNameInternal] or boxNameInternal:gsub("Pack", " Pack")
+        local isWanted = (Config.SelectedPacks[prettyName] == true) or (Config.SelectedPacks[boxNameInternal] == true)
+        local isVariantAllowed = isVariantAllowedForPack(prettyName, variant) and isVariantAllowedForPack(boxNameInternal, variant)
+
+        if isWanted and isVariantAllowed then
+            -- Pack ini adalah target! Jika belum terbeli (misal uang belum cukup), TAHAN & JANGAN ROLL!
+            if rollCount ~= lastPurchasedRollCount then
+                return
+            end
+        end
+    end
+
+    -- Cek cooldown roll station
     local cooldownUntil = rollPart:GetAttribute("RollCooldownUntil")
     if cooldownUntil and workspace:GetServerTimeNow() < cooldownUntil then
         return
@@ -695,10 +915,7 @@ local function doRollCard()
         return
     end
 
-    if boxNameInternal and boxNameInternal ~= "" and packModel ~= nil and rollCount ~= lastPurchasedRollCount and rollCount ~= lastSkippedRollCount then
-        return
-    end
-
+    -- Hanya roll jika conveyor kosong ATAU pack sudah diskip / sudah dibeli
     local rollRemote = getRemote("RequestConveyorRoll")
     if rollRemote then
         lastRollRequestTime = now
