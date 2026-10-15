@@ -1,13 +1,14 @@
 -- ============================================================================
--- CARD & CRATE TYCOON - ULTIMATE AUTO FARM & UTILITY SCRIPT (v1.4)
+-- CARD & CRATE TYCOON - ULTIMATE AUTO FARM & UTILITY SCRIPT (v1.5)
 -- Brand New Custom Script (100% Pure Offline UI - No External Loadstring Needed)
 -- Features:
 --   1. Auto Full Crate Cycle (Jeda 10 Detik tiap putaran)
 --   2. Auto Teleport ke Variant Token -> Ambil -> Teleport Balik ke Base
---   3. Flexible Rarity Filter (Dropdown Multi-Select Kompak & Rapi)
---   4. Smart Auto Roll (Buy jika Rarity dicentang, Auto-OFF jika tidak cocok)
---   5. Auto Save & Load Konfigurasi (writefile JSON)
---   6. Player Movement & Base Teleports
+--   3. PACK FILTER SYSTEM (Filter Berdasarkan Nama Pack: Fire, Ice, Water, Romcom, dll.)
+--   4. Smart Auto Roll (Buy jika Pack dicentang, Auto-OFF jika tidak sesuai)
+--   5. Compact & Collapsible Pack Dropdown (Tidak bikin GUI penuh & Fleksibel)
+--   6. Auto Save & Load Konfigurasi (writefile JSON)
+--   7. Player Movement & Base Teleports
 -- Compatibility: PC & Mobile (Touch Friendly, Draggable, Resilient)
 -- ============================================================================
 
@@ -37,42 +38,45 @@ local LocalPlayer = Players.LocalPlayer or Players.PlayerAdded:Wait()
 local Remotes = ReplicatedStorage:WaitForChild("Remotes", 20)
 
 -- ============================================================================
--- 1. DAFTAR RARITY & WARNA (SESUAI RARITIESLIBRARY GAME)
+-- 1. DAFTAR SEMUA PACK (SESUAI BOXESLIBRARY GAME)
 -- ============================================================================
-local RarityOrder = {
-    "Basic",     -- 1
-    "Common",    -- 2
-    "Uncommon",  -- 3
-    "Rare",      -- 4
-    "Epic",      -- 5
-    "Legendary", -- 6
-    "Mythic",    -- 7
-    "Divine",    -- 8
-    "Cosmic",    -- 9
-    "Prismatic", -- 10
-    "Radiant",   -- 11
-    "Ethereal",  -- 12
+local AllPackNames = {
+    "Fire Pack",
+    "Ice Pack",
+    "Water Pack",
+    "Pirate Pack",
+    "Romcom Pack",
+    "Sword Pack",
+    "Knight Pack",
+    "Assassin Pack",
+    "Ninja Pack",
+    "Mage Pack",
+    "Hero Pack",
+    "Devil Pack",
+    "Genius Pack",
+    "Idol Pack",
+    "Slayer Pack",
+    "Titan Pack",
 }
 
-local RarityColors = {
-    ["Basic"] = Color3.fromRGB(180, 180, 180),
-    ["Common"] = Color3.fromRGB(130, 220, 110),
-    ["Uncommon"] = Color3.fromRGB(80, 225, 120),
-    ["Rare"] = Color3.fromRGB(100, 190, 255),
-    ["Epic"] = Color3.fromRGB(200, 110, 255),
-    ["Legendary"] = Color3.fromRGB(255, 220, 80),
-    ["Mythic"] = Color3.fromRGB(255, 110, 255),
-    ["Divine"] = Color3.fromRGB(255, 255, 170),
-    ["Cosmic"] = Color3.fromRGB(160, 120, 255),
-    ["Prismatic"] = Color3.fromRGB(255, 140, 255),
-    ["Radiant"] = Color3.fromRGB(255, 110, 150),
-    ["Ethereal"] = Color3.fromRGB(160, 255, 255),
+local PackColors = {
+    ["Fire Pack"]     = Color3.fromRGB(255, 120, 60),
+    ["Ice Pack"]      = Color3.fromRGB(100, 220, 255),
+    ["Water Pack"]    = Color3.fromRGB(70, 160, 255),
+    ["Pirate Pack"]   = Color3.fromRGB(255, 200, 70),
+    ["Romcom Pack"]   = Color3.fromRGB(255, 120, 180),
+    ["Sword Pack"]    = Color3.fromRGB(160, 110, 255),
+    ["Knight Pack"]   = Color3.fromRGB(200, 210, 220),
+    ["Assassin Pack"] = Color3.fromRGB(255, 70, 90),
+    ["Ninja Pack"]    = Color3.fromRGB(140, 90, 230),
+    ["Mage Pack"]     = Color3.fromRGB(210, 100, 255),
+    ["Hero Pack"]     = Color3.fromRGB(255, 215, 0),
+    ["Devil Pack"]    = Color3.fromRGB(230, 50, 50),
+    ["Genius Pack"]   = Color3.fromRGB(50, 220, 140),
+    ["Idol Pack"]     = Color3.fromRGB(255, 160, 220),
+    ["Slayer Pack"]   = Color3.fromRGB(255, 90, 40),
+    ["Titan Pack"]    = Color3.fromRGB(220, 150, 80),
 }
-
-local RarityTiers = {}
-for idx, rName in ipairs(RarityOrder) do
-    RarityTiers[rName:lower()] = rName -- maps lower to original case
-end
 
 -- ============================================================================
 -- 2. DETEKSI PLOT MILIK PLAYER & BYPASS PROMPT
@@ -126,19 +130,23 @@ local Config = {
     -- Tab Card / Base
     AutoRoll = false,
     AutoRollFilterEnabled = true,
-    SelectedRarities = {
-        ["Basic"] = false,
-        ["Common"] = false,
-        ["Uncommon"] = false,
-        ["Rare"] = true,
-        ["Epic"] = true,
-        ["Legendary"] = true,
-        ["Mythic"] = true,
-        ["Divine"] = true,
-        ["Cosmic"] = true,
-        ["Prismatic"] = true,
-        ["Radiant"] = true,
-        ["Ethereal"] = true,
+    SelectedPacks = {
+        ["Fire Pack"]     = true,
+        ["Ice Pack"]      = true,
+        ["Water Pack"]    = true,
+        ["Pirate Pack"]   = true,
+        ["Romcom Pack"]   = true,
+        ["Sword Pack"]    = true,
+        ["Knight Pack"]   = false,
+        ["Assassin Pack"] = false,
+        ["Ninja Pack"]    = false,
+        ["Mage Pack"]     = false,
+        ["Hero Pack"]     = false,
+        ["Devil Pack"]    = false,
+        ["Genius Pack"]   = false,
+        ["Idol Pack"]     = false,
+        ["Slayer Pack"]   = false,
+        ["Titan Pack"]    = false,
     },
     AutoOpenDropperBox = false,
     AutoEquipBest = false,
@@ -175,9 +183,9 @@ local function loadConfig()
             local decoded = HttpService:JSONDecode(content)
             if type(decoded) == "table" then
                 for k, v in pairs(decoded) do
-                    if k == "SelectedRarities" and type(v) == "table" then
-                        for rK, rV in pairs(v) do
-                            Config.SelectedRarities[rK] = rV
+                    if k == "SelectedPacks" and type(v) == "table" then
+                        for pK, pV in pairs(v) do
+                            Config.SelectedPacks[pK] = pV
                         end
                     elseif Config[k] ~= nil then
                         Config[k] = v
@@ -289,32 +297,36 @@ local function runSingleCycle()
     doSellCrates()
 end
 
--- [CARDS] Card Rolling & Flexible Rarity Filter
-local function getRolledRarity()
+-- [CARDS] Detect Rolled Pack Name & Smart Buy
+local function getRolledPackName()
     local pGui = LocalPlayer:FindFirstChild("PlayerGui")
     if pGui then
+        -- 1. Cek NewCardsGui jika ada pop up hasil roll
         local newCardsGui = pGui:FindFirstChild("NewCardsGui")
         if newCardsGui and newCardsGui.Enabled ~= false then
             for _, desc in ipairs(newCardsGui:GetDescendants()) do
                 if desc:IsA("TextLabel") and desc.Text and desc.Text ~= "" then
-                    local tLower = desc.Text:lower():gsub("%s+", "")
-                    for rLower, rName in pairs(RarityTiers) do
-                        if tLower == rLower or tLower:find(rLower) then
-                            return rName
+                    local tClean = desc.Text:lower():gsub("%s+", "")
+                    for _, pName in ipairs(AllPackNames) do
+                        local matchClean = pName:lower():gsub("%s+", "")
+                        if tClean == matchClean or tClean:find(matchClean) then
+                            return pName
                         end
                     end
                 end
             end
         end
 
+        -- 2. Cek AutoBuyGui
         local autoBuyGui = pGui:FindFirstChild("AutoBuyGui")
         if autoBuyGui and autoBuyGui.Enabled ~= false then
             for _, desc in ipairs(autoBuyGui:GetDescendants()) do
                 if desc:IsA("TextLabel") and desc.Text and desc.Text ~= "" then
-                    local tLower = desc.Text:lower():gsub("%s+", "")
-                    for rLower, rName in pairs(RarityTiers) do
-                        if tLower == rLower then
-                            return rName
+                    local tClean = desc.Text:lower():gsub("%s+", "")
+                    for _, pName in ipairs(AllPackNames) do
+                        local matchClean = pName:lower():gsub("%s+", "")
+                        if tClean == matchClean or tClean:find(matchClean) then
+                            return pName
                         end
                     end
                 end
@@ -322,6 +334,7 @@ local function getRolledRarity()
         end
     end
 
+    -- 3. Cek Conveyor Roll di Plot Player
     local myPlot = getMyPlot()
     if myPlot then
         local conveyor = myPlot:FindFirstChild("Systems") 
@@ -329,10 +342,11 @@ local function getRolledRarity()
         if conveyor then
             for _, desc in ipairs(conveyor:GetDescendants()) do
                 if desc:IsA("TextLabel") and desc.Text and desc.Text ~= "" then
-                    local tLower = desc.Text:lower():gsub("%s+", "")
-                    for rLower, rName in pairs(RarityTiers) do
-                        if tLower == rLower then
-                            return rName
+                    local tClean = desc.Text:lower():gsub("%s+", "")
+                    for _, pName in ipairs(AllPackNames) do
+                        local matchClean = pName:lower():gsub("%s+", "")
+                        if tClean == matchClean or tClean:find(matchClean) then
+                            return pName
                         end
                     end
                 end
@@ -354,30 +368,30 @@ local function doRollCard()
     
     if Config.AutoRollFilterEnabled then
         task.wait(0.35)
-        local detectedRarity = getRolledRarity()
+        local detectedPack = getRolledPackName()
         
-        if detectedRarity then
-            local isRarityWanted = Config.SelectedRarities[detectedRarity] == true
+        if detectedPack then
+            local isPackWanted = Config.SelectedPacks[detectedPack] == true
             
-            if isRarityWanted then
-                -- Rarity ada dalam daftar yang dipilih user -> BUY!
+            if isPackWanted then
+                -- Pack ada di daftar yang dicentang -> BUY!
                 pcall(function()
                     if Remotes:FindFirstChild("PurchaseConveyorRoll") then
                         Remotes.PurchaseConveyorRoll:FireServer()
                     end
                 end)
-                print(string.format("✅ [Auto Roll] Kartu %s Cocok dengan filter! Membeli...", detectedRarity:upper()))
+                print(string.format("✅ [Auto Roll] Pack %s Cocok dengan filter! Membeli...", detectedPack:upper()))
             else
-                -- Rarity tidak dicentang -> AUTO OFF AUTO ROLL!
+                -- Pack tidak dicentang -> AUTO OFF AUTO ROLL!
                 Config.AutoRoll = false
                 saveConfig()
                 if toggleRefs["AutoRoll"] then
                     toggleRefs["AutoRoll"].UpdateUI(false)
                 end
-                print(string.format("⚠️ [Auto Roll] Kartu %s tidak dipilih di filter! Auto Roll otomatis dimatikan.", detectedRarity:upper()))
+                print(string.format("⚠️ [Auto Roll] Pack %s tidak dipilih di filter! Auto Roll dimatikan.", detectedPack:upper()))
             end
         else
-            -- Fallback jika GUI delay
+            -- Jika belum terdeteksi (GUI render delay), coba execute purchase
             pcall(function()
                 if Remotes:FindFirstChild("PurchaseConveyorRoll") then
                     Remotes.PurchaseConveyorRoll:FireServer()
@@ -803,7 +817,7 @@ TitleLabel.Name = "TitleLabel"
 TitleLabel.Size = UDim2.new(1, -90, 1, 0)
 TitleLabel.Position = UDim2.new(0, 14, 0, 0)
 TitleLabel.BackgroundTransparency = 1
-TitleLabel.Text = "🃏 CARD TYCOON <font color=\"#4A90E2\">AUTOFARM v1.4</font>"
+TitleLabel.Text = "🃏 CARD TYCOON <font color=\"#4A90E2\">AUTOFARM v1.5</font>"
 TitleLabel.RichText = true
 TitleLabel.TextColor3 = Color3.fromRGB(240, 240, 255)
 TitleLabel.TextSize = 15
@@ -1034,48 +1048,47 @@ end)
 local cardPage = createTab("Cards", "🃏", 2)
 
 createToggle(cardPage, "🎰 Auto Roll Cards", "AutoRoll")
-createToggle(cardPage, "🎯 Filter Rarity Beli (Auto-OFF jika salah)", "AutoRollFilterEnabled")
+createToggle(cardPage, "📦 Filter Pack Beli (Auto-OFF jika salah)", "AutoRollFilterEnabled")
 
 -- ============================================================================
--- 8. FLEXIBLE & COMPACT RARITY DROPDOWN (Tidak Penuh & Rapi)
+-- 8. COMPACT & FLEXIBLE PACK SELECTION DROPDOWN
 -- ============================================================================
-local function getSelectedRarityCount()
+local function getSelectedPackCount()
     local cnt = 0
-    for _, isSel in pairs(Config.SelectedRarities) do
+    for _, isSel in pairs(Config.SelectedPacks) do
         if isSel then cnt = cnt + 1 end
     end
     return cnt
 end
 
-local dropContainer = Instance.new("Frame")
-dropContainer.Name = "RarityDropContainer"
-dropContainer.Size = UDim2.new(1, 0, 0, 42)
-dropContainer.BackgroundColor3 = Color3.fromRGB(26, 30, 42)
-dropContainer.ClipsDescendants = true
-dropContainer.Parent = cardPage
+local packDropContainer = Instance.new("Frame")
+packDropContainer.Name = "PackDropContainer"
+packDropContainer.Size = UDim2.new(1, 0, 0, 42)
+packDropContainer.BackgroundColor3 = Color3.fromRGB(26, 30, 42)
+packDropContainer.ClipsDescendants = true
+packDropContainer.Parent = cardPage
 
 local dropCorner = Instance.new("UICorner")
 dropCorner.CornerRadius = UDim.new(0, 8)
-dropCorner.Parent = dropContainer
+dropCorner.Parent = packDropContainer
 
 local dropStroke = Instance.new("UIStroke")
 dropStroke.Color = Color3.fromRGB(40, 48, 65)
 dropStroke.Thickness = 1
-dropStroke.Parent = dropContainer
+dropStroke.Parent = packDropContainer
 
--- Header (Selalu tampak, tinggi 42px)
 local dropHeader = Instance.new("TextButton")
 dropHeader.Name = "DropHeader"
 dropHeader.Size = UDim2.new(1, 0, 0, 42)
 dropHeader.BackgroundTransparency = 1
 dropHeader.Text = ""
-dropHeader.Parent = dropContainer
+dropHeader.Parent = packDropContainer
 
 local dropTitle = Instance.new("TextLabel")
 dropTitle.Size = UDim2.new(1, -140, 1, 0)
 dropTitle.Position = UDim2.new(0, 12, 0, 0)
 dropTitle.BackgroundTransparency = 1
-dropTitle.Text = "Pilih Rarity yang Mau Dibeli:"
+dropTitle.Text = "Pilih Pack yang Mau Dibeli:"
 dropTitle.TextColor3 = Color3.fromRGB(230, 235, 245)
 dropTitle.Font = Enum.Font.GothamMedium
 dropTitle.TextSize = 13
@@ -1083,29 +1096,28 @@ dropTitle.TextXAlignment = Enum.TextXAlignment.Left
 dropTitle.Parent = dropHeader
 
 local dropCountBadge = Instance.new("TextLabel")
-dropCountBadge.Size = UDim2.new(0, 110, 0, 26)
-dropCountBadge.Position = UDim2.new(1, -120, 0.5, -13)
+dropCountBadge.Size = UDim2.new(0, 120, 0, 26)
+dropCountBadge.Position = UDim2.new(1, -130, 0.5, -13)
 dropCountBadge.BackgroundColor3 = Color3.fromRGB(40, 50, 75)
 dropCountBadge.TextColor3 = Color3.fromRGB(120, 200, 255)
 dropCountBadge.Font = Enum.Font.GothamBold
 dropCountBadge.TextSize = 11
-dropCountBadge.Text = string.format("%d Dipilih ▾", getSelectedRarityCount())
+dropCountBadge.Text = string.format("%d Pack Dipilih ▾", getSelectedPackCount())
 dropCountBadge.Parent = dropHeader
 
 local badgeCorner = Instance.new("UICorner")
 badgeCorner.CornerRadius = UDim.new(0, 6)
 badgeCorner.Parent = dropCountBadge
 
--- Isi Dropdown (Muncul ketika dibuka)
 local dropBody = Instance.new("Frame")
 dropBody.Name = "DropBody"
-dropBody.Size = UDim2.new(1, -20, 0, 180)
+dropBody.Size = UDim2.new(1, -20, 0, 215)
 dropBody.Position = UDim2.new(0, 10, 0, 44)
 dropBody.BackgroundTransparency = 1
 dropBody.Visible = false
-dropBody.Parent = dropContainer
+dropBody.Parent = packDropContainer
 
--- Preset Quick Actions
+-- Preset Shortcuts Bar
 local presetBar = Instance.new("Frame")
 presetBar.Size = UDim2.new(1, 0, 0, 26)
 presetBar.BackgroundTransparency = 1
@@ -1130,42 +1142,37 @@ local function createPresetBtn(text, posX, width, callback)
     return pBtn
 end
 
-local chipButtons = {}
+local packButtons = {}
 
-local function updateChipsVisual()
-    for rName, btn in pairs(chipButtons) do
-        local isSel = Config.SelectedRarities[rName] == true
+local function updatePacksVisual()
+    for pName, btn in pairs(packButtons) do
+        local isSel = Config.SelectedPacks[pName] == true
         btn.BackgroundColor3 = isSel and Color3.fromRGB(35, 75, 140) or Color3.fromRGB(30, 34, 46)
-        btn.TextColor3 = isSel and (RarityColors[rName] or Color3.fromRGB(255, 255, 255)) or Color3.fromRGB(130, 140, 160)
-        btn.Text = (isSel and "✓ " or "") .. rName
+        btn.TextColor3 = isSel and (PackColors[pName] or Color3.fromRGB(255, 255, 255)) or Color3.fromRGB(130, 140, 160)
+        btn.Text = (isSel and "✓ " or "") .. pName
     end
-    dropCountBadge.Text = string.format("%d Dipilih %s", getSelectedRarityCount(), dropBody.Visible and "▴" or "▾")
+    dropCountBadge.Text = string.format("%d Pack Dipilih %s", getSelectedPackCount(), dropBody.Visible and "▴" or "▾")
     saveConfig()
 end
 
-createPresetBtn("Semua", 0, 65, function()
-    for _, r in ipairs(RarityOrder) do Config.SelectedRarities[r] = true end
-    updateChipsVisual()
+createPresetBtn("Pilih Semua", 0, 85, function()
+    for _, p in ipairs(AllPackNames) do Config.SelectedPacks[p] = true end
+    updatePacksVisual()
 end)
 
-createPresetBtn("Rare+", 72, 65, function()
-    for idx, r in ipairs(RarityOrder) do Config.SelectedRarities[r] = (idx >= 4) end
-    updateChipsVisual()
+createPresetBtn("6 Pack Pertama", 92, 100, function()
+    for idx, p in ipairs(AllPackNames) do Config.SelectedPacks[p] = (idx <= 6) end
+    updatePacksVisual()
 end)
 
-createPresetBtn("Legend+", 144, 75, function()
-    for idx, r in ipairs(RarityOrder) do Config.SelectedRarities[r] = (idx >= 6) end
-    updateChipsVisual()
+createPresetBtn("Reset (Kosongkan)", 199, 120, function()
+    for _, p in ipairs(AllPackNames) do Config.SelectedPacks[p] = false end
+    updatePacksVisual()
 end)
 
-createPresetBtn("Reset", 226, 60, function()
-    for _, r in ipairs(RarityOrder) do Config.SelectedRarities[r] = false end
-    updateChipsVisual()
-end)
-
--- Grid Rarity Chips
+-- Grid Pack Chips
 local chipsGrid = Instance.new("Frame")
-chipsGrid.Size = UDim2.new(1, 0, 0, 145)
+chipsGrid.Size = UDim2.new(1, 0, 0, 180)
 chipsGrid.Position = UDim2.new(0, 0, 0, 32)
 chipsGrid.BackgroundTransparency = 1
 chipsGrid.Parent = dropBody
@@ -1176,12 +1183,12 @@ gridLayout.CellPadding = UDim2.new(0, 6, 0, 6)
 gridLayout.SortOrder = Enum.SortOrder.LayoutOrder
 gridLayout.Parent = chipsGrid
 
-for idx, rName in ipairs(RarityOrder) do
+for idx, pName in ipairs(AllPackNames) do
     local chip = Instance.new("TextButton")
-    chip.Name = rName .. "Chip"
+    chip.Name = pName:gsub("%s+", "") .. "Chip"
     chip.LayoutOrder = idx
     chip.Font = Enum.Font.GothamMedium
-    chip.TextSize = 11
+    chip.TextSize = 10
     chip.Parent = chipsGrid
 
     local chipCorner = Instance.new("UICorner")
@@ -1189,27 +1196,26 @@ for idx, rName in ipairs(RarityOrder) do
     chipCorner.Parent = chip
 
     local chipStroke = Instance.new("UIStroke")
-    chipStroke.Color = RarityColors[rName] or Color3.fromRGB(60, 70, 95)
+    chipStroke.Color = PackColors[pName] or Color3.fromRGB(60, 70, 95)
     chipStroke.Thickness = 1
     chipStroke.Parent = chip
 
     chip.MouseButton1Click:Connect(function()
-        Config.SelectedRarities[rName] = not Config.SelectedRarities[rName]
-        updateChipsVisual()
+        Config.SelectedPacks[pName] = not Config.SelectedPacks[pName]
+        updatePacksVisual()
     end)
 
-    chipButtons[rName] = chip
+    packButtons[pName] = chip
 end
 
-updateChipsVisual()
+updatePacksVisual()
 
--- Toggle Dropdown Buka/Tutup
 local isExpanded = false
 dropHeader.MouseButton1Click:Connect(function()
     isExpanded = not isExpanded
     dropBody.Visible = isExpanded
-    dropContainer.Size = isExpanded and UDim2.new(1, 0, 0, 230) or UDim2.new(1, 0, 0, 42)
-    dropCountBadge.Text = string.format("%d Dipilih %s", getSelectedRarityCount(), isExpanded and "▴" or "▾")
+    packDropContainer.Size = isExpanded and UDim2.new(1, 0, 0, 265) or UDim2.new(1, 0, 0, 42)
+    dropCountBadge.Text = string.format("%d Pack Dipilih %s", getSelectedPackCount(), isExpanded and "▴" or "▾")
 end)
 
 createToggle(cardPage, "📦 Auto Open Dropper Box", "AutoOpenDropperBox")
@@ -1290,4 +1296,4 @@ tabs["Farm"].Btn.BackgroundColor3 = Color3.fromRGB(50, 95, 205)
 tabs["Farm"].Btn.TextColor3 = Color3.fromRGB(255, 255, 255)
 tabs["Farm"].Page.Visible = true
 
-print("✅ Card & Crate Tycoon Script v1.4 with Flexible Rarity Dropdown Loaded!")
+print("✅ Card & Crate Tycoon Script v1.5 with Pack Filter Loaded!")
