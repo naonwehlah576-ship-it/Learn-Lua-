@@ -46,6 +46,11 @@ pcall(function()
     BoxService = require(ReplicatedStorage.Shared.Services.BoxService)
 end)
 
+local PlayerUnitService = nil
+pcall(function()
+    PlayerUnitService = require(ReplicatedStorage.Shared.Services.PlayerUnitService)
+end)
+
 -- ============================================================================
 -- 1. DAFTAR PACK & MAPPING INTERNAL BOX
 -- ============================================================================
@@ -165,6 +170,7 @@ local Config = {
     AutoRollFilterEnabled = true,
     StopAfterBuy = false,
     AutoLevelUp = false,
+    TargetCardLevel = 35,
     AutoOpenDropperBox = false,
     AutoEquipBest = false,
     
@@ -432,7 +438,7 @@ local function doRollCard()
     end
 end
 
--- [CARDS] Level Up Cards (Sesuai Decompiled DropperPlayerUnitHandler)
+-- [CARDS] Level Up Cards (Prioritas Termurah & Target Level)
 local function doLevelUpCards()
     local myPlot = getMyPlot()
     if not myPlot then return end
@@ -443,21 +449,53 @@ local function doLevelUpCards()
         and myPlot.Systems.TycoonConveyor.Conveyors:FindFirstChild("Conveyor1") 
         and myPlot.Systems.TycoonConveyor.Conveyors.Conveyor1:FindFirstChild("Droppers")
 
-    if droppers then
-        for _, dropPart in ipairs(droppers:GetChildren()) do
-            -- Memeriksa apakah ada unit terpasang pada dropper part ini
-            local unitName = dropPart:GetAttribute("PlayerUnitName")
-            local unitLevel = dropPart:GetAttribute("PlayerUnitLevel") or 1
+    if not droppers then return end
 
-            if unitName and unitLevel < 100 then
-                pcall(function()
-                    -- Remote mengirim argumen Dropper Part (Sesuai line 178 source game)
-                    if Remotes:FindFirstChild("RequestPlayerUnitLevelUp") then
-                        Remotes.RequestPlayerUnitLevelUp:FireServer(dropPart)
-                    end
-                end)
-            end
+    local targetLevel = tonumber(Config.TargetCardLevel) or 35
+    local candidates = {}
+
+    for _, dropPart in ipairs(droppers:GetChildren()) do
+        local unitName = dropPart:GetAttribute("PlayerUnitName")
+        local unitLevel = dropPart:GetAttribute("PlayerUnitLevel") or 1
+
+        -- Hanya upgrade kartu yang belum mencapai target level yang ditentukan user
+        if unitName and unitLevel < targetLevel and unitLevel < 100 then
+            local cost = 999999999999
+            local cardData = {
+                ["PlayerUnitName"] = unitName,
+                ["PlayerUnitVariant"] = dropPart:GetAttribute("PlayerUnitVariant"),
+                ["PlayerUnitGrade"] = dropPart:GetAttribute("PlayerUnitGrade"),
+                ["PlayerUnitTrait"] = dropPart:GetAttribute("PlayerUnitTrait")
+            }
+
+            pcall(function()
+                if PlayerUnitService and PlayerUnitService.GetLevelUpgradeCost then
+                    local calcCost = PlayerUnitService.GetLevelUpgradeCost(LocalPlayer, cardData, unitLevel + 1)
+                    if calcCost then cost = calcCost end
+                end
+            end)
+
+            table.insert(candidates, {
+                Part = dropPart,
+                Level = unitLevel,
+                Cost = cost,
+                Name = unitName
+            })
         end
+    end
+
+    -- Prioritaskan kartu yang biaya upgrade-nya PALING MURAH terlebih dahulu!
+    if #candidates > 0 then
+        table.sort(candidates, function(a, b)
+            return a.Cost < b.Cost
+        end)
+
+        local cheapest = candidates[1]
+        pcall(function()
+            if Remotes:FindFirstChild("RequestPlayerUnitLevelUp") then
+                Remotes.RequestPlayerUnitLevelUp:FireServer(cheapest.Part)
+            end
+        end)
     end
 end
 
@@ -1091,6 +1129,70 @@ local function createButton(page, text, color, callback)
     return btn
 end
 
+local function createTextBox(page, labelText, configKey, defaultVal, callback)
+    local val = Config[configKey] or defaultVal
+    Config[configKey] = val
+
+    local boxFrame = Instance.new("Frame")
+    boxFrame.Size = UDim2.new(1, 0, 0, 42)
+    boxFrame.BackgroundColor3 = Color3.fromRGB(26, 30, 42)
+    boxFrame.Parent = page
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 8)
+    corner.Parent = boxFrame
+
+    local stroke = Instance.new("UIStroke")
+    stroke.Color = Color3.fromRGB(40, 48, 65)
+    stroke.Thickness = 1
+    stroke.Parent = boxFrame
+
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1, -95, 1, 0)
+    label.Position = UDim2.new(0, 12, 0, 0)
+    label.BackgroundTransparency = 1
+    label.Text = labelText
+    label.TextColor3 = Color3.fromRGB(230, 235, 245)
+    label.Font = Enum.Font.GothamMedium
+    label.TextSize = 13
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Parent = boxFrame
+
+    local textBox = Instance.new("TextBox")
+    textBox.Size = UDim2.new(0, 75, 0, 28)
+    textBox.Position = UDim2.new(1, -85, 0.5, -14)
+    textBox.BackgroundColor3 = Color3.fromRGB(36, 42, 58)
+    textBox.Text = tostring(val)
+    textBox.TextColor3 = Color3.fromRGB(255, 215, 0)
+    textBox.Font = Enum.Font.GothamBold
+    textBox.TextSize = 13
+    textBox.ClearTextOnFocus = false
+    textBox.Parent = boxFrame
+
+    local tbCorner = Instance.new("UICorner")
+    tbCorner.CornerRadius = UDim.new(0, 6)
+    tbCorner.Parent = textBox
+
+    local tbStroke = Instance.new("UIStroke")
+    tbStroke.Color = Color3.fromRGB(60, 75, 105)
+    tbStroke.Thickness = 1
+    tbStroke.Parent = textBox
+
+    textBox.FocusLost:Connect(function()
+        local num = tonumber(textBox.Text)
+        if num and num > 0 then
+            Config[configKey] = math.floor(num)
+            textBox.Text = tostring(Config[configKey])
+        else
+            textBox.Text = tostring(Config[configKey])
+        end
+        if callback then callback(Config[configKey]) end
+        saveConfig()
+    end)
+
+    return boxFrame
+end
+
 -- ============================================================================
 -- 7. ISI TAB & FITUR
 -- ============================================================================
@@ -1111,6 +1213,7 @@ createToggle(cardPage, "🎰 Auto Roll Cards", "AutoRoll")
 createToggle(cardPage, "📦 Gunakan Filter Pack (Hanya Beli yg Dipilih)", "AutoRollFilterEnabled")
 createToggle(cardPage, "🛑 Stop Roll Setelah Berhasil Beli", "StopAfterBuy")
 createToggle(cardPage, "⭐ Auto Level Up Cards (Base Droppers)", "AutoLevelUp")
+createTextBox(cardPage, "🎯 Target Level Up Kartu:", "TargetCardLevel", 35)
 
 -- ============================================================================
 -- 8. COMPACT & FLEXIBLE PACK SELECTION DROPDOWN
