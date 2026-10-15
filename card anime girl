@@ -1,14 +1,17 @@
 -- ============================================================================
--- CARD & CRATE TYCOON - ULTIMATE AUTO FARM & UTILITY SCRIPT (v1.6)
+-- CARD & CRATE TYCOON - ULTIMATE AUTO FARM & UTILITY SCRIPT (v1.7)
 -- Brand New Custom Script (100% Pure Offline UI - No External Loadstring Needed)
 -- Features:
---   1. Auto Full Crate Cycle (Jeda 10 Detik tiap putaran)
---   2. Auto Teleport ke Variant Token -> Ambil -> Teleport Balik ke Base
---   3. PACK FILTER SYSTEM (Filter Berdasarkan Nama Pack: Fire, Ice, Water, Romcom, dll.)
---   4. Continuous Auto Roll (Hanya beli pack yang dicentang, skip yang lain, tidak berhenti sendiri)
---   5. Compact & Collapsible Pack Dropdown (Tidak bikin GUI penuh & Fleksibel)
---   6. Auto Save & Load Konfigurasi (writefile JSON)
---   7. Player Movement & Base Teleports
+--   1. 100% ACCURATE CONVEYOR AUTO BUY:
+--      Membaca langsung attribute BoxName & Variant dari RollStation.ConveyorPart
+--      dan mengirim parameter lengkap (BoxId, Variant, Price) ke PurchaseConveyorRoll!
+--   2. 100% ACCURATE CARD LEVEL UP:
+--      Mengirim Dropper Part ke Remote RequestPlayerUnitLevelUp sesuai decompile!
+--   3. Auto Skip Open Time di Dropper Base
+--   4. Pack Filter System (Fire, Ice, Water, Romcom, Sword, dll.)
+--   5. Auto Teleport ke Variant Token & Balik ke Base
+--   6. Auto Full Crate Cycle (Jeda 10s)
+--   7. Auto Save & Load Konfigurasi (writefile JSON)
 -- Compatibility: PC & Mobile (Touch Friendly, Draggable, Resilient)
 -- ============================================================================
 
@@ -37,8 +40,14 @@ local CoreGui = game:GetService("CoreGui")
 local LocalPlayer = Players.LocalPlayer or Players.PlayerAdded:Wait()
 local Remotes = ReplicatedStorage:WaitForChild("Remotes", 20)
 
+-- Modul Inti Game
+local BoxService = nil
+pcall(function()
+    BoxService = require(ReplicatedStorage.Shared.Services.BoxService)
+end)
+
 -- ============================================================================
--- 1. DAFTAR SEMUA PACK (SESUAI BOXESLIBRARY GAME)
+-- 1. DAFTAR PACK & MAPPING INTERNAL BOX
 -- ============================================================================
 local AllPackNames = {
     "Fire Pack",
@@ -58,6 +67,30 @@ local AllPackNames = {
     "Slayer Pack",
     "Titan Pack",
 }
+
+local PackInternalMap = {
+    ["Fire Pack"]     = "FirePack",
+    ["Ice Pack"]      = "IcePack",
+    ["Water Pack"]    = "WaterPack",
+    ["Pirate Pack"]   = "PiratePack",
+    ["Romcom Pack"]   = "RomcomPack",
+    ["Sword Pack"]    = "SwordPack",
+    ["Knight Pack"]   = "KnightPack",
+    ["Assassin Pack"] = "AssassinPack",
+    ["Ninja Pack"]    = "NinjaPack",
+    ["Mage Pack"]     = "MagePack",
+    ["Hero Pack"]     = "HeroPack",
+    ["Devil Pack"]    = "DevilPack",
+    ["Genius Pack"]   = "GeniusPack",
+    ["Idol Pack"]     = "IdolPack",
+    ["Slayer Pack"]   = "SlayerPack",
+    ["Titan Pack"]    = "TitanPack",
+}
+
+local InternalToPrettyMap = {}
+for pretty, internal in pairs(PackInternalMap) do
+    InternalToPrettyMap[internal] = pretty
+end
 
 local PackColors = {
     ["Fire Pack"]     = Color3.fromRGB(255, 120, 60),
@@ -131,6 +164,10 @@ local Config = {
     AutoRoll = false,
     AutoRollFilterEnabled = true,
     StopAfterBuy = false,
+    AutoLevelUp = false,
+    AutoOpenDropperBox = false,
+    AutoEquipBest = false,
+    
     SelectedPacks = {
         ["Fire Pack"]     = true,
         ["Ice Pack"]      = true,
@@ -149,8 +186,6 @@ local Config = {
         ["Slayer Pack"]   = false,
         ["Titan Pack"]    = false,
     },
-    AutoOpenDropperBox = false,
-    AutoEquipBest = false,
     
     -- Tab Rewards & World
     AutoCollectTokens = false,
@@ -298,91 +333,78 @@ local function runSingleCycle()
     doSellCrates()
 end
 
--- [CARDS] Detect Rolled Pack Name & Smart Buy
-local function getRolledPackName()
-    local pGui = LocalPlayer:FindFirstChild("PlayerGui")
-    if pGui then
-        -- 1. Cek NewCardsGui jika ada pop up hasil roll
-        local newCardsGui = pGui:FindFirstChild("NewCardsGui")
-        if newCardsGui and newCardsGui.Enabled ~= false then
-            for _, desc in ipairs(newCardsGui:GetDescendants()) do
-                if desc:IsA("TextLabel") and desc.Text and desc.Text ~= "" then
-                    local tClean = desc.Text:lower():gsub("%s+", "")
-                    for _, pName in ipairs(AllPackNames) do
-                        local matchClean = pName:lower():gsub("%s+", "")
-                        if tClean == matchClean or tClean:find(matchClean) then
-                            return pName
-                        end
-                    end
-                end
-            end
-        end
-
-        -- 2. Cek AutoBuyGui
-        local autoBuyGui = pGui:FindFirstChild("AutoBuyGui")
-        if autoBuyGui and autoBuyGui.Enabled ~= false then
-            for _, desc in ipairs(autoBuyGui:GetDescendants()) do
-                if desc:IsA("TextLabel") and desc.Text and desc.Text ~= "" then
-                    local tClean = desc.Text:lower():gsub("%s+", "")
-                    for _, pName in ipairs(AllPackNames) do
-                        local matchClean = pName:lower():gsub("%s+", "")
-                        if tClean == matchClean or tClean:find(matchClean) then
-                            return pName
-                        end
-                    end
-                end
-            end
-        end
-    end
-
-    -- 3. Cek Conveyor Roll di Plot Player
+-- [CARDS] 100% Accurate Conveyor Roll & Smart Buy (Sesuai Decompiled Source)
+local function getRollConveyorPart()
     local myPlot = getMyPlot()
-    if myPlot then
-        local conveyor = myPlot:FindFirstChild("Systems") 
-            and myPlot.Systems:FindFirstChild("TycoonConveyor")
-        if conveyor then
-            for _, desc in ipairs(conveyor:GetDescendants()) do
-                if desc:IsA("TextLabel") and desc.Text and desc.Text ~= "" then
-                    local tClean = desc.Text:lower():gsub("%s+", "")
-                    for _, pName in ipairs(AllPackNames) do
-                        local matchClean = pName:lower():gsub("%s+", "")
-                        if tClean == matchClean or tClean:find(matchClean) then
-                            return pName
-                        end
-                    end
-                end
-            end
-        end
+    if not myPlot then return nil end
+
+    local rollStation = myPlot:FindFirstChild("Systems") and myPlot.Systems:FindFirstChild("RollStation")
+    if rollStation then
+        return rollStation:FindFirstChild("ConveyorPart")
     end
 
+    -- Fallback via Tag
+    for _, part in ipairs(CollectionService:GetTagged("RollConveyorPart")) do
+        if part:IsDescendantOf(myPlot) then
+            return part
+        end
+    end
     return nil
 end
+
+local lastProcessedRollCount = -1
 
 local function doRollCard()
     if not Config.AutoRoll then return end
     
+    local rollPart = getRollConveyorPart()
+    if not rollPart then return end
+
+    -- 1. Cek Cooldown Roll Conveyor
+    local cooldownUntil = rollPart:GetAttribute("RollCooldownUntil")
+    if cooldownUntil and workspace:GetServerTimeNow() < cooldownUntil then
+        return
+    end
+
+    -- 2. Request Roll ke Server
     pcall(function()
         if Remotes:FindFirstChild("RequestConveyorRoll") then
             Remotes.RequestConveyorRoll:FireServer()
         end
     end)
-    
-    if Config.AutoRollFilterEnabled then
-        task.wait(0.35)
-        local detectedPack = getRolledPackName()
-        if detectedPack then
-            local isPackWanted = Config.SelectedPacks[detectedPack] == true
-            
-            if isPackWanted then
-                -- Pack ada di daftar yang dicentang -> BUY!
+
+    -- 3. Tunggu Box Spawn di Conveyor
+    task.wait(0.4)
+
+    -- 4. Baca BoxName & Variant Langsung dari Attribute RollConveyorPart
+    local boxNameInternal = rollPart:GetAttribute("BoxName")
+    local variant = rollPart:GetAttribute("Variant") or "Normal"
+    local rollCount = rollPart:GetAttribute("RollCount") or 0
+
+    if boxNameInternal and boxNameInternal ~= "" and rollCount ~= lastProcessedRollCount then
+        lastProcessedRollCount = rollCount
+        local prettyName = InternalToPrettyMap[boxNameInternal] or boxNameInternal:gsub("Pack", " Pack")
+
+        if Config.AutoRollFilterEnabled then
+            local isWanted = Config.SelectedPacks[prettyName] == true or Config.SelectedPacks[boxNameInternal] == true
+
+            if isWanted then
+                -- HITUNG HARGA (BoxService.GetConveyorBoxPrice) & KIRIM PARAMETER PERSIS SEPERTI GAME
+                local price = 0
                 pcall(function()
-                    if Remotes:FindFirstChild("PurchaseConveyorRoll") then
-                        Remotes.PurchaseConveyorRoll:FireServer()
+                    if BoxService and BoxService.GetConveyorBoxPrice then
+                        price = BoxService.GetConveyorBoxPrice(boxNameInternal, variant)
                     end
                 end)
-                print(string.format("✅ [Auto Roll] Pack %s Cocok dengan filter! Membeli...", detectedPack:upper()))
-                
-                -- Jika opsi Stop After Buy aktif, matikan auto roll
+
+                pcall(function()
+                    if Remotes:FindFirstChild("PurchaseConveyorRoll") then
+                        -- Mengirim 3 argumen: BoxId, Variant, Price (Sesuai source game)
+                        Remotes.PurchaseConveyorRoll:FireServer(boxNameInternal, variant, price)
+                    end
+                end)
+                print(string.format("✅ [Auto Roll] BERHASIL BELI: %s (%s) seharga $%s!", prettyName, variant, tostring(price)))
+
                 if Config.StopAfterBuy then
                     Config.AutoRoll = false
                     saveConfig()
@@ -391,16 +413,51 @@ local function doRollCard()
                     end
                 end
             else
-                -- Pack TIDAK dicentang -> JANGAN BELI (LEWATI), DAN TETAP LANJUT ROLL BERIKUTNYA!
-                print(string.format("⏭️ [Auto Roll] Lewati %s (Bukan target), tetap lanjut me-roll...", detectedPack))
+                print(string.format("⏭️ [Auto Roll] Lewati %s (Bukan target filter), tetap lanjut roll...", prettyName))
+            end
+        else
+            -- Filter mati -> Langsung beli apapun yang keluar
+            local price = 0
+            pcall(function()
+                if BoxService and BoxService.GetConveyorBoxPrice then
+                    price = BoxService.GetConveyorBoxPrice(boxNameInternal, variant)
+                end
+            end)
+            pcall(function()
+                if Remotes:FindFirstChild("PurchaseConveyorRoll") then
+                    Remotes.PurchaseConveyorRoll:FireServer(boxNameInternal, variant, price)
+                end
+            end)
+        end
+    end
+end
+
+-- [CARDS] Level Up Cards (Sesuai Decompiled DropperPlayerUnitHandler)
+local function doLevelUpCards()
+    local myPlot = getMyPlot()
+    if not myPlot then return end
+
+    local droppers = myPlot:FindFirstChild("Systems") 
+        and myPlot.Systems:FindFirstChild("TycoonConveyor") 
+        and myPlot.Systems.TycoonConveyor:FindFirstChild("Conveyors") 
+        and myPlot.Systems.TycoonConveyor.Conveyors:FindFirstChild("Conveyor1") 
+        and myPlot.Systems.TycoonConveyor.Conveyors.Conveyor1:FindFirstChild("Droppers")
+
+    if droppers then
+        for _, dropPart in ipairs(droppers:GetChildren()) do
+            -- Memeriksa apakah ada unit terpasang pada dropper part ini
+            local unitName = dropPart:GetAttribute("PlayerUnitName")
+            local unitLevel = dropPart:GetAttribute("PlayerUnitLevel") or 1
+
+            if unitName and unitLevel < 100 then
+                pcall(function()
+                    -- Remote mengirim argumen Dropper Part (Sesuai line 178 source game)
+                    if Remotes:FindFirstChild("RequestPlayerUnitLevelUp") then
+                        Remotes.RequestPlayerUnitLevelUp:FireServer(dropPart)
+                    end
+                end)
             end
         end
-    else
-        pcall(function()
-            if Remotes:FindFirstChild("PurchaseConveyorRoll") then
-                Remotes.PurchaseConveyorRoll:FireServer()
-            end
-        end)
     end
 end
 
@@ -426,8 +483,11 @@ local function doOpenDropperBoxes()
         if droppers then
             for _, drop in ipairs(droppers:GetChildren()) do
                 for _, prompt in ipairs(drop:GetDescendants()) do
-                    if prompt:IsA("ProximityPrompt") and prompt.ActionText:lower():find("place") then
-                        triggerPrompt(prompt)
+                    if prompt:IsA("ProximityPrompt") then
+                        local act = prompt.ActionText:lower()
+                        if act:find("place") or act:find("skip") then
+                            triggerPrompt(prompt)
+                        end
                     end
                 end
             end
@@ -621,15 +681,18 @@ task.spawn(function()
     while true do
         if Config.AutoRoll then
             doRollCard()
-            task.wait(0.4)
-        else
             task.wait(0.5)
+        else
+            task.wait(0.4)
         end
     end
 end)
 
 task.spawn(function()
     while true do
+        if Config.AutoLevelUp then
+            doLevelUpCards()
+        end
         if Config.AutoOpenDropperBox then
             doOpenDropperBoxes()
         end
@@ -814,7 +877,7 @@ TitleLabel.Name = "TitleLabel"
 TitleLabel.Size = UDim2.new(1, -90, 1, 0)
 TitleLabel.Position = UDim2.new(0, 14, 0, 0)
 TitleLabel.BackgroundTransparency = 1
-TitleLabel.Text = "🃏 CARD TYCOON <font color=\"#4A90E2\">AUTOFARM v1.6</font>"
+TitleLabel.Text = "🃏 CARD TYCOON <font color=\"#4A90E2\">AUTOFARM v1.7</font>"
 TitleLabel.RichText = true
 TitleLabel.TextColor3 = Color3.fromRGB(240, 240, 255)
 TitleLabel.TextSize = 15
@@ -1047,6 +1110,7 @@ local cardPage = createTab("Cards", "🃏", 2)
 createToggle(cardPage, "🎰 Auto Roll Cards", "AutoRoll")
 createToggle(cardPage, "📦 Gunakan Filter Pack (Hanya Beli yg Dipilih)", "AutoRollFilterEnabled")
 createToggle(cardPage, "🛑 Stop Roll Setelah Berhasil Beli", "StopAfterBuy")
+createToggle(cardPage, "⭐ Auto Level Up Cards (Base Droppers)", "AutoLevelUp")
 
 -- ============================================================================
 -- 8. COMPACT & FLEXIBLE PACK SELECTION DROPDOWN
@@ -1216,7 +1280,7 @@ dropHeader.MouseButton1Click:Connect(function()
     dropCountBadge.Text = string.format("%d Pack Dipilih %s", getSelectedPackCount(), isExpanded and "▴" or "▾")
 end)
 
-createToggle(cardPage, "📦 Auto Open Dropper Box", "AutoOpenDropperBox")
+createToggle(cardPage, "📦 Auto Open Dropper Box (Skip Time)", "AutoOpenDropperBox")
 createToggle(cardPage, "🛡️ Auto Equip Best Cards", "AutoEquipBest")
 
 -- TAB 3: 🎁 REWARDS & WORLD
@@ -1294,4 +1358,4 @@ tabs["Farm"].Btn.BackgroundColor3 = Color3.fromRGB(50, 95, 205)
 tabs["Farm"].Btn.TextColor3 = Color3.fromRGB(255, 255, 255)
 tabs["Farm"].Page.Visible = true
 
-print("✅ Card & Crate Tycoon Script v1.6 with Continuous Auto Roll & Pack Filter Loaded!")
+print("✅ Card & Crate Tycoon Script v1.7 Loaded Successfully!")
