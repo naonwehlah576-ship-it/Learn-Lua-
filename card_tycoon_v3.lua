@@ -261,87 +261,12 @@ local VariantColors = {
     ["Unwritten"]  = Color3.fromRGB(240, 240, 240),
 }
 
--- Helper Mutasi Per Pack
-local function getPackVariantConfig(packName)
-    if not Config.PackVariants then
-        Config.PackVariants = {}
-    end
-    if not Config.PackVariants[packName] then
-        Config.PackVariants[packName] = {}
-        for _, vName in ipairs(AllVariantNames) do
-            Config.PackVariants[packName][vName] = true
-        end
-    end
-    return Config.PackVariants[packName]
-end
 
-local function isVariantAllowedForPack(packName, variant)
-    if not Config.PackVariants then return true end
-    local pConfig = Config.PackVariants[packName]
-    if not pConfig then
-        local altName = packName:find(" Pack") and packName:gsub(" Pack", "Pack") or packName:gsub("Pack", " Pack")
-        pConfig = Config.PackVariants[altName]
-    end
-    if not pConfig then return true end
-    if pConfig[variant] ~= nil then
-        return pConfig[variant] == true
-    end
-    return true
-end
-
-local function hasCustomVariantFilter(packName)
-    if not Config.PackVariants or not Config.PackVariants[packName] then return false end
-    for _, vName in ipairs(AllVariantNames) do
-        if Config.PackVariants[packName][vName] == false then
-            return true
-        end
-    end
-    return false
-end
-
--- Deteksi Plot Player
-local function getMyPlot()
-    local plotModels = Workspace:FindFirstChild("Map") and Workspace.Map:FindFirstChild("PlotModels")
-    if not plotModels then return nil end
-
-    local myPlot = plotModels:FindFirstChild(LocalPlayer.Name)
-    if myPlot then return myPlot end
-
-    for _, plot in ipairs(plotModels:GetChildren()) do
-        if plot.Name:find(LocalPlayer.Name) then
-            return plot
-        end
-    end
-    return nil
-end
-
--- Bypass ProximityPrompt
-local function triggerPrompt(prompt)
-    if not prompt or not prompt.Enabled then return false end
-    pcall(function()
-        local oldDist = prompt.MaxActivationDistance
-        local oldLos = prompt.RequiresLineOfSight
-        prompt.MaxActivationDistance = 999999
-        prompt.RequiresLineOfSight = false
-        
-        if typeof(fireproximityprompt) == "function" then
-            fireproximityprompt(prompt)
-        else
-            prompt:InputHoldBegin()
-            task.wait(prompt.HoldDuration + 0.02)
-            prompt:InputHoldEnd()
-        end
-        
-        prompt.MaxActivationDistance = oldDist
-        prompt.RequiresLineOfSight = oldLos
-    end)
-    return true
-end
 
 -- ============================================================================
 -- KONFIGURASI PERSISTENT & AUTOSAVE
 -- ============================================================================
-local CONFIG_FILE = "CardTycoon_CleanConfig.json"
+local CONFIG_FILE = "CardTycoon_V3_Config.json"
 
 local Config = {
     AutoFullCrateCycle = false,
@@ -427,6 +352,87 @@ local function loadConfig()
 end
 
 loadConfig()
+
+
+
+-- Helper Mutasi Per Pack
+local function getPackVariantConfig(packName)
+    if not Config.PackVariants then
+        Config.PackVariants = {}
+    end
+    if not Config.PackVariants[packName] then
+        Config.PackVariants[packName] = {}
+        for _, vName in ipairs(AllVariantNames) do
+            Config.PackVariants[packName][vName] = true
+        end
+    end
+    return Config.PackVariants[packName]
+end
+
+local function isVariantAllowedForPack(packName, variant)
+    if not Config.PackVariants then return true end
+    local pConfig = Config.PackVariants[packName]
+    if not pConfig then
+        local altName = packName:find(" Pack") and packName:gsub(" Pack", "Pack") or packName:gsub("Pack", " Pack")
+        pConfig = Config.PackVariants[altName]
+    end
+    if not pConfig then return true end
+    if pConfig[variant] ~= nil then
+        return pConfig[variant] == true
+    end
+    return true
+end
+
+local function hasCustomVariantFilter(packName)
+    if not Config.PackVariants or not Config.PackVariants[packName] then return false end
+    for _, vName in ipairs(AllVariantNames) do
+        if Config.PackVariants[packName][vName] == false then
+            return true
+        end
+    end
+    return false
+end
+
+
+
+-- Deteksi Plot Player
+local function getMyPlot()
+    local plotModels = Workspace:FindFirstChild("Map") and Workspace.Map:FindFirstChild("PlotModels")
+    if not plotModels then return nil end
+
+    local myPlot = plotModels:FindFirstChild(LocalPlayer.Name)
+    if myPlot then return myPlot end
+
+    for _, plot in ipairs(plotModels:GetChildren()) do
+        if plot.Name:find(LocalPlayer.Name) then
+            return plot
+        end
+    end
+    return nil
+end
+
+-- Bypass ProximityPrompt
+local function triggerPrompt(prompt)
+    if not prompt or not prompt.Enabled then return false end
+    pcall(function()
+        local oldDist = prompt.MaxActivationDistance
+        local oldLos = prompt.RequiresLineOfSight
+        prompt.MaxActivationDistance = 999999
+        prompt.RequiresLineOfSight = false
+        
+        if typeof(fireproximityprompt) == "function" then
+            fireproximityprompt(prompt)
+        else
+            prompt:InputHoldBegin()
+            task.wait(prompt.HoldDuration + 0.02)
+            prompt:InputHoldEnd()
+        end
+        
+        prompt.MaxActivationDistance = oldDist
+        prompt.RequiresLineOfSight = oldLos
+    end)
+    return true
+end
 
 -- ============================================================================
 -- 1. AUTO FULL CRATE CYCLE (PERSIS SCRIPT SEBELUMNYA YANG TERBUKTI WORK)
@@ -1119,8 +1125,10 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 end)
 
 
+
+
 -- ============================================================================
--- CARD TYCOON V3 - UNIFIED SIDEBAR GUI (4 TABS, NO DUPLICATE PACKS, BULLETPROOF CLICKS)
+-- CARD TYCOON V3.2 - UNIFIED 4-TAB GUI (PC & DELTA EXECUTOR)
 -- ============================================================================
 
 local ScreenGui = Instance.new("ScreenGui")
@@ -1264,7 +1272,7 @@ TitleLabel.Name = "TitleLabel"
 TitleLabel.Size = UDim2.new(1, -90, 1, 0)
 TitleLabel.Position = UDim2.new(0, 14, 0, 0)
 TitleLabel.BackgroundTransparency = 1
-TitleLabel.Text = "🃏 <b>CARD TYCOON</b> <font color=\"#4A90E2\">ALL-IN-ONE v3.1</font>"
+TitleLabel.Text = "🃏 <b>CARD TYCOON</b> <font color=\"#4A90E2\">ALL-IN-ONE v3.2</font>"
 TitleLabel.RichText = true
 TitleLabel.TextColor3 = Color3.fromRGB(240, 240, 255)
 TitleLabel.TextSize = 14
@@ -1359,7 +1367,7 @@ local function createTab(name, icon, order)
     page.BorderSizePixel = 0
     page.ScrollBarThickness = 4
     page.ScrollBarImageColor3 = Color3.fromRGB(65, 120, 230)
-    page.CanvasSize = UDim2.new(0, 0, 0, 450)
+    page.CanvasSize = UDim2.new(0, 0, 0, 500)
     page.Visible = false
     page.Parent = ContentFrame
 
@@ -2006,4 +2014,4 @@ if tabs["Farm"] then
     tabs["Farm"].Btn.TextColor3 = Color3.fromRGB(255, 255, 255)
 end
 
-print("✅ Card & Crate Tycoon ALL-IN-ONE v3.1 Loaded Successfully!")
+print("✅ Card & Crate Tycoon ALL-IN-ONE v3.2 Loaded Successfully!")
