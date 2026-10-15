@@ -1,11 +1,6 @@
 -- ============================================================================
--- 🔍 SCANNER: INDEX CARDS STATS ($/CARD & $/S LEVEL 1)
+-- 🔍 BULLETPROOF SCANNER: 64 INDEX CARDS ($/CARD LEVEL 1)
 -- ============================================================================
-
-local copyToClipboard = setclipboard or toclipboard or (Clipboard and Clipboard.set)
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
 
 local output = {}
 local function log(str)
@@ -13,164 +8,98 @@ local function log(str)
     print(str)
 end
 
-local function header(title)
-    log("\n" .. string.rep("=", 70))
-    log("📌 " .. title)
-    log(string.rep("=", 70))
+local function fmt(n)
+    n = tonumber(n) or 0
+    if n >= 1e12 then return string.format("$%.2fT", n / 1e12) end
+    if n >= 1e9 then return string.format("$%.2fB", n / 1e9) end
+    if n >= 1e6 then return string.format("$%.2fM", n / 1e6) end
+    if n >= 1e3 then return string.format("$%.2fK", n / 1e3) end
+    return "$" .. tostring(n)
 end
 
-header("INDEX 64 KARTU: STATS LEVEL 1 ($/CARD & $/S) CARD & CRATE TYCOON")
-log("Waktu: " .. os.date("%Y-%m-%d %H:%M:%S"))
-
-local unitsLib = nil
 pcall(function()
-    local mod = ReplicatedStorage.Shared.Core.Storage.Game.PlayerUnitsLibrary
-    unitsLib = require(mod)
-end)
+    local ReplicatedStorage = game:GetService("ReplicatedStorage")
+    local unitsLib = require(ReplicatedStorage.Shared.Core.Storage.Game.PlayerUnitsLibrary)
 
-local unitService = nil
-pcall(function()
-    local mod = ReplicatedStorage.Shared.Services.PlayerUnitService
-    unitService = require(mod)
-end)
-
-local NumberUtils = nil
-pcall(function()
-    NumberUtils = require(ReplicatedStorage.Shared.Utility.NumberUtils)
-end)
-
-local function formatCash(val)
-    if not val or val == 0 then return "$0" end
-    if NumberUtils and NumberUtils.FormatNumber then
-        return "$" .. NumberUtils.FormatNumber(val)
-    end
-    if val >= 1e12 then return string.format("$%.2fT", val / 1e12) end
-    if val >= 1e9 then return string.format("$%.2fB", val / 1e9) end
-    if val >= 1e6 then return string.format("$%.2fM", val / 1e6) end
-    if val >= 1e3 then return string.format("$%.2fK", val / 1e3) end
-    return "$" .. tostring(val)
-end
-
-local allCards = {}
-if type(unitsLib) == "table" then
-    for cardKey, cardData in pairs(unitsLib) do
-        if type(cardData) == "table" then
-            local displayName = cardData.DisplayName or cardData.Name or cardKey
-            local internalName = cardData.Name or cardKey
-            local boxName = cardData.BoxName or "Unknown"
-            local chance = cardData.Chance or 0
-            local cashPerDrop = cardData.CashPerDrop or 0
-            local dropCooldown = 1
-            local cashPerSec = cashPerDrop
-
-            -- Hitung Cooldown & CashPerSecond via PlayerUnitService jika tersedia
-            pcall(function()
-                if unitService then
-                    if unitService.GetDropCooldown then
-                        dropCooldown = unitService.GetDropCooldown(internalName) or 1
-                    end
-                    if unitService.GetCashPerSecond then
-                        cashPerSec = unitService.GetCashPerSecond({
-                            PlayerUnitName = internalName,
-                            PlayerUnitVariant = "Normal",
-                            PlayerUnitLevel = 1,
-                            PlayerUnitGrade = "D",
-                            PlayerUnitTrait = "None"
-                        })
-                    elseif dropCooldown > 0 then
-                        cashPerSec = cashPerDrop / dropCooldown
-                    end
-                end
-            end)
-
-            table.insert(allCards, {
-                Key = cardKey,
-                DisplayName = displayName,
-                InternalName = internalName,
-                BoxName = boxName,
-                Chance = chance,
-                CashPerDrop = cashPerDrop,
-                DropCooldown = dropCooldown,
-                CashPerSecond = cashPerSec or cashPerDrop
+    local cards = {}
+    for k, v in pairs(unitsLib) do
+        if type(v) == "table" then
+            table.insert(cards, {
+                Key = tostring(k),
+                Name = tostring(v.Name or k),
+                DisplayName = tostring(v.DisplayName or v.Name or k),
+                BoxName = tostring(v.BoxName or "Unknown"),
+                Cash = tonumber(v.CashPerDrop) or 0,
+                Chance = tostring(v.Chance or "?")
             })
         end
     end
-end
 
--- Kelompokkan berdasarkan Pack
-local packOrder = {
-    "FirePack", "IcePack", "WaterPack", "PiratePack",
-    "RomcomPack", "SwordPack", "KnightPack", "AssassinPack",
-    "NinjaPack", "MagePack", "HeroPack", "DevilPack",
-    "GeniusPack", "IdolPack", "SlayerPack", "TitanPack"
-}
+    table.insert(output, "=================================================================")
+    table.insert(output, "📌 DAFTAR 64 KARTU DI INDEX & HARGA AWAL $/CARD (LEVEL 1 NORMAL)")
+    table.insert(output, "=================================================================")
+    table.insert(output, "Total Kartu: " .. #cards .. " (16 Pack x 4 Kartu)\n")
 
-local cardsByPack = {}
-for _, c in ipairs(allCards) do
-    local b = c.BoxName
-    if not cardsByPack[b] then cardsByPack[b] = {} end
-    table.insert(cardsByPack[b], c)
-end
+    local packOrder = {
+        "FirePack", "IcePack", "WaterPack", "PiratePack",
+        "RomcomPack", "SwordPack", "KnightPack", "AssassinPack",
+        "NinjaPack", "MagePack", "HeroPack", "DevilPack",
+        "GeniusPack", "IdolPack", "SlayerPack", "TitanPack"
+    }
 
--- Urutkan kartu dalam setiap pack berdasarkan CashPerDrop dari terendah ke tertinggi
-for b, list in pairs(cardsByPack) do
-    table.sort(list, function(a, b)
-        return a.CashPerDrop < b.CashPerDrop
-    end)
-end
+    local byPack = {}
+    for _, c in ipairs(cards) do
+        if not byPack[c.BoxName] then byPack[c.BoxName] = {} end
+        table.insert(byPack[c.BoxName], c)
+    end
 
-header("DAFTAR LENGKAP 64 KARTU PER PACK (LEVEL 1 NORMAL)")
-for _, pName in ipairs(packOrder) do
-    local list = cardsByPack[pName]
-    if list then
-        log(string.format("\n📦 %s (Total: %d Kartu):", pName:gsub("Pack", " Pack"), #list))
-        log(string.rep("-", 70))
-        for idx, c in ipairs(list) do
-            log(string.format(
-                " %d. %-18s (%-12s) | %-11s | %-10s | Drop: %4.1fs | Chance: %2d%%",
-                idx,
-                c.DisplayName,
-                c.InternalName,
-                formatCash(c.CashPerDrop) .. "/Card",
-                formatCash(c.CashPerSecond) .. "/s",
-                c.DropCooldown,
-                c.Chance
-            ))
+    for _, p in pairs(byPack) do
+        table.sort(p, function(a, b) return a.Cash < b.Cash end)
+    end
+
+    for _, pName in ipairs(packOrder) do
+        local list = byPack[pName]
+        if list then
+            local prettyPack = pName:gsub("Pack", " Pack")
+            table.insert(output, string.format("📦 %s:", prettyPack))
+            table.insert(output, string.rep("-", 55))
+            for i, c in ipairs(list) do
+                table.insert(output, string.format(
+                    "  %d. %-18s (%-10s) : %-12s (Chance: %s%%)",
+                    i,
+                    c.DisplayName,
+                    c.Name,
+                    fmt(c.Cash) .. "/Card",
+                    c.Chance
+                ))
+            end
+            table.insert(output, "")
         end
     end
-end
 
--- Tampilkan Top 10 Kartu Penghasil Terbesar di Game pada Level 1
-header("TOP 10 KARTU DENGAN $/CARD TERBESAR DI GAME (LEVEL 1)")
-table.sort(allCards, function(a, b)
-    return a.CashPerDrop > b.CashPerDrop
+    -- Top 10 Termahal
+    table.sort(cards, function(a, b) return a.Cash > b.Cash end)
+    table.insert(output, "=================================================================")
+    table.insert(output, "🏆 TOP 10 KARTU DENGAN PENGHASILAN TERBESAR DI GAME (LVL 1):")
+    table.insert(output, "=================================================================")
+    for i = 1, math.min(10, #cards) do
+        local c = cards[i]
+        table.insert(output, string.format(
+            " #%2d. %-18s | Pack: %-10s | %-12s",
+            i,
+            c.DisplayName,
+            c.BoxName:gsub("Pack", ""),
+            fmt(c.Cash) .. "/Card"
+        ))
+    end
 end)
 
-for i = 1, math.min(10, #allCards) do
-    local c = allCards[i]
-    log(string.format(
-        " #%2d. %-18s | Pack: %-12s | %-12s | %-11s",
-        i,
-        c.DisplayName,
-        c.BoxName:gsub("Pack", ""),
-        formatCash(c.CashPerDrop) .. "/Card",
-        formatCash(c.CashPerSecond) .. "/s"
-    ))
-end
-
-header("SCAN FINISHED")
 local fullResult = table.concat(output, "\n")
-
-pcall(function()
-    if writefile then
-        writefile("IndexCards_DetailedStats.txt", fullResult)
-        log("📁 File disimpan: IndexCards_DetailedStats.txt")
-    end
-end)
-
-pcall(function()
-    if copyToClipboard then
-        copyToClipboard(fullResult)
-        log("📋 Hasil scan telah disalin ke Clipboard!")
-    end
-end)
+local copy = setclipboard or toclipboard or (Clipboard and Clipboard.set)
+if copy then
+    pcall(copy, fullResult)
+end
+if writefile then
+    pcall(writefile, "index_cards_result.txt", fullResult)
+end
+print(fullResult)
