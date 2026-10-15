@@ -1,5 +1,5 @@
 -- ============================================================================
--- CARD & CRATE TYCOON - ULTIMATE AUTO FARM & UTILITY SCRIPT
+-- CARD & CRATE TYCOON - ULTIMATE AUTO FARM & UTILITY SCRIPT (v1.1)
 -- Brand New Custom Script (100% Pure Offline UI - No External Loadstring Needed)
 -- Compatibility: PC & Mobile (Touch Friendly, Draggable, Resilient)
 -- ============================================================================
@@ -29,17 +29,15 @@ local LocalPlayer = Players.LocalPlayer or Players.PlayerAdded:Wait()
 local Remotes = ReplicatedStorage:WaitForChild("Remotes", 20)
 
 -- ============================================================================
--- 1. DETEKSI PLOT MILIK PLAYER
+-- 1. DETEKSI PLOT MILIK PLAYER & BYPASS PROMPT
 -- ============================================================================
 local function getMyPlot()
     local plotModels = Workspace:FindFirstChild("Map") and Workspace.Map:FindFirstChild("PlotModels")
     if not plotModels then return nil end
 
-    -- Cari berdasarkan nama player
     local myPlot = plotModels:FindFirstChild(LocalPlayer.Name)
     if myPlot then return myPlot end
 
-    -- Fallback cari plot yang memiliki nama player
     for _, plot in ipairs(plotModels:GetChildren()) do
         if plot.Name:find(LocalPlayer.Name) then
             return plot
@@ -48,18 +46,25 @@ local function getMyPlot()
     return nil
 end
 
--- Helper trigger ProximityPrompt
+-- Helper trigger ProximityPrompt dengan bypass jarak & Line of Sight
 local function triggerPrompt(prompt)
     if not prompt or not prompt.Enabled then return false end
     pcall(function()
+        local oldDist = prompt.MaxActivationDistance
+        local oldLos = prompt.RequiresLineOfSight
+        prompt.MaxActivationDistance = 999999
+        prompt.RequiresLineOfSight = false
+        
         if typeof(fireproximityprompt) == "function" then
             fireproximityprompt(prompt)
         else
-            -- Fallback jika executor tidak ada fireproximityprompt
             prompt:InputHoldBegin()
-            task.wait(prompt.HoldDuration + 0.05)
+            task.wait(prompt.HoldDuration + 0.02)
             prompt:InputHoldEnd()
         end
+        
+        prompt.MaxActivationDistance = oldDist
+        prompt.RequiresLineOfSight = oldLos
     end)
     return true
 end
@@ -69,19 +74,12 @@ end
 -- ============================================================================
 local Config = {
     -- Tab Farm
-    AutoCarryCrate = false,
-    AutoDepositPolisher = false,
-    AutoCollectPolisher = false,
-    AutoSellCrate = false,
-    AutoFullCrateCycle = false, -- Carry -> Deposit -> Collect -> Sell
-    AutoBuyPedestals = false,
+    AutoFullCrateCycle = false, -- Carry -> Deposit -> Collect -> Sell (Jeda 10 detik)
     
     -- Tab Card / Base
     AutoRoll = false,
     AutoOpenDropperBox = false,
     AutoEquipBest = false,
-    AutoLevelUpUnit = false,
-    AutoConveyorSettings = false,
     
     -- Tab Rewards & World
     AutoCollectTokens = false,
@@ -106,14 +104,12 @@ local function doCarryCrate()
     local myPlot = getMyPlot()
     if not myPlot then return end
     
-    -- 1. Coba via RemoteEvent
     pcall(function()
         if Remotes:FindFirstChild("PickupCrateBox") then
             Remotes.PickupCrateBox:FireServer()
         end
     end)
     
-    -- 2. Coba via ProximityPrompt di CollectPart
     pcall(function()
         local collectPart = myPlot:FindFirstChild("Systems") 
             and myPlot.Systems:FindFirstChild("TycoonConveyor") 
@@ -133,14 +129,12 @@ local function doDepositPolisher()
     local myPlot = getMyPlot()
     if not myPlot then return end
     
-    -- 1. Via Remote
     pcall(function()
         if Remotes:FindFirstChild("DepositCrate") then
             Remotes.DepositCrate:FireServer()
         end
     end)
     
-    -- 2. Via ProximityPrompt di Polisher CollectPart
     pcall(function()
         local polisherCollect = myPlot:FindFirstChild("Systems") 
             and myPlot.Systems:FindFirstChild("PolisherModel")
@@ -169,14 +163,12 @@ local function doSellCrates()
     local myPlot = getMyPlot()
     if not myPlot then return end
     
-    -- 1. Via Remote
     pcall(function()
         if Remotes:FindFirstChild("SellCrate") then
             Remotes.SellCrate:FireServer()
         end
     end)
     
-    -- 2. Via ProximityPrompt di sell npc
     pcall(function()
         local sellNpcZone = myPlot:FindFirstChild("Systems") 
             and myPlot.Systems:FindFirstChild("Zones") 
@@ -192,40 +184,15 @@ local function doSellCrates()
     end)
 end
 
-local function doBuyPedestals()
-    local myPlot = getMyPlot()
-    if not myPlot then return end
-    
-    pcall(function()
-        local buttons = myPlot:FindFirstChild("Systems") 
-            and myPlot.Systems:FindFirstChild("Classes") 
-            and myPlot.Systems.Classes:FindFirstChild("Buttons")
-            
-        if buttons then
-            for _, ped in ipairs(buttons:GetChildren()) do
-                for _, prompt in ipairs(ped:GetDescendants()) do
-                    if prompt:IsA("ProximityPrompt") then
-                        triggerPrompt(prompt)
-                    end
-                end
-            end
-        end
-        
-        -- Cek SkipAll
-        local skipAll = myPlot.Systems.Classes:FindFirstChild("SkipAll")
-        if skipAll then
-            for _, prompt in ipairs(skipAll:GetDescendants()) do
-                if prompt:IsA("ProximityPrompt") then
-                    triggerPrompt(prompt)
-                end
-            end
-        end
-        
-        -- PurchaseUpgrade Remote
-        if Remotes:FindFirstChild("PurchaseUpgrade") then
-            Remotes.PurchaseUpgrade:FireServer()
-        end
-    end)
+-- Eksekusi 1 putaran cycle penuh
+local function runSingleCycle()
+    doCarryCrate()
+    task.wait(0.3)
+    doDepositPolisher()
+    task.wait(0.3)
+    doCollectPolisher()
+    task.wait(0.3)
+    doSellCrates()
 end
 
 -- [CARDS] Card & Dropper Actions
@@ -245,7 +212,6 @@ local function doOpenDropperBoxes()
     if not myPlot then return end
     
     pcall(function()
-        -- 1. Coba RemoteFunction OpenBoxOnDropper
         if Remotes:FindFirstChild("OpenBoxOnDropper") then
             for i = 1, 10 do
                 pcall(function()
@@ -254,7 +220,6 @@ local function doOpenDropperBoxes()
             end
         end
         
-        -- 2. Trigger ProximityPrompt di Droppers
         local droppers = myPlot:FindFirstChild("Systems") 
             and myPlot.Systems:FindFirstChild("TycoonConveyor") 
             and myPlot.Systems.TycoonConveyor:FindFirstChild("Conveyors") 
@@ -281,26 +246,7 @@ local function doEquipBestCards()
     end)
 end
 
-local function doLevelUpUnits()
-    pcall(function()
-        if Remotes:FindFirstChild("RequestPlayerUnitLevelUp") then
-            Remotes.RequestPlayerUnitLevelUp:FireServer()
-        end
-    end)
-end
-
-local function doConveyorSettings()
-    pcall(function()
-        if Remotes:FindFirstChild("RequestSetConveyorAutoSpawn") then
-            Remotes.RequestSetConveyorAutoSpawn:FireServer(true)
-        end
-        if Remotes:FindFirstChild("RequestSetConveyorAutoBuy") then
-            Remotes.RequestSetConveyorAutoBuy:FireServer(true)
-        end
-    end)
-end
-
--- [REWARDS]
+-- [REWARDS & COLLECTIBLES]
 local function doClaimRewards()
     pcall(function()
         if Remotes:FindFirstChild("ClaimPlaytimeReward") then
@@ -324,13 +270,40 @@ local function doClaimRewards()
     end)
 end
 
+-- Enhanced Variant Token Collector (Multi-Method: Touch, Remote, Proximity)
 local function doCollectTokens()
     pcall(function()
         local tokens = CollectionService:GetTagged("VariantTokenSpawn")
+        local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        
         for _, token in ipairs(tokens) do
+            -- 1. Fire Remote Collect & Found
+            if Remotes:FindFirstChild("VariantTokenFound") then
+                pcall(function() Remotes.VariantTokenFound:FireServer(token) end)
+                pcall(function() Remotes.VariantTokenFound:FireServer(token.Name) end)
+            end
             if Remotes:FindFirstChild("CollectVariantTokenSpawn") then
-                Remotes.CollectVariantTokenSpawn:FireServer(token)
-                Remotes.CollectVariantTokenSpawn:FireServer(token.Name)
+                pcall(function() Remotes.CollectVariantTokenSpawn:FireServer(token) end)
+                pcall(function() Remotes.CollectVariantTokenSpawn:FireServer(token.Name) end)
+            end
+            
+            -- 2. Trigger ProximityPrompt jika ada
+            for _, desc in ipairs(token:GetDescendants()) do
+                if desc:IsA("ProximityPrompt") then
+                    triggerPrompt(desc)
+                end
+            end
+            
+            -- 3. Touch Interest bypass jika executor support
+            if hrp and typeof(firetouchinterest) == "function" then
+                local tokenPart = (token:IsA("BasePart") and token) or token:FindFirstChildWhichIsA("BasePart")
+                if tokenPart then
+                    pcall(function()
+                        firetouchinterest(hrp, tokenPart, 0)
+                        task.wait(0.01)
+                        firetouchinterest(hrp, tokenPart, 1)
+                    end)
+                end
             end
         end
     end)
@@ -339,10 +312,29 @@ end
 local function doCollectObjects()
     pcall(function()
         local objects = CollectionService:GetTagged("CollectableObject")
+        local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        
         for _, obj in ipairs(objects) do
             if Remotes:FindFirstChild("CollectCollectableObject") then
-                Remotes.CollectCollectableObject:FireServer(obj)
-                Remotes.CollectCollectableObject:FireServer(obj.Name)
+                pcall(function() Remotes.CollectCollectableObject:FireServer(obj) end)
+                pcall(function() Remotes.CollectCollectableObject:FireServer(obj.Name) end)
+            end
+            
+            for _, desc in ipairs(obj:GetDescendants()) do
+                if desc:IsA("ProximityPrompt") then
+                    triggerPrompt(desc)
+                end
+            end
+            
+            if hrp and typeof(firetouchinterest) == "function" then
+                local part = (obj:IsA("BasePart") and obj) or obj:FindFirstChildWhichIsA("BasePart")
+                if part then
+                    pcall(function()
+                        firetouchinterest(hrp, part, 0)
+                        task.wait(0.01)
+                        firetouchinterest(hrp, part, 1)
+                    end)
+                end
             end
         end
     end)
@@ -352,38 +344,17 @@ end
 -- 4. BACKGROUND THREADS
 -- ============================================================================
 
--- Farm Loop
+-- Farm Loop (Jeda 10 Detik tiap cycle ketika di-ON-kan)
 task.spawn(function()
     while true do
         if Config.AutoFullCrateCycle then
-            -- Siklus Lengkap: Ambil Crate -> Masukkan Polisher -> Ambil Hasil Poles -> Jual
-            doCarryCrate()
-            task.wait(0.2)
-            doDepositPolisher()
-            task.wait(0.2)
-            doCollectPolisher()
-            task.wait(0.2)
-            doSellCrates()
-            task.wait(0.3)
+            runSingleCycle()
+            -- Hitung mundur jeda 10 detik dengan pengecekan interrupt
+            for i = 1, 100 do
+                if not Config.AutoFullCrateCycle then break end
+                task.wait(0.1)
+            end
         else
-            -- Individual Toggles
-            if Config.AutoCarryCrate then
-                doCarryCrate()
-            end
-            if Config.AutoDepositPolisher then
-                doDepositPolisher()
-            end
-            if Config.AutoCollectPolisher then
-                doCollectPolisher()
-            end
-            if Config.AutoSellCrate then
-                doSellCrates()
-            end
-            task.wait(0.3)
-        end
-        
-        if Config.AutoBuyPedestals then
-            doBuyPedestals()
             task.wait(0.5)
         end
     end
@@ -408,12 +379,6 @@ task.spawn(function()
         end
         if Config.AutoEquipBest then
             doEquipBestCards()
-        end
-        if Config.AutoLevelUpUnit then
-            doLevelUpUnits()
-        end
-        if Config.AutoConveyorSettings then
-            doConveyorSettings()
         end
         task.wait(0.8)
     end
@@ -592,7 +557,7 @@ TitleLabel.Name = "TitleLabel"
 TitleLabel.Size = UDim2.new(1, -90, 1, 0)
 TitleLabel.Position = UDim2.new(0, 14, 0, 0)
 TitleLabel.BackgroundTransparency = 1
-TitleLabel.Text = "🃏 CARD TYCOON <font color=\"#4A90E2\">AUTOFARM</font>"
+TitleLabel.Text = "🃏 CARD TYCOON <font color=\"#4A90E2\">AUTOFARM v1.1</font>"
 TitleLabel.RichText = true
 TitleLabel.TextColor3 = Color3.fromRGB(240, 240, 255)
 TitleLabel.TextSize = 15
@@ -671,7 +636,6 @@ ContentFrame.Parent = MainFrame
 
 -- Tab System
 local tabs = {}
-local activeTab = nil
 
 local function createTab(name, icon, order)
     local tabBtn = Instance.new("TextButton")
@@ -807,28 +771,12 @@ end
 -- TAB 1: 📦 FARM
 local farmPage = createTab("Farm", "📦", 1)
 
-createToggle(farmPage, "⚡ Auto Full Crate Cycle (Carry-Polish-Sell)", Config.AutoFullCrateCycle, function(val)
+createToggle(farmPage, "⚡ Auto Full Crate Cycle (Jeda 10s Tiap Cycle)", Config.AutoFullCrateCycle, function(val)
     Config.AutoFullCrateCycle = val
 end)
 
-createToggle(farmPage, "🧺 Auto Carry Crate (Conveyor)", Config.AutoCarryCrate, function(val)
-    Config.AutoCarryCrate = val
-end)
-
-createToggle(farmPage, "✨ Auto Deposit to Polisher", Config.AutoDepositPolisher, function(val)
-    Config.AutoDepositPolisher = val
-end)
-
-createToggle(farmPage, "🌟 Auto Collect Polished Crate", Config.AutoCollectPolisher, function(val)
-    Config.AutoCollectPolisher = val
-end)
-
-createToggle(farmPage, "💰 Auto Sell Crates to NPC", Config.AutoSellCrate, function(val)
-    Config.AutoSellCrate = val
-end)
-
-createToggle(farmPage, "⬆️ Auto Buy Upgrades & Pedestals", Config.AutoBuyPedestals, function(val)
-    Config.AutoBuyPedestals = val
+createButton(farmPage, "🔄 Jalankan 1x Siklus Crate Sekarang", Color3.fromRGB(45, 120, 210), function()
+    runSingleCycle()
 end)
 
 -- TAB 2: 🃏 CARDS / BASE
@@ -846,22 +794,14 @@ createToggle(cardPage, "🛡️ Auto Equip Best Cards", Config.AutoEquipBest, fu
     Config.AutoEquipBest = val
 end)
 
-createToggle(cardPage, "⭐ Auto Level Up Cards", Config.AutoLevelUpUnit, function(val)
-    Config.AutoLevelUpUnit = val
-end)
-
-createToggle(cardPage, "⚙️ Auto Set Conveyor AutoSpawn & Buy", Config.AutoConveyorSettings, function(val)
-    Config.AutoConveyorSettings = val
-end)
-
 -- TAB 3: 🎁 REWARDS & WORLD
 local rewardPage = createTab("Rewards", "🎁", 3)
 
-createToggle(rewardPage, "💎 Auto Claim All Rewards (Daily/Playtime)", Config.AutoClaimRewards, function(val)
+createToggle(rewardPage, "💎 Auto Claim All Rewards (Daily/Playtime/Index)", Config.AutoClaimRewards, function(val)
     Config.AutoClaimRewards = val
 end)
 
-createToggle(rewardPage, "🔮 Auto Collect Variant Tokens", Config.AutoCollectTokens, function(val)
+createToggle(rewardPage, "🔮 Auto Collect Variant Tokens (Enhanced)", Config.AutoCollectTokens, function(val)
     Config.AutoCollectTokens = val
 end)
 
@@ -933,4 +873,4 @@ tabs["Farm"].Btn.BackgroundColor3 = Color3.fromRGB(50, 95, 205)
 tabs["Farm"].Btn.TextColor3 = Color3.fromRGB(255, 255, 255)
 tabs["Farm"].Page.Visible = true
 
-print("✅ Card & Crate Tycoon Script Loaded Successfully!")
+print("✅ Card & Crate Tycoon Script v1.1 Loaded Successfully!")
