@@ -367,15 +367,15 @@ local AllPackNames = {
     "Pirate Pack",
     "Romcom Pack",
     "Sword Pack",
-    "Knight Pack",
-    "Assassin Pack",
-    "Ninja Pack",
-    "Mage Pack",
-    "Hero Pack",
-    "Devil Pack",
     "Genius Pack",
-    "Idol Pack",
+    "Knight Pack",
+    "Mage Pack",
     "Slayer Pack",
+    "Ninja Pack",
+    "Assassin Pack",
+    "Devil Pack",
+    "Idol Pack",
+    "Hero Pack",
     "Titan Pack",
 }
 
@@ -503,15 +503,15 @@ local Config = {
         ["Pirate Pack"]   = true,
         ["Romcom Pack"]   = true,
         ["Sword Pack"]    = true,
-        ["Knight Pack"]   = false,
-        ["Assassin Pack"] = false,
-        ["Ninja Pack"]    = false,
-        ["Mage Pack"]     = false,
-        ["Hero Pack"]     = false,
-        ["Devil Pack"]    = false,
         ["Genius Pack"]   = false,
-        ["Idol Pack"]     = false,
+        ["Knight Pack"]   = false,
+        ["Mage Pack"]     = false,
         ["Slayer Pack"]   = false,
+        ["Ninja Pack"]    = false,
+        ["Assassin Pack"] = false,
+        ["Devil Pack"]    = false,
+        ["Idol Pack"]     = false,
+        ["Hero Pack"]     = false,
         ["Titan Pack"]    = false,
     },
     
@@ -2068,13 +2068,14 @@ createPresetBtn("Reset Beli", 75, function()
     updateAllPacksVisual()
 end)
 
--- List of 16 Unified Pack Cards
-for _, pName in ipairs(AllPackNames) do
+-- List of 16 Unified Pack Cards (Exact In-Game Conveyor Order 1-16)
+for idx, pName in ipairs(AllPackNames) do
     local isSel = Config.SelectedPacks[pName] == true
     local pColor = PackColors[pName] or Color3.fromRGB(255, 255, 255)
 
     local card = Instance.new("Frame")
-    card.Name = "Card_" .. pName
+    card.Name = string.format("Card_%02d_%s", idx, pName)
+    card.LayoutOrder = 20 + idx
     card.Size = UDim2.new(1, 0, 0, 36)
     card.BackgroundColor3 = Color3.fromRGB(22, 26, 38)
     card.ClipsDescendants = true
