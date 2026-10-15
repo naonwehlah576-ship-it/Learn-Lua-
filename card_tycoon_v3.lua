@@ -266,7 +266,7 @@ local VariantColors = {
 -- ============================================================================
 -- KONFIGURASI PERSISTENT & AUTOSAVE
 -- ============================================================================
-local CONFIG_FILE = "CardTycoon_V3_Config.json"
+local CONFIG_FILE = "CardTycoon_V3_2_Config.json"
 
 local Config = {
     AutoFullCrateCycle = false,
@@ -363,7 +363,7 @@ local function getPackVariantConfig(packName)
     if not Config.PackVariants[packName] then
         Config.PackVariants[packName] = {}
         for _, vName in ipairs(AllVariantNames) do
-            Config.PackVariants[packName][vName] = true
+            Config.PackVariants[packName][vName] = false
         end
     end
     return Config.PackVariants[packName]
@@ -1621,13 +1621,14 @@ local function updateAllPacksVisual()
         data.BuyBtn.BackgroundColor3 = isSel and Color3.fromRGB(45, 175, 85) or Color3.fromRGB(45, 52, 68)
         data.BuyBtn.Text = isSel and "✓ BELI" or "OFF"
         
-        -- Update variant chips visual
+        -- Update variant chips visual with accurate multipliers
         local varCfg = getPackVariantConfig(pName)
         for vName, vBtn in pairs(data.VariantBtns) do
             local allowed = varCfg[vName] == true
+            local mult = VariantMultipliers[vName] or ""
             vBtn.BackgroundColor3 = allowed and Color3.fromRGB(35, 75, 140) or Color3.fromRGB(24, 28, 40)
             vBtn.TextColor3 = allowed and (VariantColors[vName] or Color3.fromRGB(255, 255, 255)) or Color3.fromRGB(105, 115, 130)
-            vBtn.Text = string.format("%s %s", allowed and "✓" or "✗", vName)
+            vBtn.Text = string.format("%s %s (%s)", allowed and "✓" or "✗", vName, mult)
         end
     end
     saveConfig()
@@ -1771,24 +1772,24 @@ for _, pName in ipairs(AllPackNames) do
     gCorner.CornerRadius = UDim.new(0, 5)
     gCorner.Parent = gearBtn
 
-    -- Drawer Detail Mutasi Container
+    -- Drawer Detail Mutasi Container (3 Columns, Spacious, Shows Multiplier!)
     local drawer = Instance.new("Frame")
-    drawer.Size = UDim2.new(1, -12, 0, 95)
+    drawer.Size = UDim2.new(1, -12, 0, 114)
     drawer.Position = UDim2.new(0, 6, 0, 34)
     drawer.BackgroundTransparency = 1
     drawer.Visible = false
     drawer.Parent = card
 
     local drawerLayout = Instance.new("UIGridLayout")
-    drawerLayout.CellSize = UDim2.new(0.24, -3, 0, 22)
-    drawerLayout.CellPadding = UDim2.new(0, 4, 0, 4)
+    drawerLayout.CellSize = UDim2.new(0.32, 0, 0, 24)
+    drawerLayout.CellPadding = UDim2.new(0, 5, 0, 4)
     drawerLayout.Parent = drawer
 
     local isDrawerOpen = false
     bindBtn(gearBtn, function()
         isDrawerOpen = not isDrawerOpen
         drawer.Visible = isDrawerOpen
-        card.Size = isDrawerOpen and UDim2.new(1, 0, 0, 136) or UDim2.new(1, 0, 0, 36)
+        card.Size = isDrawerOpen and UDim2.new(1, 0, 0, 155) or UDim2.new(1, 0, 0, 36)
         gearBtn.BackgroundColor3 = isDrawerOpen and Color3.fromRGB(65, 120, 230) or Color3.fromRGB(42, 48, 68)
     end)
 
@@ -1797,13 +1798,14 @@ for _, pName in ipairs(AllPackNames) do
 
     for _, vName in ipairs(AllVariantNames) do
         local allowed = varCfg[vName] == true
+        local mult = VariantMultipliers[vName] or ""
         local vBtn = Instance.new("TextButton")
         vBtn.Size = UDim2.new(1, 0, 1, 0)
         vBtn.BackgroundColor3 = allowed and Color3.fromRGB(35, 75, 140) or Color3.fromRGB(24, 28, 40)
-        vBtn.Text = string.format("%s %s", allowed and "✓" or "✗", vName)
+        vBtn.Text = string.format("%s %s (%s)", allowed and "✓" or "✗", vName, mult)
         vBtn.TextColor3 = allowed and (VariantColors[vName] or Color3.fromRGB(255, 255, 255)) or Color3.fromRGB(105, 115, 130)
         vBtn.Font = Enum.Font.GothamBold
-        vBtn.TextSize = 8.5
+        vBtn.TextSize = 9
         vBtn.Parent = drawer
 
         local vbCorner = Instance.new("UICorner")
@@ -1814,9 +1816,10 @@ for _, pName in ipairs(AllPackNames) do
             local cfg = getPackVariantConfig(pName)
             cfg[vName] = not cfg[vName]
             local nowAllowed = cfg[vName] == true
+            local curMult = VariantMultipliers[vName] or ""
             vBtn.BackgroundColor3 = nowAllowed and Color3.fromRGB(35, 75, 140) or Color3.fromRGB(24, 28, 40)
             vBtn.TextColor3 = nowAllowed and (VariantColors[vName] or Color3.fromRGB(255, 255, 255)) or Color3.fromRGB(105, 115, 130)
-            vBtn.Text = string.format("%s %s", nowAllowed and "✓" or "✗", vName)
+            vBtn.Text = string.format("%s %s (%s)", nowAllowed and "✓" or "✗", vName, curMult)
             saveConfig()
         end)
 
