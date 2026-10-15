@@ -1,17 +1,13 @@
 -- ============================================================================
--- CARD & CRATE TYCOON - ULTIMATE AUTO FARM & UTILITY SCRIPT (v1.8)
+-- CARD & CRATE TYCOON - ULTIMATE AUTO FARM & UTILITY SCRIPT (v1.9)
 -- Brand New Custom Script (100% Pure Offline UI - No External Loadstring Needed)
 -- Features:
---   1. 100% ACCURATE CONVEYOR AUTO BUY:
---      Membaca langsung attribute BoxName & Variant dari RollStation.ConveyorPart
---      dan mengirim parameter lengkap (BoxId, Variant, Price) ke PurchaseConveyorRoll!
---   2. 100% ACCURATE CARD LEVEL UP:
---      Mengirim Dropper Part ke Remote RequestPlayerUnitLevelUp sesuai decompile!
---   3. Auto Skip Open Time di Dropper Base
+--   1. 100% ACCURATE CONVEYOR AUTO ROLL & BUY (Merged Filter + 0.5s Delay + Cash Guard)
+--   2. 100% ACCURATE CARD LEVEL UP (Cheapest First Priority & Target Level Limit)
+--   3. Auto Teleport ke Variant Token & PASTI Balik ke Posisi Semula
 --   4. Pack Filter System (Fire, Ice, Water, Romcom, Sword, dll.)
---   5. Auto Teleport ke Variant Token & Balik ke Base
---   6. Auto Full Crate Cycle (Jeda 10s)
---   7. Auto Save & Load Konfigurasi (writefile JSON)
+--   5. Auto Full Crate Cycle (Jeda 10s Tiap Cycle)
+--   6. Auto Save & Load Konfigurasi (writefile JSON)
 -- Compatibility: PC & Mobile (Touch Friendly, Draggable, Resilient)
 -- ============================================================================
 
@@ -79,6 +75,56 @@ local PlayerUnitService = nil
 pcall(function()
     PlayerUnitService = require(ReplicatedStorage.Shared.Services.PlayerUnitService)
 end)
+
+local CurrencyService = nil
+pcall(function()
+    CurrencyService = require(ReplicatedStorage.Shared.Services.CurrencyService)
+end)
+
+local function getPlayerCash()
+    local cash = nil
+    pcall(function()
+        if CurrencyService and CurrencyService.GetCurrency then
+            cash = CurrencyService.GetCurrency(LocalPlayer, "Cash")
+        end
+    end)
+    if typeof(cash) == "number" then return cash end
+
+    pcall(function()
+        local leaderstats = LocalPlayer:FindFirstChild("leaderstats")
+        if leaderstats and leaderstats:FindFirstChild("Cash") then
+            cash = leaderstats.Cash.Value
+        end
+    end)
+    if typeof(cash) == "number" then return cash end
+
+    pcall(function()
+        local cAttr = LocalPlayer:GetAttribute("Cash")
+        if typeof(cAttr) == "number" then cash = cAttr end
+    end)
+    if typeof(cash) == "number" then return cash end
+
+    return nil
+end
+
+local function canAffordPrice(price)
+    if not price or price <= 0 then return true end
+    
+    local canAfford = nil
+    pcall(function()
+        if CurrencyService and CurrencyService.CanAfford then
+            canAfford = CurrencyService.CanAfford(LocalPlayer, "Cash", price)
+        end
+    end)
+    if canAfford ~= nil then return canAfford end
+
+    local currentCash = getPlayerCash()
+    if currentCash ~= nil then
+        return currentCash >= price
+    end
+
+    return true
+end
 
 -- ============================================================================
 -- 1. DAFTAR PACK & MAPPING INTERNAL BOX
@@ -196,11 +242,8 @@ local Config = {
     
     -- Tab Card / Base
     AutoRoll = false,
-    AutoRollFilterEnabled = true,
-    StopAfterBuy = false,
     AutoLevelUp = false,
     TargetCardLevel = 35,
-    AutoOpenDropperBox = false,
     AutoEquipBest = false,
     
     SelectedPacks = {
@@ -416,16 +459,12 @@ local function doRollCard()
         -- Jika rollCount ini belum pernah dibeli dan belum pernah diskip
         if rollCount ~= lastPurchasedRollCount and rollCount ~= lastSkippedRollCount then
             local prettyName = InternalToPrettyMap[boxNameInternal] or boxNameInternal:gsub("Pack", " Pack")
-            local isWanted = false
-
-            if Config.AutoRollFilterEnabled then
-                isWanted = (Config.SelectedPacks[prettyName] == true) or (Config.SelectedPacks[boxNameInternal] == true)
-            else
-                -- Filter nonaktif -> beli semua pack yang muncul
-                isWanted = true
-            end
+            local isWanted = (Config.SelectedPacks[prettyName] == true) or (Config.SelectedPacks[boxNameInternal] == true)
 
             if isWanted then
+                -- Jeda sedikit 0.5s setelah pack muncul di conveyor agar tidak miss / terlalu cepat
+                task.wait(0.5)
+
                 -- 1. Hitung harga akurat via BoxService
                 local price = 0
                 pcall(function()
@@ -434,7 +473,18 @@ local function doRollCard()
                     end
                 end)
 
-                -- 2. Beli pack via remote PurchaseConveyorRoll
+                -- 2. Cek apakah uang cukup untuk beli pack ini
+                if not canAffordPrice(price) then
+                    Config.AutoRoll = false
+                    saveConfig()
+                    if toggleRefs["AutoRoll"] then
+                        toggleRefs["AutoRoll"].UpdateUI(false)
+                    end
+                    print(string.format("⚠️ [Auto Roll] Uang tidak cukup untuk beli %s ($%s)! Auto Roll otomatis dimatikan.", prettyName, tostring(price or 0)))
+                    return
+                end
+
+                -- 3. Beli pack via remote PurchaseConveyorRoll
                 local buyRemote = getRemote("PurchaseConveyorRoll")
                 if buyRemote then
                     pcall(function()
@@ -442,7 +492,7 @@ local function doRollCard()
                     end)
                 end
 
-                -- 3. Trigger prompt jika ada di rollPart atau packModel
+                -- 4. Trigger prompt jika ada di rollPart atau packModel
                 pcall(function()
                     for _, desc in ipairs(rollPart:GetDescendants()) do
                         if desc:IsA("ProximityPrompt") then
@@ -454,16 +504,7 @@ local function doRollCard()
                 lastPurchasedRollCount = rollCount
                 print(string.format("✅ [Auto Roll] SUKSES BELI: %s (%s) [Roll #%s, $%s]", prettyName, variant, tostring(rollCount), tostring(price or 0)))
 
-                if Config.StopAfterBuy then
-                    Config.AutoRoll = false
-                    saveConfig()
-                    if toggleRefs["AutoRoll"] then
-                        toggleRefs["AutoRoll"].UpdateUI(false)
-                    end
-                    return
-                end
-
-                task.wait(0.25)
+                task.wait(0.3)
             else
                 -- Bukan pack yang dicari -> tandai sudah diskip agar langsung lanjut roll
                 lastSkippedRollCount = rollCount
@@ -609,7 +650,7 @@ local function doOpenDropperBoxes()
             for _, prompt in ipairs(drop:GetDescendants()) do
                 if prompt:IsA("ProximityPrompt") then
                     local act = prompt.ActionText:lower()
-                    if act:find("place") or act:find("skip") then
+                    if act:find("place") then
                         triggerPrompt(prompt)
                     end
                 end
@@ -664,12 +705,14 @@ local function collectVariantToken(targetObj)
         return 
     end
 
-    local originalCFrame = hrp.CFrame
+    -- Simpan posisi persis player saat ini sebelum teleport
+    local returnCFrame = hrp.CFrame
     print("🔮 [Variant Token] Menemukan token di: " .. targetObj.Name .. "! Teleport ke token...")
 
     -- 1. Teleport ke lokasi token
+    hrp.AssemblyLinearVelocity = Vector3.zero
     hrp.CFrame = targetPart.CFrame + Vector3.new(0, 3.5, 0)
-    task.wait(0.35)
+    task.wait(0.3)
 
     -- 2. Simulasi sentuhan fisik (firetouchinterest)
     if typeof(firetouchinterest) == "function" then
@@ -688,22 +731,31 @@ local function collectVariantToken(targetObj)
     end
 
     -- 4. Tembak Remote Collect & Found
-    if Remotes:FindFirstChild("VariantTokenFound") then
-        pcall(function() Remotes.VariantTokenFound:FireServer(targetObj) end)
-        pcall(function() Remotes.VariantTokenFound:FireServer(targetObj.Name) end)
+    local remFound = getRemote("VariantTokenFound")
+    if remFound then
+        pcall(function() remFound:FireServer(targetObj) end)
+        pcall(function() remFound:FireServer(targetObj.Name) end)
     end
-    if Remotes:FindFirstChild("CollectVariantTokenSpawn") then
-        pcall(function() Remotes.CollectVariantTokenSpawn:FireServer(targetObj) end)
-        pcall(function() Remotes.CollectVariantTokenSpawn:FireServer(targetObj.Name) end)
+    local remCollect = getRemote("CollectVariantTokenSpawn")
+    if remCollect then
+        pcall(function() remCollect:FireServer(targetObj) end)
+        pcall(function() remCollect:FireServer(targetObj.Name) end)
     end
 
     task.wait(0.4)
 
-    -- 5. Teleport kembali ke posisi semula di base
-    if hrp and originalCFrame then
-        hrp.CFrame = originalCFrame
-        print("✅ [Variant Token] Token diambil! Sukses kembali ke Base.")
-    end
+    -- 5. Teleport PASTI KEMBALI ke posisi semula sebelum teleport
+    pcall(function()
+        local curChar = LocalPlayer.Character
+        local curHrp = curChar and curChar:FindFirstChild("HumanoidRootPart")
+        if curHrp and returnCFrame then
+            curHrp.AssemblyLinearVelocity = Vector3.zero
+            curHrp.CFrame = returnCFrame
+            task.wait(0.05)
+            curHrp.CFrame = returnCFrame
+            print("✅ [Variant Token] Token diambil! Sukses kembali ke posisi awal.")
+        end
+    end)
 
     isCollectingToken = false
 end
@@ -815,9 +867,6 @@ task.spawn(function()
     while true do
         if Config.AutoLevelUp then
             pcall(doLevelUpCards)
-        end
-        if Config.AutoOpenDropperBox then
-            pcall(doOpenDropperBoxes)
         end
         if Config.AutoEquipBest then
             pcall(doEquipBestCards)
@@ -1000,7 +1049,7 @@ TitleLabel.Name = "TitleLabel"
 TitleLabel.Size = UDim2.new(1, -90, 1, 0)
 TitleLabel.Position = UDim2.new(0, 14, 0, 0)
 TitleLabel.BackgroundTransparency = 1
-TitleLabel.Text = "🃏 CARD TYCOON <font color=\"#4A90E2\">AUTOFARM v1.8</font>"
+TitleLabel.Text = "🃏 CARD TYCOON <font color=\"#4A90E2\">AUTOFARM v1.9</font>"
 TitleLabel.RichText = true
 TitleLabel.TextColor3 = Color3.fromRGB(240, 240, 255)
 TitleLabel.TextSize = 15
@@ -1294,11 +1343,9 @@ end)
 -- TAB 2: 🃏 CARDS / BASE
 local cardPage = createTab("Cards", "🃏", 2)
 
-createToggle(cardPage, "🎰 Auto Roll Cards", "AutoRoll", function(state)
+createToggle(cardPage, "🎰 Auto Roll & Auto Buy (Sesuai Filter Pack)", "AutoRoll", function(state)
     if state then resetAutoRollState() end
 end)
-createToggle(cardPage, "📦 Gunakan Filter Pack (Hanya Beli yg Dipilih)", "AutoRollFilterEnabled")
-createToggle(cardPage, "🛑 Stop Roll Setelah Berhasil Beli", "StopAfterBuy")
 createToggle(cardPage, "⭐ Auto Level Up Cards (Base Droppers)", "AutoLevelUp")
 createTextBox(cardPage, "🎯 Target Level Up Kartu:", "TargetCardLevel", 35)
 
@@ -1470,7 +1517,6 @@ dropHeader.MouseButton1Click:Connect(function()
     dropCountBadge.Text = string.format("%d Pack Dipilih %s", getSelectedPackCount(), isExpanded and "▴" or "▾")
 end)
 
-createToggle(cardPage, "📦 Auto Open Dropper Box (Skip Time)", "AutoOpenDropperBox")
 createToggle(cardPage, "🛡️ Auto Equip Best Cards", "AutoEquipBest")
 
 -- TAB 3: 🎁 REWARDS & WORLD
@@ -1548,4 +1594,4 @@ tabs["Farm"].Btn.BackgroundColor3 = Color3.fromRGB(50, 95, 205)
 tabs["Farm"].Btn.TextColor3 = Color3.fromRGB(255, 255, 255)
 tabs["Farm"].Page.Visible = true
 
-print("✅ Card & Crate Tycoon Script v1.8 Loaded Successfully!")
+print("✅ Card & Crate Tycoon Script v1.9 Loaded Successfully!")
