@@ -266,7 +266,7 @@ local VariantColors = {
 -- ============================================================================
 -- KONFIGURASI PERSISTENT & AUTOSAVE
 -- ============================================================================
-local CONFIG_FILE = "CardTycoon_CleanConfig.json"
+local CONFIG_FILE = "CardTycoon_V3_2_Config.json"
 
 local Config = {
     AutoFullCrateCycle = false,
