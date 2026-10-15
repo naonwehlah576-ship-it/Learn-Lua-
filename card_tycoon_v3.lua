@@ -861,93 +861,120 @@ local function doOpenReadyCards()
     end
 end
 
--- ============================================================================
--- 4. AUTO TELEPORT VARIANT TOKEN & PASTI BALIK KE POSISI AWAL
--- ============================================================================
-local function findActiveVariantToken()
-    local folder = Workspace:FindFirstChild("Systems") and Workspace.Systems:FindFirstChild("VariantTokenSpawns")
-    if not folder then return nil end
 
-    for _, child in ipairs(folder:GetChildren()) do
-        if child:GetAttribute("Occupied") == true then
-            return child
+-- ============================================================================
+-- 4. AUTO TELEPORT COLLECT ALL TOKENS & POTIONS (PASTI BALIK KE POSISI AWAL)
+-- Mendukung: Trait Token, Grade Token, Luck Potion, Cash Potion, & Variant Tokens
+-- ============================================================================
+
+local function findActiveCollectable()
+    local systems = Workspace:FindFirstChild("Systems")
+    if not systems then return nil end
+
+    -- 1. Cek CollectableObjects (TraitToken, GradeToken, LuckPotion, CashPotion)
+    local colFolder = systems:FindFirstChild("CollectableObjects")
+    if colFolder then
+        for _, child in ipairs(colFolder:GetChildren()) do
+            if child:GetAttribute("Occupied") == true then
+                local objKey = child:GetAttribute("ObjectKey") or "Collectable"
+                return {
+                    Node = child,
+                    Type = "Collectable",
+                    Key = objKey,
+                    Name = tostring(objKey)
+                }
+            end
         end
     end
 
-    for _, part in ipairs(CollectionService:GetTagged("VariantTokenSpawn")) do
-        if part:GetAttribute("Occupied") == true then
-            return part
+    -- 2. Cek VariantTokenSpawns (Aurora, Admin, Unwritten, Rainbow, Starweaver)
+    local varFolder = systems:FindFirstChild("VariantTokenSpawns")
+    if varFolder then
+        for _, child in ipairs(varFolder:GetChildren()) do
+            if child:GetAttribute("Occupied") == true then
+                local varName = child:GetAttribute("Variant") or "Variant"
+                return {
+                    Node = child,
+                    Type = "VariantToken",
+                    Key = varName,
+                    Name = tostring(varName) .. " Token"
+                }
+            end
+        end
+    end
+
+    -- Fallback via CollectionService tags
+    for _, child in ipairs(CollectionService:GetTagged("CollectableObject")) do
+        if child:GetAttribute("Occupied") == true then
+            local objKey = child:GetAttribute("ObjectKey") or "Collectable"
+            return {
+                Node = child,
+                Type = "Collectable",
+                Key = objKey,
+                Name = tostring(objKey)
+            }
+        end
+    end
+
+    for _, child in ipairs(CollectionService:GetTagged("VariantTokenSpawn")) do
+        if child:GetAttribute("Occupied") == true then
+            local varName = child:GetAttribute("Variant") or "Variant"
+            return {
+                Node = child,
+                Type = "VariantToken",
+                Key = varName,
+                Name = tostring(varName) .. " Token"
+            }
         end
     end
 
     return nil
 end
 
-local isCollectingToken = false
-local function collectVariantToken(targetObj)
-    if isCollectingToken then return end
-    isCollectingToken = true
+local isCollectingItem = false
+local function collectMapItem(itemData)
+    if isCollectingItem then return end
+    isCollectingItem = true
 
     local char = LocalPlayer.Character
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
-    if not hrp or not targetObj then 
-        isCollectingToken = false
+    if not hrp or not itemData or not itemData.Node then 
+        isCollectingItem = false
         return 
     end
 
-    local targetPart = targetObj:IsA("BasePart") and targetObj or targetObj:FindFirstChildWhichIsA("BasePart")
-    if not targetPart then 
-        isCollectingToken = false
-        return 
-    end
-
-    -- Simpan posisi persis player saat ini sebelum teleport
+    local node = itemData.Node
     local returnCFrame = hrp.CFrame
-    print("🔮 [Variant Token] Menemukan token di: " .. targetObj.Name .. "! Teleport ke token...")
+    print(string.format("🔮 [Auto Collect] Menemukan %s di %s! Teleport mengambil...", tostring(itemData.Name), node.Name))
 
-    -- 1. Teleport ke lokasi token
+    -- 1. Teleport ke part item (jarak aman < 3 stud agar proximity check <= 5 stud tembus 100%)
     hrp.AssemblyLinearVelocity = Vector3.zero
-    hrp.CFrame = targetPart.CFrame + Vector3.new(0, 3.5, 0)
-    task.wait(0.3)
+    hrp.CFrame = CFrame.new(node.Position + Vector3.new(0, 2.0, 0))
+    task.wait(0.2)
 
-    -- 2. Simulasi sentuhan fisik (firetouchinterest)
-    if typeof(firetouchinterest) == "function" then
-        pcall(function()
-            firetouchinterest(hrp, targetPart, 0)
-            task.wait(0.02)
-            firetouchinterest(hrp, targetPart, 1)
-        end)
-    end
-
-    -- 3. Trigger ProximityPrompt jika ada
-    for _, desc in ipairs(targetObj:GetDescendants()) do
-        if desc:IsA("ProximityPrompt") then
-            triggerPrompt(desc)
+    -- 2. Tembak remote sesuai tipe
+    if itemData.Type == "Collectable" then
+        local rem = getRemote("CollectCollectableObject")
+        if rem then
+            pcall(function() rem:FireServer(node) end)
+        end
+    elseif itemData.Type == "VariantToken" then
+        local rem = getRemote("CollectVariantTokenSpawn")
+        if rem then
+            pcall(function() rem:FireServer(node) end)
         end
     end
 
-    -- 4. Tembak Remote Collect & Found
-    local remFound = getRemote("VariantTokenFound")
-    if remFound then
-        pcall(function() remFound:FireServer(targetObj) end)
-        pcall(function() remFound:FireServer(targetObj.Name) end)
-    end
-    local remCollect = getRemote("CollectVariantTokenSpawn")
-    if remCollect then
-        pcall(function() remCollect:FireServer(targetObj) end)
-        pcall(function() remCollect:FireServer(targetObj.Name) end)
-    end
-
-    -- 4. Tunggu sampai token benar-benar hilang / Occupied = false (maksimal 3.5 detik)
+    -- 3. Tunggu sampai item terambil (Occupied = false) maksimal 2 detik
     local waitStart = os.clock()
-    while os.clock() - waitStart < 3.5 do
-        if not targetObj.Parent or targetObj:GetAttribute("Occupied") == false then
+    while os.clock() - waitStart < 2.0 do
+        if not node.Parent or node:GetAttribute("Occupied") == false then
             break
         end
-        task.wait(0.2)
+        task.wait(0.1)
     end
 
-    -- 5. Teleport PASTI KEMBALI ke posisi semula sebelum teleport
+    -- 4. Teleport PASTI KEMBALI ke posisi semula sebelum teleport
     pcall(function()
         local curChar = LocalPlayer.Character
         local curHrp = curChar and curChar:FindFirstChild("HumanoidRootPart")
@@ -956,33 +983,34 @@ local function collectVariantToken(targetObj)
             curHrp.CFrame = returnCFrame
             task.wait(0.08)
             curHrp.CFrame = returnCFrame
-            print("✅ [Variant Token] Token hilang & berhasil diambil! Kembali ke posisi awal.")
+            print(string.format("✅ [Auto Collect] %s berhasil diambil! Kembali ke posisi semula.", tostring(itemData.Name)))
         end
     end)
 
-    -- Cooldown kecil agar tidak spam mendeteksi sisa part token lama
-    task.wait(1.5)
-    isCollectingToken = false
+    task.wait(0.5)
+    isCollectingItem = false
 end
 
--- Listener Event Token Spawned
+-- Listener otomatis tiap ada part yang berubah menjadi Occupied = true
 pcall(function()
-    local remSpawned = getRemote("VariantTokenSpawned")
-    if remSpawned then
-        remSpawned.OnClientEvent:Connect(function(tokenInstance)
-            if Config.AutoCollectTokens then
-                task.wait(0.5)
-                if tokenInstance and typeof(tokenInstance) == "Instance" then
-                    collectVariantToken(tokenInstance)
-                else
-                    local activeToken = findActiveVariantToken()
-                    if activeToken then
-                        collectVariantToken(activeToken)
+    local function bindSpawns(folderName)
+        local f = Workspace:FindFirstChild("Systems") and Workspace.Systems:FindFirstChild(folderName)
+        if f then
+            for _, node in ipairs(f:GetChildren()) do
+                node:GetAttributeChangedSignal("Occupied"):Connect(function()
+                    if Config.AutoCollectTokens and node:GetAttribute("Occupied") == true then
+                        task.wait(0.1)
+                        local item = findActiveCollectable()
+                        if item then
+                            collectMapItem(item)
+                        end
                     end
-                end
+                end)
             end
-        end)
+        end
     end
+    bindSpawns("CollectableObjects")
+    bindSpawns("VariantTokenSpawns")
 end)
 
 -- ============================================================================
@@ -1202,18 +1230,20 @@ task.spawn(function()
     end
 end)
 
--- Variant Token Loop
+
+-- All Tokens & Potions Loop
 task.spawn(function()
     while true do
         if Config.AutoCollectTokens then
-            local activeToken = findActiveVariantToken()
-            if activeToken then
-                collectVariantToken(activeToken)
+            local activeItem = findActiveCollectable()
+            if activeItem then
+                collectMapItem(activeItem)
             end
         end
-        task.wait(2.0)
+        task.wait(1.0)
     end
 end)
+
 
 -- Infinity Tower Loop
 task.spawn(function()
@@ -1251,6 +1281,27 @@ end)
 -- ============================================================================
 -- CARD TYCOON V3.2 - UNIFIED 4-TAB GUI (PC & DELTA EXECUTOR)
 -- ============================================================================
+
+-- Auto cleanup existing GUI so re-execution always replaces cleanly
+pcall(function()
+    local g = (getgenv and getgenv()) or _G
+    if g and g._CardTycoonV3Cleanup then
+        pcall(g._CardTycoonV3Cleanup)
+    end
+    local targets = {}
+    if gethui then table.insert(targets, gethui()) end
+    if CoreGui then table.insert(targets, CoreGui) end
+    if LocalPlayer and LocalPlayer:FindFirstChild("PlayerGui") then
+        table.insert(targets, LocalPlayer.PlayerGui)
+    end
+    for _, container in ipairs(targets) do
+        for _, c in ipairs(container:GetChildren()) do
+            if c.Name == "CardTycoonV3Gui" then
+                pcall(function() c:Destroy() end)
+            end
+        end
+    end
+end)
 
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "CardTycoonV3Gui"
@@ -2141,13 +2192,13 @@ createSectionHeader(BasePage, "Auto Level Up Kartu")
 createToggle(BasePage, "⭐ Auto Level Up (Kartu Base Terendah)", "AutoLevelUp")
 createTextBox(BasePage, "🎯 Target Maksimal Level Up:", "TargetCardLevel", 35)
 
-createSectionHeader(BasePage, "Variant Token Collector")
-createToggle(BasePage, "🔮 Auto Teleport Token & Pasti Balik", "AutoCollectTokens")
+createSectionHeader(BasePage, "Kolektor Semua Token & Potion (Map)")
+createToggle(BasePage, "🔮 Auto Collect Semua Token & Potion", "AutoCollectTokens")
 
 local tokenDesc = Instance.new("TextLabel")
-tokenDesc.Size = UDim2.new(1, 0, 0, 45)
+tokenDesc.Size = UDim2.new(1, 0, 0, 42)
 tokenDesc.BackgroundTransparency = 1
-tokenDesc.Text = "ℹ️ Jika ada Variant Token spawn di map, karakter akan teleport instan ke token, menunggu sampai token berhasil diambil, lalu teleport kembali ke posisi semula."
+tokenDesc.Text = "ℹ️ Otomatis mendeteksi Trait Token, Grade Token, Luck/Cash Potion, & Variant Token di map, teleport mengambilnya, lalu instan kembali ke posisi semula."
 tokenDesc.TextColor3 = Color3.fromRGB(140, 155, 185)
 tokenDesc.Font = Enum.Font.Gotham
 tokenDesc.TextSize = 10
