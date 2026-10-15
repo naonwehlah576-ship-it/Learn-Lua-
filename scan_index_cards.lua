@@ -1,5 +1,5 @@
 -- ============================================================================
--- 🔍 SCANNER: INDEX CARDS & BASE $/CARD (LEVEL 1)
+-- 🔍 SCANNER: INDEX CARDS STATS ($/CARD & $/S LEVEL 1)
 -- ============================================================================
 
 local copyToClipboard = setclipboard or toclipboard or (Clipboard and Clipboard.set)
@@ -14,137 +14,148 @@ local function log(str)
 end
 
 local function header(title)
-    log("\n" .. string.rep("=", 65))
+    log("\n" .. string.rep("=", 70))
     log("📌 " .. title)
-    log(string.rep("=", 65))
+    log(string.rep("=", 70))
 end
 
-header("SCAN REPORT: INDEX CARDS & $/CARD (LEVEL 1)")
+header("INDEX 64 KARTU: STATS LEVEL 1 ($/CARD & $/S) CARD & CRATE TYCOON")
 log("Waktu: " .. os.date("%Y-%m-%d %H:%M:%S"))
 
--- 1. INSPECT PLAYER UNITS LIBRARY
-header("1. INSPECT PLAYER UNITS LIBRARY")
 local unitsLib = nil
 pcall(function()
-    local mod = ReplicatedStorage:FindFirstChild("Shared")
-        and ReplicatedStorage.Shared:FindFirstChild("Core")
-        and ReplicatedStorage.Shared.Core:FindFirstChild("Storage")
-        and ReplicatedStorage.Shared.Core.Storage:FindFirstChild("Game")
-        and ReplicatedStorage.Shared.Core.Storage.Game:FindFirstChild("PlayerUnitsLibrary")
-    if mod then
-        unitsLib = require(mod)
-        log("PlayerUnitsLibrary berhasil di-require! Tipe: " .. typeof(unitsLib))
-    else
-        log("❌ PlayerUnitsLibrary tidak ditemukan di path default, mencari di descendants...")
-        for _, desc in ipairs(ReplicatedStorage:GetDescendants()) do
-            if desc.Name == "PlayerUnitsLibrary" and desc:IsA("ModuleScript") then
-                unitsLib = require(desc)
-                log("Found at: " .. desc:GetFullName())
-                break
-            end
-        end
-    end
+    local mod = ReplicatedStorage.Shared.Core.Storage.Game.PlayerUnitsLibrary
+    unitsLib = require(mod)
 end)
 
--- 2. INSPECT PLAYER UNIT SERVICE
-header("2. INSPECT PLAYER UNIT SERVICE")
 local unitService = nil
 pcall(function()
-    local mod = ReplicatedStorage:FindFirstChild("Shared")
-        and ReplicatedStorage.Shared:FindFirstChild("Services")
-        and ReplicatedStorage.Shared.Services:FindFirstChild("PlayerUnitService")
-    if mod then
-        unitService = require(mod)
-        log("PlayerUnitService berhasil di-require! Exported methods:")
-        for k, v in pairs(unitService) do
-            log(string.format("  • %s : %s", tostring(k), typeof(v)))
-        end
-    end
+    local mod = ReplicatedStorage.Shared.Services.PlayerUnitService
+    unitService = require(mod)
 end)
 
--- 3. PARSE ALL CARDS & BASE STATS
-header("3. DAFTAR SEMUA KARTU DENGAN HARGA $/CARD (LVL 1 NORMAL)")
-local cardList = {}
+local NumberUtils = nil
+pcall(function()
+    NumberUtils = require(ReplicatedStorage.Shared.Utility.NumberUtils)
+end)
 
+local function formatCash(val)
+    if not val or val == 0 then return "$0" end
+    if NumberUtils and NumberUtils.FormatNumber then
+        return "$" .. NumberUtils.FormatNumber(val)
+    end
+    if val >= 1e12 then return string.format("$%.2fT", val / 1e12) end
+    if val >= 1e9 then return string.format("$%.2fB", val / 1e9) end
+    if val >= 1e6 then return string.format("$%.2fM", val / 1e6) end
+    if val >= 1e3 then return string.format("$%.2fK", val / 1e3) end
+    return "$" .. tostring(val)
+end
+
+local allCards = {}
 if type(unitsLib) == "table" then
     for cardKey, cardData in pairs(unitsLib) do
         if type(cardData) == "table" then
-            local name = cardData.Name or cardData.DisplayName or cardKey
-            local boxName = cardData.BoxName or cardData.Box or cardData.Pack or "Unknown"
-            local rarity = cardData.Rarity or "Unknown"
-            local baseCash = cardData.BaseCash or cardData.CashPerCard or cardData.Cash or cardData.BaseCashPerCard or 0
+            local displayName = cardData.DisplayName or cardData.Name or cardKey
+            local internalName = cardData.Name or cardKey
+            local boxName = cardData.BoxName or "Unknown"
+            local chance = cardData.Chance or 0
+            local cashPerDrop = cardData.CashPerDrop or 0
+            local dropCooldown = 1
+            local cashPerSec = cashPerDrop
 
-            -- Cek apakah ada fungsi perhitungan di PlayerUnitService
-            if baseCash == 0 and unitService then
-                pcall(function()
-                    if unitService.GetCardCash then
-                        baseCash = unitService.GetCardCash(cardKey, 1, "Normal")
-                    elseif unitService.GetUnitCashPerCard then
-                        baseCash = unitService.GetUnitCashPerCard({ PlayerUnitName = cardKey, PlayerUnitVariant = "Normal", PlayerUnitLevel = 1 }, 1)
-                    elseif unitService.GetBaseCash then
-                        baseCash = unitService.GetBaseCash(cardKey)
+            -- Hitung Cooldown & CashPerSecond via PlayerUnitService jika tersedia
+            pcall(function()
+                if unitService then
+                    if unitService.GetDropCooldown then
+                        dropCooldown = unitService.GetDropCooldown(internalName) or 1
                     end
-                end)
-            end
+                    if unitService.GetCashPerSecond then
+                        cashPerSec = unitService.GetCashPerSecond({
+                            PlayerUnitName = internalName,
+                            PlayerUnitVariant = "Normal",
+                            PlayerUnitLevel = 1,
+                            PlayerUnitGrade = "D",
+                            PlayerUnitTrait = "None"
+                        })
+                    elseif dropCooldown > 0 then
+                        cashPerSec = cashPerDrop / dropCooldown
+                    end
+                end
+            end)
 
-            -- Simpan juga raw keys untuk sampel pertama
-            table.insert(cardList, {
+            table.insert(allCards, {
                 Key = cardKey,
-                Name = name,
-                Box = boxName,
-                Rarity = rarity,
-                BaseCash = baseCash,
-                Raw = cardData
+                DisplayName = displayName,
+                InternalName = internalName,
+                BoxName = boxName,
+                Chance = chance,
+                CashPerDrop = cashPerDrop,
+                DropCooldown = dropCooldown,
+                CashPerSecond = cashPerSec or cashPerDrop
             })
         end
     end
+end
 
-    log("Total kartu ditemukan di Library: " .. #cardList)
+-- Kelompokkan berdasarkan Pack
+local packOrder = {
+    "FirePack", "IcePack", "WaterPack", "PiratePack",
+    "RomcomPack", "SwordPack", "KnightPack", "AssassinPack",
+    "NinjaPack", "MagePack", "HeroPack", "DevilPack",
+    "GeniusPack", "IdolPack", "SlayerPack", "TitanPack"
+}
 
-    -- Cetak sampel 3 kartu pertama dengan detail raw data
-    log("\n--- CONTOH STRUKTUR 3 KARTU PERTAMA ---")
-    for i = 1, math.min(3, #cardList) do
-        local c = cardList[i]
-        log(string.format("\n[Sample #%d] Key: %s | Name: %s", i, tostring(c.Key), tostring(c.Name)))
-        for rK, rV in pairs(c.Raw) do
-            if type(rV) ~= "table" and type(rV) ~= "function" then
-                log(string.format("    %s = %s (%s)", tostring(rK), tostring(rV), typeof(rV)))
-            elseif type(rV) == "table" then
-                log(string.format("    %s = {table with %d keys}", tostring(rK), #rV > 0 and #rV or 0))
-            end
-        end
-    end
+local cardsByPack = {}
+for _, c in ipairs(allCards) do
+    local b = c.BoxName
+    if not cardsByPack[b] then cardsByPack[b] = {} end
+    table.insert(cardsByPack[b], c)
+end
 
-    -- Urutkan dari $/Card terendah ke tertinggi
-    table.sort(cardList, function(a, b)
-        local cashA = tonumber(a.BaseCash) or 0
-        local cashB = tonumber(b.BaseCash) or 0
-        if cashA ~= cashB then
-            return cashA < cashB
-        end
-        return tostring(a.Name) < tostring(b.Name)
+-- Urutkan kartu dalam setiap pack berdasarkan CashPerDrop dari terendah ke tertinggi
+for b, list in pairs(cardsByPack) do
+    table.sort(list, function(a, b)
+        return a.CashPerDrop < b.CashPerDrop
     end)
+end
 
-    -- Kelompokkan berdasarkan Pack / Box
-    local byBox = {}
-    for _, c in ipairs(cardList) do
-        local bName = tostring(c.Box)
-        if not byBox[bName] then byBox[bName] = {} end
-        table.insert(byBox[bName], c)
-    end
-
-    log("\n" .. string.rep("-", 65))
-    log("📋 RINGKASAN SEMUA KARTU PER PACK (BASE LEVEL 1)")
-    log(string.rep("-", 65))
-
-    for bName, list in pairs(byBox) do
-        log(string.format("\n📦 PACK / BOX: %s (Total: %d Kartu)", bName, #list))
-        for _, c in ipairs(list) do
-            log(string.format("   • %-22s | Rarity: %-10s | Base: $%s/Card", tostring(c.Name), tostring(c.Rarity), tostring(c.BaseCash)))
+header("DAFTAR LENGKAP 64 KARTU PER PACK (LEVEL 1 NORMAL)")
+for _, pName in ipairs(packOrder) do
+    local list = cardsByPack[pName]
+    if list then
+        log(string.format("\n📦 %s (Total: %d Kartu):", pName:gsub("Pack", " Pack"), #list))
+        log(string.rep("-", 70))
+        for idx, c in ipairs(list) do
+            log(string.format(
+                " %d. %-18s (%-12s) | %-11s | %-10s | Drop: %4.1fs | Chance: %2d%%",
+                idx,
+                c.DisplayName,
+                c.InternalName,
+                formatCash(c.CashPerDrop) .. "/Card",
+                formatCash(c.CashPerSecond) .. "/s",
+                c.DropCooldown,
+                c.Chance
+            ))
         end
     end
-else
-    log("⚠️ unitsLib bukan table: " .. tostring(unitsLib))
+end
+
+-- Tampilkan Top 10 Kartu Penghasil Terbesar di Game pada Level 1
+header("TOP 10 KARTU DENGAN $/CARD TERBESAR DI GAME (LEVEL 1)")
+table.sort(allCards, function(a, b)
+    return a.CashPerDrop > b.CashPerDrop
+end)
+
+for i = 1, math.min(10, #allCards) do
+    local c = allCards[i]
+    log(string.format(
+        " #%2d. %-18s | Pack: %-12s | %-12s | %-11s",
+        i,
+        c.DisplayName,
+        c.BoxName:gsub("Pack", ""),
+        formatCash(c.CashPerDrop) .. "/Card",
+        formatCash(c.CashPerSecond) .. "/s"
+    ))
 end
 
 header("SCAN FINISHED")
@@ -152,8 +163,8 @@ local fullResult = table.concat(output, "\n")
 
 pcall(function()
     if writefile then
-        writefile("IndexCards_ScanReport.txt", fullResult)
-        log("📁 File laporan lengkap disimpan ke: IndexCards_ScanReport.txt")
+        writefile("IndexCards_DetailedStats.txt", fullResult)
+        log("📁 File disimpan: IndexCards_DetailedStats.txt")
     end
 end)
 
