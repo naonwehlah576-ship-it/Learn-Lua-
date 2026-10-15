@@ -1,8 +1,13 @@
 -- ============================================================================
--- CARD & CRATE TYCOON - ULTIMATE AUTO FARM & UTILITY SCRIPT (v1.2)
+-- CARD & CRATE TYCOON - ULTIMATE AUTO FARM & UTILITY SCRIPT (v1.3)
 -- Brand New Custom Script (100% Pure Offline UI - No External Loadstring Needed)
--- Features: Persistent Settings (Auto Save/Load Config), Auto Full Crate Cycle (10s delay),
--- Auto Open Dropper Box, Enhanced Token Collector, Player Utilities
+-- Features:
+--   1. Auto Full Crate Cycle (Jeda 10 Detik tiap putaran)
+--   2. Auto Teleport ke Variant Token -> Ambil -> Teleport Balik ke Base
+--   3. Auto Roll dengan Smart Filter Rarity (Buy jika sesuai, Auto-OFF jika salah)
+--   4. Selector Rarity Lengkap (Basic s/d Ethereal)
+--   5. Auto Save & Load Konfigurasi (writefile JSON)
+--   6. Player Movement & Base Teleports
 -- Compatibility: PC & Mobile (Touch Friendly, Draggable, Resilient)
 -- ============================================================================
 
@@ -32,7 +37,30 @@ local LocalPlayer = Players.LocalPlayer or Players.PlayerAdded:Wait()
 local Remotes = ReplicatedStorage:WaitForChild("Remotes", 20)
 
 -- ============================================================================
--- 1. DETEKSI PLOT MILIK PLAYER & BYPASS PROMPT
+-- 1. DAFTAR RARITY LENGKAP (SESUAI RARITIESLIBRARY GAME)
+-- ============================================================================
+local RarityOrder = {
+    "Basic",     -- 1 (1 in 1)
+    "Common",    -- 2 (1 in 6)
+    "Uncommon",  -- 3 (1 in 40)
+    "Rare",      -- 4 (1 in 125)
+    "Epic",      -- 5 (1 in 750)
+    "Legendary", -- 6 (1 in 4,500)
+    "Mythic",    -- 7 (1 in 22,500)
+    "Divine",    -- 8 (1 in 90,000)
+    "Cosmic",    -- 9 (1 in 550,000)
+    "Prismatic", -- 10 (1 in 4.5M)
+    "Radiant",   -- 11 (1 in 28M)
+    "Ethereal",  -- 12 (1 in 300M+)
+}
+
+local RarityTiers = {}
+for idx, rName in ipairs(RarityOrder) do
+    RarityTiers[rName:lower()] = idx
+end
+
+-- ============================================================================
+-- 2. DETEKSI PLOT MILIK PLAYER & BYPASS PROMPT
 -- ============================================================================
 local function getMyPlot()
     local plotModels = Workspace:FindFirstChild("Map") and Workspace.Map:FindFirstChild("PlotModels")
@@ -72,7 +100,7 @@ local function triggerPrompt(prompt)
 end
 
 -- ============================================================================
--- 2. PERSISTENT SETTINGS (SAVE & LOAD CONFIG JSON)
+-- 3. PERSISTENT SETTINGS (SAVE & LOAD CONFIG JSON)
 -- ============================================================================
 local CONFIG_FILE = "CardTycoon_Config.json"
 
@@ -82,6 +110,8 @@ local Config = {
     
     -- Tab Card / Base
     AutoRoll = false,
+    AutoRollFilterEnabled = true,
+    MinRarityIndex = 4, -- Default: "Rare"
     AutoOpenDropperBox = false,
     AutoEquipBest = false,
     
@@ -98,6 +128,8 @@ local Config = {
     Noclip = false,
     InfiniteJump = false
 }
+
+local toggleRefs = {}
 
 local function saveConfig()
     pcall(function()
@@ -124,11 +156,10 @@ local function loadConfig()
     end)
 end
 
--- Muat konfigurasi yang tersimpan sebelumnya
 loadConfig()
 
 -- ============================================================================
--- 3. CORE AUTOMATION FUNCTIONS
+-- 4. CORE AUTOMATION FUNCTIONS
 -- ============================================================================
 
 -- [FARM] Crate Actions
@@ -226,16 +257,110 @@ local function runSingleCycle()
     doSellCrates()
 end
 
--- [CARDS] Card & Dropper Actions
+-- [CARDS] Card Rolling & Filter Buy
+local function getRolledRarity()
+    local pGui = LocalPlayer:FindFirstChild("PlayerGui")
+    if pGui then
+        local newCardsGui = pGui:FindFirstChild("NewCardsGui")
+        if newCardsGui and newCardsGui.Enabled ~= false then
+            for _, desc in ipairs(newCardsGui:GetDescendants()) do
+                if desc:IsA("TextLabel") and desc.Text and desc.Text ~= "" then
+                    local tLower = desc.Text:lower():gsub("%s+", "")
+                    for rName, tier in pairs(RarityTiers) do
+                        if tLower == rName or tLower:find(rName) then
+                            return rName, tier
+                        end
+                    end
+                end
+            end
+        end
+
+        local autoBuyGui = pGui:FindFirstChild("AutoBuyGui")
+        if autoBuyGui and autoBuyGui.Enabled ~= false then
+            for _, desc in ipairs(autoBuyGui:GetDescendants()) do
+                if desc:IsA("TextLabel") and desc.Text and desc.Text ~= "" then
+                    local tLower = desc.Text:lower():gsub("%s+", "")
+                    for rName, tier in pairs(RarityTiers) do
+                        if tLower == rName then
+                            return rName, tier
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    local myPlot = getMyPlot()
+    if myPlot then
+        local conveyor = myPlot:FindFirstChild("Systems") 
+            and myPlot.Systems:FindFirstChild("TycoonConveyor")
+        if conveyor then
+            for _, desc in ipairs(conveyor:GetDescendants()) do
+                if desc:IsA("TextLabel") and desc.Text and desc.Text ~= "" then
+                    local tLower = desc.Text:lower():gsub("%s+", "")
+                    for rName, tier in pairs(RarityTiers) do
+                        if tLower == rName then
+                            return rName, tier
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    return nil, 0
+end
+
 local function doRollCard()
+    if not Config.AutoRoll then return end
+    
+    -- Request Roll
     pcall(function()
         if Remotes:FindFirstChild("RequestConveyorRoll") then
             Remotes.RequestConveyorRoll:FireServer()
         end
-        if Remotes:FindFirstChild("PurchaseConveyorRoll") then
-            Remotes.PurchaseConveyorRoll:FireServer()
-        end
     end)
+    
+    if Config.AutoRollFilterEnabled then
+        task.wait(0.35)
+        local detectedRarity, detectedTier = getRolledRarity()
+        local targetTier = Config.MinRarityIndex or 4
+        
+        if detectedRarity and detectedTier > 0 then
+            if detectedTier >= targetTier then
+                -- Sesuai atau lebih tinggi dari target filter -> BUY!
+                pcall(function()
+                    if Remotes:FindFirstChild("PurchaseConveyorRoll") then
+                        Remotes.PurchaseConveyorRoll:FireServer()
+                    end
+                end)
+                print(string.format("✅ [Auto Roll] Kartu %s (Tier %d) Cocok! Membeli kartu...", detectedRarity:upper(), detectedTier))
+            else
+                -- Tidak sesuai target -> AUTO OFF AUTO ROLL!
+                Config.AutoRoll = false
+                saveConfig()
+                if toggleRefs["AutoRoll"] then
+                    toggleRefs["AutoRoll"].UpdateUI(false)
+                end
+                print(string.format("⚠️ [Auto Roll] Kartu: %s (Di bawah target %s). Auto Roll dimatikan!", 
+                    detectedRarity:upper(), RarityOrder[targetTier] or "Target"))
+            end
+        else
+            -- Jika belum terdeteksi dari GUI, eksekusi purchase sebagai default roll
+            pcall(function()
+                if Remotes:FindFirstChild("PurchaseConveyorRoll") then
+                    Remotes.PurchaseConveyorRoll:FireServer()
+                end
+            end)
+        end
+    else
+        -- Filter mati, roll & buy terus menerus
+        pcall(function()
+            if Remotes:FindFirstChild("PurchaseConveyorRoll") then
+                Remotes.PurchaseConveyorRoll:FireServer()
+            end
+        end)
+    end
 end
 
 local function doOpenDropperBoxes()
@@ -277,7 +402,107 @@ local function doEquipBestCards()
     end)
 end
 
--- [REWARDS & COLLECTIBLES]
+-- [REWARDS & VARIANT TOKEN TELEPORT COLLECTOR]
+local function findActiveVariantToken()
+    local spawnsFolder = Workspace:FindFirstChild("Systems") and Workspace.Systems:FindFirstChild("VariantTokenSpawns")
+    if spawnsFolder then
+        for _, part in ipairs(spawnsFolder:GetChildren()) do
+            if part:GetAttribute("Occupied") == true or #part:GetChildren() > 0 then
+                return part
+            end
+        end
+    end
+
+    for _, obj in ipairs(CollectionService:GetTagged("VariantTokenSpawn")) do
+        if obj:GetAttribute("Occupied") == true or #obj:GetChildren() > 0 then
+            return obj
+        end
+    end
+
+    return nil
+end
+
+local isCollectingToken = false
+local function collectVariantToken(targetObj)
+    if isCollectingToken then return end
+    isCollectingToken = true
+
+    local char = LocalPlayer.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    if not hrp or not targetObj then 
+        isCollectingToken = false
+        return 
+    end
+
+    local targetPart = targetObj:IsA("BasePart") and targetObj or targetObj:FindFirstChildWhichIsA("BasePart")
+    if not targetPart then 
+        isCollectingToken = false
+        return 
+    end
+
+    local originalCFrame = hrp.CFrame
+    print("🔮 [Variant Token] Menemukan token di: " .. targetObj.Name .. "! Teleport ke token...")
+
+    -- 1. Teleport ke lokasi token
+    hrp.CFrame = targetPart.CFrame + Vector3.new(0, 3.5, 0)
+    task.wait(0.35)
+
+    -- 2. Simulasi sentuhan fisik (firetouchinterest)
+    if typeof(firetouchinterest) == "function" then
+        pcall(function()
+            firetouchinterest(hrp, targetPart, 0)
+            task.wait(0.02)
+            firetouchinterest(hrp, targetPart, 1)
+        end)
+    end
+
+    -- 3. Trigger ProximityPrompt jika ada
+    for _, desc in ipairs(targetObj:GetDescendants()) do
+        if desc:IsA("ProximityPrompt") then
+            triggerPrompt(desc)
+        end
+    end
+
+    -- 4. Tembak Remote Collect & Found
+    if Remotes:FindFirstChild("VariantTokenFound") then
+        pcall(function() Remotes.VariantTokenFound:FireServer(targetObj) end)
+        pcall(function() Remotes.VariantTokenFound:FireServer(targetObj.Name) end)
+    end
+    if Remotes:FindFirstChild("CollectVariantTokenSpawn") then
+        pcall(function() Remotes.CollectVariantTokenSpawn:FireServer(targetObj) end)
+        pcall(function() Remotes.CollectVariantTokenSpawn:FireServer(targetObj.Name) end)
+    end
+
+    task.wait(0.4)
+
+    -- 5. Teleport kembali ke posisi semula di base
+    if hrp and originalCFrame then
+        hrp.CFrame = originalCFrame
+        print("✅ [Variant Token] Token diambil! Sukses kembali ke Base.")
+    end
+
+    isCollectingToken = false
+end
+
+-- Listener otomatis saat Server mengirim sinyal VariantTokenSpawned
+pcall(function()
+    if Remotes:FindFirstChild("VariantTokenSpawned") then
+        Remotes.VariantTokenSpawned.OnClientEvent:Connect(function(tokenInstance)
+            if Config.AutoCollectTokens then
+                task.wait(0.5)
+                if tokenInstance and typeof(tokenInstance) == "Instance" then
+                    collectVariantToken(tokenInstance)
+                else
+                    local activeToken = findActiveVariantToken()
+                    if activeToken then
+                        collectVariantToken(activeToken)
+                    end
+                end
+            end
+        end)
+    end
+end)
+
 local function doClaimRewards()
     pcall(function()
         if Remotes:FindFirstChild("ClaimPlaytimeReward") then
@@ -297,41 +522,6 @@ local function doClaimRewards()
         end
         if Remotes:FindFirstChild("JackpotSpin") then
             Remotes.JackpotSpin:FireServer()
-        end
-    end)
-end
-
-local function doCollectTokens()
-    pcall(function()
-        local tokens = CollectionService:GetTagged("VariantTokenSpawn")
-        local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-        
-        for _, token in ipairs(tokens) do
-            if Remotes:FindFirstChild("VariantTokenFound") then
-                pcall(function() Remotes.VariantTokenFound:FireServer(token) end)
-                pcall(function() Remotes.VariantTokenFound:FireServer(token.Name) end)
-            end
-            if Remotes:FindFirstChild("CollectVariantTokenSpawn") then
-                pcall(function() Remotes.CollectVariantTokenSpawn:FireServer(token) end)
-                pcall(function() Remotes.CollectVariantTokenSpawn:FireServer(token.Name) end)
-            end
-            
-            for _, desc in ipairs(token:GetDescendants()) do
-                if desc:IsA("ProximityPrompt") then
-                    triggerPrompt(desc)
-                end
-            end
-            
-            if hrp and typeof(firetouchinterest) == "function" then
-                local tokenPart = (token:IsA("BasePart") and token) or token:FindFirstChildWhichIsA("BasePart")
-                if tokenPart then
-                    pcall(function()
-                        firetouchinterest(hrp, tokenPart, 0)
-                        task.wait(0.01)
-                        firetouchinterest(hrp, tokenPart, 1)
-                    end)
-                end
-            end
         end
     end)
 end
@@ -368,7 +558,7 @@ local function doCollectObjects()
 end
 
 -- ============================================================================
--- 4. BACKGROUND THREADS
+-- 5. BACKGROUND THREADS
 -- ============================================================================
 
 -- Farm Loop (Jeda 10 Detik tiap cycle ketika di-ON-kan)
@@ -391,7 +581,7 @@ task.spawn(function()
     while true do
         if Config.AutoRoll then
             doRollCard()
-            task.wait(0.2)
+            task.wait(0.4)
         else
             task.wait(0.5)
         end
@@ -410,14 +600,17 @@ task.spawn(function()
     end
 end)
 
--- Rewards Loop
+-- Rewards & Variant Token Loop
 task.spawn(function()
     while true do
+        if Config.AutoCollectTokens then
+            local activeToken = findActiveVariantToken()
+            if activeToken then
+                collectVariantToken(activeToken)
+            end
+        end
         if Config.AutoClaimRewards then
             doClaimRewards()
-        end
-        if Config.AutoCollectTokens then
-            doCollectTokens()
         end
         if Config.AutoCollectObjects then
             doCollectObjects()
@@ -464,7 +657,7 @@ UserInputService.JumpRequest:Connect(function()
 end)
 
 -- ============================================================================
--- 5. OFFLINE MODERN GUI (100% Standalone)
+-- 6. OFFLINE MODERN GUI (100% Standalone)
 -- ============================================================================
 
 local targetGuiParent = (pcall(function() return CoreGui end) and CoreGui) or LocalPlayer:WaitForChild("PlayerGui")
@@ -478,7 +671,6 @@ pcall(function()
     ScreenGui.Parent = targetGuiParent
 end)
 
--- Cleanup Handler
 local g = (getgenv and getgenv()) or _G
 g._CardTycoonCleanup = function()
     pcall(function() ScreenGui:Destroy() end)
@@ -508,8 +700,8 @@ FloatStroke.Parent = FloatBtn
 -- Main Frame
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
-MainFrame.Size = UDim2.new(0, 550, 0, 360)
-MainFrame.Position = UDim2.new(0.5, -275, 0.5, -180)
+MainFrame.Size = UDim2.new(0, 560, 0, 380)
+MainFrame.Position = UDim2.new(0.5, -280, 0.5, -190)
 MainFrame.BackgroundColor3 = Color3.fromRGB(18, 20, 28)
 MainFrame.BorderSizePixel = 0
 MainFrame.ClipsDescendants = true
@@ -524,7 +716,6 @@ MainStroke.Color = Color3.fromRGB(45, 52, 68)
 MainStroke.Thickness = 1.5
 MainStroke.Parent = MainFrame
 
--- Draggable Logic (PC & Mobile Support)
 local function makeDraggable(topBar, targetFrame)
     local dragging = false
     local dragInput, dragStart, startPos
@@ -583,7 +774,7 @@ TitleLabel.Name = "TitleLabel"
 TitleLabel.Size = UDim2.new(1, -90, 1, 0)
 TitleLabel.Position = UDim2.new(0, 14, 0, 0)
 TitleLabel.BackgroundTransparency = 1
-TitleLabel.Text = "🃏 CARD TYCOON <font color=\"#4A90E2\">AUTOFARM v1.2</font>"
+TitleLabel.Text = "🃏 CARD TYCOON <font color=\"#4A90E2\">AUTOFARM v1.3</font>"
 TitleLabel.RichText = true
 TitleLabel.TextColor3 = Color3.fromRGB(240, 240, 255)
 TitleLabel.TextSize = 15
@@ -621,19 +812,11 @@ local MinBtnCorner = Instance.new("UICorner")
 MinBtnCorner.CornerRadius = UDim.new(0, 8)
 MinBtnCorner.Parent = MinBtn
 
-CloseBtn.MouseButton1Click:Connect(function()
-    MainFrame.Visible = false
-end)
+CloseBtn.MouseButton1Click:Connect(function() MainFrame.Visible = false end)
+MinBtn.MouseButton1Click:Connect(function() MainFrame.Visible = false end)
+FloatBtn.MouseButton1Click:Connect(function() MainFrame.Visible = not MainFrame.Visible end)
 
-MinBtn.MouseButton1Click:Connect(function()
-    MainFrame.Visible = false
-end)
-
-FloatBtn.MouseButton1Click:Connect(function()
-    MainFrame.Visible = not MainFrame.Visible
-end)
-
--- Sidebar Container
+-- Sidebar
 local Sidebar = Instance.new("Frame")
 Sidebar.Name = "Sidebar"
 Sidebar.Size = UDim2.new(0, 130, 1, -42)
@@ -720,7 +903,7 @@ local function createTab(name, icon, order)
     return page
 end
 
--- UI Component Helper dengan Auto-Save
+-- UI Component Helpers
 local function createToggle(page, labelText, configKey, callback)
     local defaultVal = Config[configKey] or false
     
@@ -764,14 +947,25 @@ local function createToggle(page, labelText, configKey, callback)
     switchCorner.Parent = switch
 
     local state = defaultVal
-    switch.MouseButton1Click:Connect(function()
-        state = not state
-        Config[configKey] = state
+    local function setVisualState(val)
+        state = val
         switch.BackgroundColor3 = state and Color3.fromRGB(50, 185, 95) or Color3.fromRGB(48, 54, 70)
         switch.Text = state and "ON" or "OFF"
+    end
+
+    switch.MouseButton1Click:Connect(function()
+        setVisualState(not state)
+        Config[configKey] = state
         if callback then callback(state) end
         saveConfig()
     end)
+
+    toggleRefs[configKey] = {
+        Frame = toggleFrame,
+        UpdateUI = function(val)
+            setVisualState(val)
+        end
+    }
 
     return toggleFrame
 end
@@ -795,7 +989,7 @@ local function createButton(page, text, color, callback)
 end
 
 -- ============================================================================
--- 6. ISI TAB & FITUR
+-- 7. ISI TAB & FITUR
 -- ============================================================================
 
 -- TAB 1: 📦 FARM
@@ -810,15 +1004,117 @@ end)
 -- TAB 2: 🃏 CARDS / BASE
 local cardPage = createTab("Cards", "🃏", 2)
 
-createToggle(cardPage, "🎰 Auto Roll Cards / Conveyor", "AutoRoll")
+createToggle(cardPage, "🎰 Auto Roll Cards", "AutoRoll")
+createToggle(cardPage, "🎯 Gunakan Filter Rarity (Auto-OFF jika salah)", "AutoRollFilterEnabled")
+
+-- Rarity Selector Component
+local selectorFrame = Instance.new("Frame")
+selectorFrame.Size = UDim2.new(1, 0, 0, 46)
+selectorFrame.BackgroundColor3 = Color3.fromRGB(26, 30, 42)
+selectorFrame.Parent = cardPage
+
+local selCorner = Instance.new("UICorner")
+selCorner.CornerRadius = UDim.new(0, 8)
+selCorner.Parent = selectorFrame
+
+local selStroke = Instance.new("UIStroke")
+selStroke.Color = Color3.fromRGB(40, 48, 65)
+selStroke.Thickness = 1
+selStroke.Parent = selectorFrame
+
+local selTitle = Instance.new("TextLabel")
+selTitle.Size = UDim2.new(0, 130, 1, 0)
+selTitle.Position = UDim2.new(0, 12, 0, 0)
+selTitle.BackgroundTransparency = 1
+selTitle.Text = "Minimal Rarity:"
+selTitle.TextColor3 = Color3.fromRGB(210, 220, 240)
+selTitle.Font = Enum.Font.GothamMedium
+selTitle.TextSize = 13
+selTitle.TextXAlignment = Enum.TextXAlignment.Left
+selTitle.Parent = selectorFrame
+
+local prevBtn = Instance.new("TextButton")
+prevBtn.Size = UDim2.new(0, 32, 0, 30)
+prevBtn.Position = UDim2.new(1, -195, 0.5, -15)
+prevBtn.BackgroundColor3 = Color3.fromRGB(40, 46, 62)
+prevBtn.Text = "◀"
+prevBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+prevBtn.Font = Enum.Font.GothamBold
+prevBtn.TextSize = 13
+prevBtn.Parent = selectorFrame
+
+local prevCorner = Instance.new("UICorner")
+prevCorner.CornerRadius = UDim.new(0, 6)
+prevCorner.Parent = prevBtn
+
+local nextBtn = Instance.new("TextButton")
+nextBtn.Size = UDim2.new(0, 32, 0, 30)
+nextBtn.Position = UDim2.new(1, -42, 0.5, -15)
+nextBtn.BackgroundColor3 = Color3.fromRGB(40, 46, 62)
+nextBtn.Text = "▶"
+nextBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+nextBtn.Font = Enum.Font.GothamBold
+nextBtn.TextSize = 13
+nextBtn.Parent = selectorFrame
+
+local nextCorner = Instance.new("UICorner")
+nextCorner.CornerRadius = UDim.new(0, 6)
+nextCorner.Parent = nextBtn
+
+local rarityDisplay = Instance.new("TextLabel")
+rarityDisplay.Size = UDim2.new(0, 115, 0, 30)
+rarityDisplay.Position = UDim2.new(1, -160, 0.5, -15)
+rarityDisplay.BackgroundColor3 = Color3.fromRGB(32, 38, 54)
+rarityDisplay.TextColor3 = Color3.fromRGB(255, 215, 0)
+rarityDisplay.Font = Enum.Font.GothamBold
+rarityDisplay.TextSize = 12
+rarityDisplay.Parent = selectorFrame
+
+local dispCorner = Instance.new("UICorner")
+dispCorner.CornerRadius = UDim.new(0, 6)
+dispCorner.Parent = rarityDisplay
+
+local function updateRarityUI()
+    local curIdx = Config.MinRarityIndex or 4
+    if curIdx < 1 then curIdx = 1 end
+    if curIdx > #RarityOrder then curIdx = #RarityOrder end
+    Config.MinRarityIndex = curIdx
+    rarityDisplay.Text = string.format("%s (%d/12)", RarityOrder[curIdx], curIdx)
+    saveConfig()
+end
+
+prevBtn.MouseButton1Click:Connect(function()
+    Config.MinRarityIndex = (Config.MinRarityIndex or 4) - 1
+    if Config.MinRarityIndex < 1 then Config.MinRarityIndex = 1 end
+    updateRarityUI()
+end)
+
+nextBtn.MouseButton1Click:Connect(function()
+    Config.MinRarityIndex = (Config.MinRarityIndex or 4) + 1
+    if Config.MinRarityIndex > #RarityOrder then Config.MinRarityIndex = #RarityOrder end
+    updateRarityUI()
+end)
+
+updateRarityUI()
+
 createToggle(cardPage, "📦 Auto Open Dropper Box", "AutoOpenDropperBox")
 createToggle(cardPage, "🛡️ Auto Equip Best Cards", "AutoEquipBest")
 
 -- TAB 3: 🎁 REWARDS & WORLD
 local rewardPage = createTab("Rewards", "🎁", 3)
 
+createToggle(rewardPage, "🔮 Auto Teleport & Ambil Variant Token", "AutoCollectTokens")
+
+createButton(rewardPage, "📍 Cek & Teleport ke Variant Token Sekarang", Color3.fromRGB(150, 60, 200), function()
+    local activeToken = findActiveVariantToken()
+    if activeToken then
+        collectVariantToken(activeToken)
+    else
+        print("ℹ️ Tidak ada Variant Token yang sedang aktif/occupied di map.")
+    end
+end)
+
 createToggle(rewardPage, "💎 Auto Claim All Rewards (Daily/Playtime/Index)", "AutoClaimRewards")
-createToggle(rewardPage, "🔮 Auto Collect Variant Tokens (Enhanced)", "AutoCollectTokens")
 createToggle(rewardPage, "🏆 Auto Collect Hidden Objects", "AutoCollectObjects")
 
 createButton(rewardPage, "🎲 Spin Jackpot Sekarang", Color3.fromRGB(180, 100, 30), function()
@@ -879,4 +1175,4 @@ tabs["Farm"].Btn.BackgroundColor3 = Color3.fromRGB(50, 95, 205)
 tabs["Farm"].Btn.TextColor3 = Color3.fromRGB(255, 255, 255)
 tabs["Farm"].Page.Visible = true
 
-print("✅ Card & Crate Tycoon Script v1.2 with Auto Save/Load Config Loaded!")
+print("✅ Card & Crate Tycoon Script v1.3 with Teleport Token & Smart Roll Filter Loaded!")
