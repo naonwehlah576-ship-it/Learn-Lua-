@@ -1,11 +1,11 @@
 -- ============================================================================
--- CARD & CRATE TYCOON - ULTIMATE AUTO FARM & UTILITY SCRIPT (v1.5)
+-- CARD & CRATE TYCOON - ULTIMATE AUTO FARM & UTILITY SCRIPT (v1.6)
 -- Brand New Custom Script (100% Pure Offline UI - No External Loadstring Needed)
 -- Features:
 --   1. Auto Full Crate Cycle (Jeda 10 Detik tiap putaran)
 --   2. Auto Teleport ke Variant Token -> Ambil -> Teleport Balik ke Base
 --   3. PACK FILTER SYSTEM (Filter Berdasarkan Nama Pack: Fire, Ice, Water, Romcom, dll.)
---   4. Smart Auto Roll (Buy jika Pack dicentang, Auto-OFF jika tidak sesuai)
+--   4. Continuous Auto Roll (Hanya beli pack yang dicentang, skip yang lain, tidak berhenti sendiri)
 --   5. Compact & Collapsible Pack Dropdown (Tidak bikin GUI penuh & Fleksibel)
 --   6. Auto Save & Load Konfigurasi (writefile JSON)
 --   7. Player Movement & Base Teleports
@@ -130,6 +130,7 @@ local Config = {
     -- Tab Card / Base
     AutoRoll = false,
     AutoRollFilterEnabled = true,
+    StopAfterBuy = false,
     SelectedPacks = {
         ["Fire Pack"]     = true,
         ["Ice Pack"]      = true,
@@ -369,7 +370,6 @@ local function doRollCard()
     if Config.AutoRollFilterEnabled then
         task.wait(0.35)
         local detectedPack = getRolledPackName()
-        
         if detectedPack then
             local isPackWanted = Config.SelectedPacks[detectedPack] == true
             
@@ -381,22 +381,19 @@ local function doRollCard()
                     end
                 end)
                 print(string.format("✅ [Auto Roll] Pack %s Cocok dengan filter! Membeli...", detectedPack:upper()))
+                
+                -- Jika opsi Stop After Buy aktif, matikan auto roll
+                if Config.StopAfterBuy then
+                    Config.AutoRoll = false
+                    saveConfig()
+                    if toggleRefs["AutoRoll"] then
+                        toggleRefs["AutoRoll"].UpdateUI(false)
+                    end
+                end
             else
-                -- Pack tidak dicentang -> AUTO OFF AUTO ROLL!
-                Config.AutoRoll = false
-                saveConfig()
-                if toggleRefs["AutoRoll"] then
-                    toggleRefs["AutoRoll"].UpdateUI(false)
-                end
-                print(string.format("⚠️ [Auto Roll] Pack %s tidak dipilih di filter! Auto Roll dimatikan.", detectedPack:upper()))
+                -- Pack TIDAK dicentang -> JANGAN BELI (LEWATI), DAN TETAP LANJUT ROLL BERIKUTNYA!
+                print(string.format("⏭️ [Auto Roll] Lewati %s (Bukan target), tetap lanjut me-roll...", detectedPack))
             end
-        else
-            -- Jika belum terdeteksi (GUI render delay), coba execute purchase
-            pcall(function()
-                if Remotes:FindFirstChild("PurchaseConveyorRoll") then
-                    Remotes.PurchaseConveyorRoll:FireServer()
-                end
-            end)
         end
     else
         pcall(function()
@@ -817,7 +814,7 @@ TitleLabel.Name = "TitleLabel"
 TitleLabel.Size = UDim2.new(1, -90, 1, 0)
 TitleLabel.Position = UDim2.new(0, 14, 0, 0)
 TitleLabel.BackgroundTransparency = 1
-TitleLabel.Text = "🃏 CARD TYCOON <font color=\"#4A90E2\">AUTOFARM v1.5</font>"
+TitleLabel.Text = "🃏 CARD TYCOON <font color=\"#4A90E2\">AUTOFARM v1.6</font>"
 TitleLabel.RichText = true
 TitleLabel.TextColor3 = Color3.fromRGB(240, 240, 255)
 TitleLabel.TextSize = 15
@@ -1048,7 +1045,8 @@ end)
 local cardPage = createTab("Cards", "🃏", 2)
 
 createToggle(cardPage, "🎰 Auto Roll Cards", "AutoRoll")
-createToggle(cardPage, "📦 Filter Pack Beli (Auto-OFF jika salah)", "AutoRollFilterEnabled")
+createToggle(cardPage, "📦 Gunakan Filter Pack (Hanya Beli yg Dipilih)", "AutoRollFilterEnabled")
+createToggle(cardPage, "🛑 Stop Roll Setelah Berhasil Beli", "StopAfterBuy")
 
 -- ============================================================================
 -- 8. COMPACT & FLEXIBLE PACK SELECTION DROPDOWN
@@ -1296,4 +1294,4 @@ tabs["Farm"].Btn.BackgroundColor3 = Color3.fromRGB(50, 95, 205)
 tabs["Farm"].Btn.TextColor3 = Color3.fromRGB(255, 255, 255)
 tabs["Farm"].Page.Visible = true
 
-print("✅ Card & Crate Tycoon Script v1.5 with Pack Filter Loaded!")
+print("✅ Card & Crate Tycoon Script v1.6 with Continuous Auto Roll & Pack Filter Loaded!")
