@@ -331,37 +331,31 @@ end
 
 local function usePotion(potionId)
     local rem = getRemote("UseItem")
-    if rem then
+    if not rem then
         pcall(function()
+            if Remoting and Remoting.RemoteEvent then
+                rem = Remoting.RemoteEvent("UseItem")
+            end
+        end)
+    end
+    if not rem then
+        pcall(function()
+            rem = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("UseItem")
+        end)
+    end
+    if rem then
+        local ok, err = pcall(function()
             rem:FireServer(potionId)
         end)
-        return true
+        if ok then
+            return true
+        else
+            warn("⚠️ [Potion] Gagal menembak UseItem: " .. tostring(err))
+        end
+    else
+        warn("⚠️ [Potion] Remote 'UseItem' tidak ditemukan!")
     end
     return false
-end
-
-local lastPotionUseTime = {}
-local function checkAndAutoUsePotions()
-    for _, pot in ipairs(PotionList) do
-        if Config[pot.ConfigKey] == true then
-            local stock = getPotionStock(pot.Id)
-            if stock > 0 then
-                local secLeft = getPotionSecondsLeft(pot.Id)
-                if secLeft <= 120 then
-                    local now = os.clock()
-                    if not lastPotionUseTime[pot.Id] or (now - lastPotionUseTime[pot.Id] > 3.0) then
-                        lastPotionUseTime[pot.Id] = now
-                        local m = math.floor(secLeft / 60)
-                        local s = math.floor(secLeft % 60)
-                        local timeStr = secLeft > 0 and string.format("%02dm %02ds", m, s) or "0s (Habis)"
-                        print(string.format("🧪 [Auto Potion] Sisa durasi %s adalah %s (<= 2m) [Stok: %d]. Meminum potion...", pot.Name, timeStr, stock))
-                        usePotion(pot.Id)
-                        task.wait(0.5)
-                    end
-                end
-            end
-        end
-    end
 end
 
 local InfinityTowerGuiClient = nil
@@ -1648,10 +1642,41 @@ task.spawn(function()
 end)
 
 
--- Auto Use Potions Loop (Cek durasi sisa <= 2 menit)
+-- ============================================================================
+-- 6. AUTO USE POTIONS (JIKA SISA DURASI <= 2 MENIT)
+-- ============================================================================
+local lastPotionUseTime = {}
+
+local function checkAndAutoUsePotions()
+    for _, pot in ipairs(PotionList) do
+        if Config and Config[pot.ConfigKey] == true then
+            local stock = getPotionStock(pot.Id)
+            if stock > 0 then
+                local secLeft = getPotionSecondsLeft(pot.Id)
+                if secLeft <= 120 then
+                    local now = os.clock()
+                    if not lastPotionUseTime[pot.Id] or (now - lastPotionUseTime[pot.Id] > 3.0) then
+                        lastPotionUseTime[pot.Id] = now
+                        local m = math.floor(secLeft / 60)
+                        local s = math.floor(secLeft % 60)
+                        local timeStr = secLeft > 0 and string.format("%02dm %02ds", m, s) or "0s (Habis)"
+                        print(string.format("🧪 [Auto Potion] Sisa durasi %s adalah %s (<= 2m) [Stok: %d]. Meminum potion...", pot.Name, timeStr, stock))
+                        usePotion(pot.Id)
+                        task.wait(0.5)
+                    end
+                end
+            end
+        end
+    end
+end
+
+-- Auto Use Potions Loop
 task.spawn(function()
     while true do
-        pcall(checkAndAutoUsePotions)
+        local ok, err = pcall(checkAndAutoUsePotions)
+        if not ok then
+            warn("⚠️ [Auto Potion] Error di checkAndAutoUsePotions: " .. tostring(err))
+        end
         task.wait(1.5)
     end
 end)
@@ -1856,7 +1881,7 @@ TitleLabel.Name = "TitleLabel"
 TitleLabel.Size = UDim2.new(1, -90, 1, 0)
 TitleLabel.Position = UDim2.new(0, 14, 0, 0)
 TitleLabel.BackgroundTransparency = 1
-TitleLabel.Text = "🃏 <b>CARD TYCOON</b> <font color=\"#4A90E2\">ALL-IN-ONE v3.2</font>"
+TitleLabel.Text = "🃏 <b>CARD TYCOON</b> <font color=\"#4A90E2\">ALL-IN-ONE v3.3</font>"
 TitleLabel.RichText = true
 TitleLabel.TextColor3 = Color3.fromRGB(240, 240, 255)
 TitleLabel.TextSize = 14
