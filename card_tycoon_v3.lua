@@ -341,7 +341,7 @@ end
 -- ============================================================================
 -- KONFIGURASI PERSISTENT & AUTOSAVE
 -- ============================================================================
-local CONFIG_FILE = "CardTycoon_V3_Config.json"
+local CONFIG_FILE = "CardTycoon_CleanConfig.json"
 
 local Config = {
     AutoFullCrateCycle = false,
@@ -1120,8 +1120,7 @@ end)
 
 
 -- ============================================================================
--- CARD TYCOON V3 - PREMIUM SIDEBAR TAB GUI (560 x 380)
--- 100% RELIABLE ACROSS PC, DELTA EXECUTOR, & MUMU PLAYER
+-- CARD TYCOON V3 - UNIFIED SIDEBAR GUI (4 TABS, NO DUPLICATE PACKS, BULLETPROOF CLICKS)
 -- ============================================================================
 
 local ScreenGui = Instance.new("ScreenGui")
@@ -1150,6 +1149,21 @@ local function cleanup()
 end
 local g = (getgenv and getgenv()) or _G
 if g then g._CardTycoonV3Cleanup = cleanup end
+
+-- Universal Click / Touch Binder (Works 100% on PC, Mobile Touch, & Delta Emulator)
+local function bindBtn(btn, callback)
+    btn.Active = true
+    btn.Selectable = true
+    local lastClick = 0
+    local function fire()
+        local now = tick()
+        if now - lastClick < 0.15 then return end
+        lastClick = now
+        callback()
+    end
+    btn.Activated:Connect(fire)
+    btn.MouseButton1Click:Connect(fire)
+end
 
 -- Drag Helper
 local function makeDraggable(dragHandle, mainFrame)
@@ -1189,7 +1203,7 @@ local function makeDraggable(dragHandle, mainFrame)
     end)
 end
 
--- Floating Toggle Button (Selalu bisa dibuka/tutup)
+-- Floating Toggle Button
 local FloatBtn = Instance.new("TextButton")
 FloatBtn.Name = "FloatToggle"
 FloatBtn.Size = UDim2.new(0, 48, 0, 48)
@@ -1212,11 +1226,11 @@ FloatStroke.Parent = FloatBtn
 
 makeDraggable(FloatBtn, FloatBtn)
 
--- Main Frame (Spacious 540 x 370)
+-- Main Frame (Spacious 560 x 380)
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
-MainFrame.Size = UDim2.new(0, 540, 0, 370)
-MainFrame.Position = UDim2.new(0.5, -270, 0.5, -185)
+MainFrame.Size = UDim2.new(0, 560, 0, 380)
+MainFrame.Position = UDim2.new(0.5, -280, 0.5, -190)
 MainFrame.BackgroundColor3 = Color3.fromRGB(16, 18, 26)
 MainFrame.BorderSizePixel = 0
 MainFrame.ClipsDescendants = true
@@ -1250,7 +1264,7 @@ TitleLabel.Name = "TitleLabel"
 TitleLabel.Size = UDim2.new(1, -90, 1, 0)
 TitleLabel.Position = UDim2.new(0, 14, 0, 0)
 TitleLabel.BackgroundTransparency = 1
-TitleLabel.Text = "🃏 <b>CARD TYCOON</b> <font color=\"#4A90E2\">ALL-IN-ONE v3.0</font>"
+TitleLabel.Text = "🃏 <b>CARD TYCOON</b> <font color=\"#4A90E2\">ALL-IN-ONE v3.1</font>"
 TitleLabel.RichText = true
 TitleLabel.TextColor3 = Color3.fromRGB(240, 240, 255)
 TitleLabel.TextSize = 14
@@ -1288,9 +1302,9 @@ local MinBtnCorner = Instance.new("UICorner")
 MinBtnCorner.CornerRadius = UDim.new(0, 6)
 MinBtnCorner.Parent = MinBtn
 
-CloseBtn.MouseButton1Click:Connect(function() MainFrame.Visible = false end)
-MinBtn.MouseButton1Click:Connect(function() MainFrame.Visible = false end)
-FloatBtn.MouseButton1Click:Connect(function() MainFrame.Visible = not MainFrame.Visible end)
+bindBtn(CloseBtn, function() MainFrame.Visible = false end)
+bindBtn(MinBtn, function() MainFrame.Visible = false end)
+bindBtn(FloatBtn, function() MainFrame.Visible = not MainFrame.Visible end)
 
 -- Sidebar (Left)
 local Sidebar = Instance.new("Frame")
@@ -1330,7 +1344,7 @@ local function createTab(name, icon, order)
     tabBtn.Text = icon .. "  " .. name
     tabBtn.TextColor3 = Color3.fromRGB(175, 185, 205)
     tabBtn.Font = Enum.Font.GothamBold
-    tabBtn.TextSize = 12
+    tabBtn.TextSize = 11.5
     tabBtn.LayoutOrder = order
     tabBtn.Parent = Sidebar
 
@@ -1365,7 +1379,7 @@ local function createTab(name, icon, order)
         page.CanvasSize = UDim2.new(0, 0, 0, math.max(300, pageLayout.AbsoluteContentSize.Y + 25))
     end)
 
-    tabBtn.MouseButton1Click:Connect(function()
+    bindBtn(tabBtn, function()
         for _, t in pairs(tabs) do
             t.Page.Visible = false
             t.Btn.BackgroundColor3 = Color3.fromRGB(26, 30, 42)
@@ -1376,8 +1390,8 @@ local function createTab(name, icon, order)
         tabBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
     end)
 
-    tabs[name] = {Btn = tabBtn, Page = page}
-    return page
+    tabs[name] = {Btn = tabBtn, Page = page, Layout = pageLayout}
+    return page, pageLayout
 end
 
 -- Component Helpers
@@ -1444,7 +1458,7 @@ local function createToggle(page, labelText, configKey, callback)
         switch.Text = state and "ON" or "OFF"
     end
 
-    switch.MouseButton1Click:Connect(function()
+    bindBtn(switch, function()
         setVisualState(not state)
         Config[configKey] = state
         if callback then callback(state) end
@@ -1542,7 +1556,7 @@ local roCorner = Instance.new("UICorner")
 roCorner.CornerRadius = UDim.new(0, 8)
 roCorner.Parent = runOnceBtn
 
-runOnceBtn.MouseButton1Click:Connect(function()
+bindBtn(runOnceBtn, function()
     task.spawn(pcall, runSingleCycle)
 end)
 
@@ -1558,9 +1572,9 @@ farmDesc.TextXAlignment = Enum.TextXAlignment.Left
 farmDesc.Parent = FarmPage
 
 -- ============================================================================
--- TAB 2: 🎰 ROLL & BUY
+-- TAB 2: 🎰 ROLL & BUY (ALL-IN-ONE: PACK & FILTER MUTASI JADI SATU!)
 -- ============================================================================
-local RollPage = createTab("Roll & Buy", "🎰", 2)
+local RollPage, RollLayout = createTab("Roll & Buy", "🎰", 2)
 
 createSectionHeader(RollPage, "Conveyor Roll")
 createToggle(RollPage, "🎰 Auto Roll & Auto Buy [Key: Q]", "AutoRoll", function(state)
@@ -1570,7 +1584,7 @@ end)
 local rollDesc = Instance.new("TextLabel")
 rollDesc.Size = UDim2.new(1, 0, 0, 26)
 rollDesc.BackgroundTransparency = 1
-rollDesc.Text = "💡 Tekan tombol Q untuk toggle ON/OFF. Jika uang kurang, roll jeda dan otomatis lanjut saat saldo cukup!"
+rollDesc.Text = "💡 Shortcut Q untuk ON/OFF. Jika uang kurang, roll jeda dan otomatis beli saat saldo cukup!"
 rollDesc.TextColor3 = Color3.fromRGB(150, 165, 195)
 rollDesc.Font = Enum.Font.GothamMedium
 rollDesc.TextSize = 9.5
@@ -1578,7 +1592,7 @@ rollDesc.TextWrapped = true
 rollDesc.TextXAlignment = Enum.TextXAlignment.Left
 rollDesc.Parent = RollPage
 
-createSectionHeader(RollPage, "Pilih Pack yang Mau Dibeli:")
+createSectionHeader(RollPage, "Pilih Pack Dibeli & Filter Mutasi Langsung:")
 
 local rollPresetBar = Instance.new("Frame")
 rollPresetBar.Size = UDim2.new(1, 0, 0, 26)
@@ -1591,15 +1605,22 @@ rollPresetLayout.SortOrder = Enum.SortOrder.LayoutOrder
 rollPresetLayout.Padding = UDim.new(0, 6)
 rollPresetLayout.Parent = rollPresetBar
 
-local packButtons = {}
+local packCards = {}
 
-local function updatePacksVisual()
-    for pName, btn in pairs(packButtons) do
+local function updateAllPacksVisual()
+    for pName, data in pairs(packCards) do
         local isSel = Config.SelectedPacks[pName] == true
-        local isCustom = hasCustomVariantFilter(pName)
-        btn.BackgroundColor3 = isSel and Color3.fromRGB(35, 75, 140) or Color3.fromRGB(24, 28, 40)
-        btn.TextColor3 = isSel and (PackColors[pName] or Color3.fromRGB(255, 255, 255)) or Color3.fromRGB(120, 130, 150)
-        btn.Text = (isSel and "✓ " or "") .. pName .. (isCustom and " [⚙️]" or "")
+        data.BuyBtn.BackgroundColor3 = isSel and Color3.fromRGB(45, 175, 85) or Color3.fromRGB(45, 52, 68)
+        data.BuyBtn.Text = isSel and "✓ BELI" or "OFF"
+        
+        -- Update variant chips visual
+        local varCfg = getPackVariantConfig(pName)
+        for vName, vBtn in pairs(data.VariantBtns) do
+            local allowed = varCfg[vName] == true
+            vBtn.BackgroundColor3 = allowed and Color3.fromRGB(35, 75, 140) or Color3.fromRGB(24, 28, 40)
+            vBtn.TextColor3 = allowed and (VariantColors[vName] or Color3.fromRGB(255, 255, 255)) or Color3.fromRGB(105, 115, 130)
+            vBtn.Text = string.format("%s %s", allowed and "✓" or "✗", vName)
+        end
     end
     saveConfig()
 end
@@ -1618,246 +1639,201 @@ local function createPresetBtn(text, width, callback)
     c.CornerRadius = UDim.new(0, 6)
     c.Parent = btn
 
-    btn.MouseButton1Click:Connect(callback)
+    bindBtn(btn, callback)
 end
 
-createPresetBtn("Pilih Semua", 85, function()
+createPresetBtn("Semua: Beli", 85, function()
     for _, p in ipairs(AllPackNames) do Config.SelectedPacks[p] = true end
-    updatePacksVisual()
+    updateAllPacksVisual()
 end)
 
-createPresetBtn("6 Pertama", 80, function()
+createPresetBtn("6 Pertama", 75, function()
     for idx, p in ipairs(AllPackNames) do Config.SelectedPacks[p] = (idx <= 6) end
-    updatePacksVisual()
+    updateAllPacksVisual()
 end)
 
-createPresetBtn("Reset", 65, function()
+createPresetBtn("Reset Beli", 75, function()
     for _, p in ipairs(AllPackNames) do Config.SelectedPacks[p] = false end
-    updatePacksVisual()
+    updateAllPacksVisual()
 end)
 
-local packGridContainer = Instance.new("Frame")
-packGridContainer.Size = UDim2.new(1, 0, 0, 210)
-packGridContainer.BackgroundTransparency = 1
-packGridContainer.Parent = RollPage
-
-local packGridLayout = Instance.new("UIGridLayout")
-packGridLayout.CellSize = UDim2.new(0.31, 0, 0, 28)
-packGridLayout.CellPadding = UDim2.new(0, 6, 0, 6)
-packGridLayout.Parent = packGridContainer
-
+-- List of 16 Unified Pack Cards
 for _, pName in ipairs(AllPackNames) do
     local isSel = Config.SelectedPacks[pName] == true
-    
-    local chip = Instance.new("TextButton")
-    chip.Size = UDim2.new(1, 0, 1, 0)
-    chip.BackgroundColor3 = isSel and Color3.fromRGB(35, 75, 140) or Color3.fromRGB(24, 28, 40)
-    chip.Text = (isSel and "✓ " or "") .. pName
-    chip.TextColor3 = isSel and (PackColors[pName] or Color3.fromRGB(255, 255, 255)) or Color3.fromRGB(120, 130, 150)
-    chip.Font = Enum.Font.GothamBold
-    chip.TextSize = 9.5
-    chip.Parent = packGridContainer
-
-    local chipCorner = Instance.new("UICorner")
-    chipCorner.CornerRadius = UDim.new(0, 6)
-    chipCorner.Parent = chip
-
-    local chipStroke = Instance.new("UIStroke")
-    chipStroke.Color = Color3.fromRGB(38, 46, 66)
-    chipStroke.Thickness = 1
-    chipStroke.Parent = chip
-
-    chip.MouseButton1Click:Connect(function()
-        Config.SelectedPacks[pName] = not Config.SelectedPacks[pName]
-        updatePacksVisual()
-    end)
-
-    packButtons[pName] = chip
-end
-
--- ============================================================================
--- TAB 3: 🧬 FILTER MUTASI PER PACK
--- ============================================================================
-local MutasiPage = createTab("Mutasi", "🧬", 3)
-
-createSectionHeader(MutasiPage, "1. Pilih Pack yang Mau Diatur:")
-
-local selectedMutasiPack = "Romcom Pack"
-
-local activePackLabel = Instance.new("TextLabel")
-activePackLabel.Size = UDim2.new(1, 0, 0, 24)
-activePackLabel.BackgroundTransparency = 1
-activePackLabel.Text = "Sedang Mengatur Mutasi: <font color=\"#FF78B4\"><b>Romcom Pack</b></font>"
-activePackLabel.RichText = true
-activePackLabel.TextColor3 = Color3.fromRGB(230, 235, 250)
-activePackLabel.Font = Enum.Font.GothamMedium
-activePackLabel.TextSize = 11
-activePackLabel.TextXAlignment = Enum.TextXAlignment.Left
-activePackLabel.Parent = MutasiPage
-
--- Selector Pack Scroll
-local packSelectorScroll = Instance.new("ScrollingFrame")
-packSelectorScroll.Size = UDim2.new(1, 0, 0, 36)
-packSelectorScroll.BackgroundTransparency = 1
-packSelectorScroll.BorderSizePixel = 0
-packSelectorScroll.ScrollBarThickness = 2
-packSelectorScroll.ScrollBarImageColor3 = Color3.fromRGB(65, 120, 230)
-packSelectorScroll.CanvasSize = UDim2.new(0, #AllPackNames * 105, 0, 0)
-packSelectorScroll.Parent = MutasiPage
-
-local psLayout = Instance.new("UIListLayout")
-psLayout.FillDirection = Enum.FillDirection.Horizontal
-psLayout.SortOrder = Enum.SortOrder.LayoutOrder
-psLayout.Padding = UDim.new(0, 5)
-psLayout.Parent = packSelectorScroll
-
-local selectorChips = {}
-local variantButtons = {}
-
-local function updateVariantButtonsVisual()
-    local varCfg = getPackVariantConfig(selectedMutasiPack)
-    for vName, btn in pairs(variantButtons) do
-        local isAllowed = varCfg[vName] == true
-        local mult = VariantMultipliers[vName] or ""
-        btn.BackgroundColor3 = isAllowed and Color3.fromRGB(35, 75, 140) or Color3.fromRGB(24, 28, 40)
-        btn.TextColor3 = isAllowed and (VariantColors[vName] or Color3.fromRGB(255, 255, 255)) or Color3.fromRGB(110, 115, 130)
-        btn.Text = string.format("%s %s (%s)", isAllowed and "✓" or "✗", vName, mult)
-    end
-end
-
-local function selectPackForMutation(pName)
-    selectedMutasiPack = pName
     local pColor = PackColors[pName] or Color3.fromRGB(255, 255, 255)
-    local hex = string.format("#%02X%02X%02X", math.floor(pColor.R * 255), math.floor(pColor.G * 255), math.floor(pColor.B * 255))
-    activePackLabel.Text = string.format("Sedang Mengatur Mutasi: <font color=\"%s\"><b>%s</b></font>", hex, pName)
-    
-    for name, btn in pairs(selectorChips) do
-        local isIt = (name == pName)
-        btn.BackgroundColor3 = isIt and Color3.fromRGB(50, 105, 220) or Color3.fromRGB(28, 33, 46)
-        btn.TextColor3 = isIt and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(160, 170, 190)
+
+    local card = Instance.new("Frame")
+    card.Name = "Card_" .. pName
+    card.Size = UDim2.new(1, 0, 0, 36)
+    card.BackgroundColor3 = Color3.fromRGB(22, 26, 38)
+    card.ClipsDescendants = true
+    card.Parent = RollPage
+
+    local cCorner = Instance.new("UICorner")
+    cCorner.CornerRadius = UDim.new(0, 8)
+    cCorner.Parent = card
+
+    local cStroke = Instance.new("UIStroke")
+    cStroke.Color = Color3.fromRGB(38, 46, 66)
+    cStroke.Thickness = 1
+    cStroke.Parent = card
+
+    -- Main Row
+    local buyBtn = Instance.new("TextButton")
+    buyBtn.Size = UDim2.new(0, 55, 0, 24)
+    buyBtn.Position = UDim2.new(0, 6, 0, 6)
+    buyBtn.BackgroundColor3 = isSel and Color3.fromRGB(45, 175, 85) or Color3.fromRGB(45, 52, 68)
+    buyBtn.Text = isSel and "✓ BELI" or "OFF"
+    buyBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    buyBtn.Font = Enum.Font.GothamBold
+    buyBtn.TextSize = 9.5
+    buyBtn.Parent = card
+
+    local bbCorner = Instance.new("UICorner")
+    bbCorner.CornerRadius = UDim.new(0, 6)
+    bbCorner.Parent = buyBtn
+
+    local titleLbl = Instance.new("TextLabel")
+    titleLbl.Size = UDim2.new(0, 100, 0, 24)
+    titleLbl.Position = UDim2.new(0, 66, 0, 6)
+    titleLbl.BackgroundTransparency = 1
+    titleLbl.Text = pName
+    titleLbl.TextColor3 = pColor
+    titleLbl.Font = Enum.Font.GothamBold
+    titleLbl.TextSize = 10.5
+    titleLbl.TextXAlignment = Enum.TextXAlignment.Left
+    titleLbl.Active = false
+    titleLbl.Parent = card
+
+    -- Quick Mutasi Presets on the Right
+    local function createQuickMutBtn(text, posX, width, onClick)
+        local btn = Instance.new("TextButton")
+        btn.Size = UDim2.new(0, width, 0, 24)
+        btn.Position = UDim2.new(0, posX, 0, 6)
+        btn.BackgroundColor3 = Color3.fromRGB(32, 38, 54)
+        btn.Text = text
+        btn.TextColor3 = Color3.fromRGB(200, 215, 240)
+        btn.Font = Enum.Font.GothamBold
+        btn.TextSize = 9
+        btn.Parent = card
+
+        local bCorner = Instance.new("UICorner")
+        bCorner.CornerRadius = UDim.new(0, 5)
+        bCorner.Parent = btn
+
+        bindBtn(btn, function()
+            onClick()
+            updateAllPacksVisual()
+        end)
+        return btn
     end
-    updateVariantButtonsVisual()
-end
 
-for idx, pName in ipairs(AllPackNames) do
-    local isIt = (pName == selectedMutasiPack)
-    local pBtn = Instance.new("TextButton")
-    pBtn.Size = UDim2.new(0, 100, 0, 28)
-    pBtn.BackgroundColor3 = isIt and Color3.fromRGB(50, 105, 220) or Color3.fromRGB(28, 33, 46)
-    pBtn.Text = pName
-    pBtn.TextColor3 = isIt and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(160, 170, 190)
-    pBtn.Font = Enum.Font.GothamBold
-    pBtn.TextSize = 9.5
-    pBtn.LayoutOrder = idx
-    pBtn.Parent = packSelectorScroll
-
-    local pCorner = Instance.new("UICorner")
-    pCorner.CornerRadius = UDim.new(0, 6)
-    pCorner.Parent = pBtn
-
-    pBtn.MouseButton1Click:Connect(function()
-        selectPackForMutation(pName)
+    createQuickMutBtn("Semua", 172, 44, function()
+        local varCfg = getPackVariantConfig(pName)
+        for _, v in ipairs(AllVariantNames) do varCfg[v] = true end
     end)
 
-    selectorChips[pName] = pBtn
-end
-
-createSectionHeader(MutasiPage, "2. Preset Cepat Mutasi:")
-
-local mutPresetBar = Instance.new("Frame")
-mutPresetBar.Size = UDim2.new(1, 0, 0, 26)
-mutPresetBar.BackgroundTransparency = 1
-mutPresetBar.Parent = MutasiPage
-
-local mutPresetLayout = Instance.new("UIListLayout")
-mutPresetLayout.FillDirection = Enum.FillDirection.Horizontal
-mutPresetLayout.SortOrder = Enum.SortOrder.LayoutOrder
-mutPresetLayout.Padding = UDim.new(0, 6)
-mutPresetLayout.Parent = mutPresetBar
-
-local function createMutPreset(name, width, fn)
-    local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(0, width, 1, 0)
-    btn.BackgroundColor3 = Color3.fromRGB(34, 40, 56)
-    btn.Text = name
-    btn.TextColor3 = Color3.fromRGB(220, 230, 250)
-    btn.Font = Enum.Font.GothamBold
-    btn.TextSize = 10
-    btn.Parent = mutPresetBar
-
-    local c = Instance.new("UICorner")
-    c.CornerRadius = UDim.new(0, 6)
-    c.Parent = btn
-
-    btn.MouseButton1Click:Connect(function()
-        fn()
-        updateVariantButtonsVisual()
-        updatePacksVisual()
-        saveConfig()
+    createQuickMutBtn("No Norm", 220, 52, function()
+        local varCfg = getPackVariantConfig(pName)
+        for _, v in ipairs(AllVariantNames) do varCfg[v] = (v ~= "Normal") end
     end)
-end
 
-createMutPreset("Semua Mutasi", 95, function()
-    local varCfg = getPackVariantConfig(selectedMutasiPack)
-    for _, v in ipairs(AllVariantNames) do varCfg[v] = true end
-end)
+    createQuickMutBtn("Gold+", 276, 44, function()
+        local varCfg = getPackVariantConfig(pName)
+        for _, v in ipairs(AllVariantNames) do varCfg[v] = (v ~= "Normal") end
+    end)
 
-createMutPreset("No Normal", 80, function()
-    local varCfg = getPackVariantConfig(selectedMutasiPack)
-    for _, v in ipairs(AllVariantNames) do varCfg[v] = (v ~= "Normal") end
-end)
+    createQuickMutBtn("Dia+", 324, 40, function()
+        local varCfg = getPackVariantConfig(pName)
+        for _, v in ipairs(AllVariantNames) do varCfg[v] = (v ~= "Normal" and v ~= "Gold") end
+    end)
 
-createMutPreset("Gold+", 70, function()
-    local varCfg = getPackVariantConfig(selectedMutasiPack)
-    for _, v in ipairs(AllVariantNames) do varCfg[v] = (v ~= "Normal") end
-end)
+    -- Toggle Drawer Detail Mutasi (⚙️)
+    local gearBtn = Instance.new("TextButton")
+    gearBtn.Size = UDim2.new(0, 28, 0, 24)
+    gearBtn.Position = UDim2.new(0, 368, 0, 6)
+    gearBtn.BackgroundColor3 = Color3.fromRGB(42, 48, 68)
+    gearBtn.Text = "⚙️"
+    gearBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    gearBtn.Font = Enum.Font.GothamBold
+    gearBtn.TextSize = 10
+    gearBtn.Parent = card
 
-createMutPreset("Diamond+", 80, function()
-    local varCfg = getPackVariantConfig(selectedMutasiPack)
-    for _, v in ipairs(AllVariantNames) do varCfg[v] = (v ~= "Normal" and v ~= "Gold") end
-end)
+    local gCorner = Instance.new("UICorner")
+    gCorner.CornerRadius = UDim.new(0, 5)
+    gCorner.Parent = gearBtn
 
-createSectionHeader(MutasiPage, "3. Centang Mutasi yang Diizinkan Dibeli:")
+    -- Drawer Detail Mutasi Container
+    local drawer = Instance.new("Frame")
+    drawer.Size = UDim2.new(1, -12, 0, 95)
+    drawer.Position = UDim2.new(0, 6, 0, 34)
+    drawer.BackgroundTransparency = 1
+    drawer.Visible = false
+    drawer.Parent = card
 
-local varGridContainer = Instance.new("Frame")
-varGridContainer.Size = UDim2.new(1, 0, 0, 180)
-varGridContainer.BackgroundTransparency = 1
-varGridContainer.Parent = MutasiPage
+    local drawerLayout = Instance.new("UIGridLayout")
+    drawerLayout.CellSize = UDim2.new(0.24, -3, 0, 22)
+    drawerLayout.CellPadding = UDim2.new(0, 4, 0, 4)
+    drawerLayout.Parent = drawer
 
-local varGridLayout = Instance.new("UIGridLayout")
-varGridLayout.CellSize = UDim2.new(0.48, 0, 0, 26)
-varGridLayout.CellPadding = UDim2.new(0, 8, 0, 6)
-varGridLayout.Parent = varGridContainer
+    local isDrawerOpen = false
+    bindBtn(gearBtn, function()
+        isDrawerOpen = not isDrawerOpen
+        drawer.Visible = isDrawerOpen
+        card.Size = isDrawerOpen and UDim2.new(1, 0, 0, 136) or UDim2.new(1, 0, 0, 36)
+        gearBtn.BackgroundColor3 = isDrawerOpen and Color3.fromRGB(65, 120, 230) or Color3.fromRGB(42, 48, 68)
+    end)
 
-for _, vName in ipairs(AllVariantNames) do
-    local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(1, 0, 1, 0)
-    btn.BackgroundColor3 = Color3.fromRGB(35, 75, 140)
-    btn.Text = "✓ " .. vName .. " (" .. (VariantMultipliers[vName] or "") .. ")"
-    btn.TextColor3 = VariantColors[vName] or Color3.fromRGB(255, 255, 255)
-    btn.Font = Enum.Font.GothamBold
-    btn.TextSize = 10
-    btn.Parent = varGridContainer
+    local packVariantBtns = {}
+    local varCfg = getPackVariantConfig(pName)
 
-    local bCorner = Instance.new("UICorner")
-    bCorner.CornerRadius = UDim.new(0, 6)
-    bCorner.Parent = btn
+    for _, vName in ipairs(AllVariantNames) do
+        local allowed = varCfg[vName] == true
+        local vBtn = Instance.new("TextButton")
+        vBtn.Size = UDim2.new(1, 0, 1, 0)
+        vBtn.BackgroundColor3 = allowed and Color3.fromRGB(35, 75, 140) or Color3.fromRGB(24, 28, 40)
+        vBtn.Text = string.format("%s %s", allowed and "✓" or "✗", vName)
+        vBtn.TextColor3 = allowed and (VariantColors[vName] or Color3.fromRGB(255, 255, 255)) or Color3.fromRGB(105, 115, 130)
+        vBtn.Font = Enum.Font.GothamBold
+        vBtn.TextSize = 8.5
+        vBtn.Parent = drawer
 
-    btn.MouseButton1Click:Connect(function()
-        local varCfg = getPackVariantConfig(selectedMutasiPack)
-        varCfg[vName] = not varCfg[vName]
-        updateVariantButtonsVisual()
-        updatePacksVisual()
+        local vbCorner = Instance.new("UICorner")
+        vbCorner.CornerRadius = UDim.new(0, 4)
+        vbCorner.Parent = vBtn
+
+        bindBtn(vBtn, function()
+            local cfg = getPackVariantConfig(pName)
+            cfg[vName] = not cfg[vName]
+            local nowAllowed = cfg[vName] == true
+            vBtn.BackgroundColor3 = nowAllowed and Color3.fromRGB(35, 75, 140) or Color3.fromRGB(24, 28, 40)
+            vBtn.TextColor3 = nowAllowed and (VariantColors[vName] or Color3.fromRGB(255, 255, 255)) or Color3.fromRGB(105, 115, 130)
+            vBtn.Text = string.format("%s %s", nowAllowed and "✓" or "✗", vName)
+            saveConfig()
+        end)
+
+        packVariantBtns[vName] = vBtn
+    end
+
+    bindBtn(buyBtn, function()
+        Config.SelectedPacks[pName] = not Config.SelectedPacks[pName]
+        local nowSel = Config.SelectedPacks[pName] == true
+        buyBtn.BackgroundColor3 = nowSel and Color3.fromRGB(45, 175, 85) or Color3.fromRGB(45, 52, 68)
+        buyBtn.Text = nowSel and "✓ BELI" or "OFF"
         saveConfig()
     end)
 
-    variantButtons[vName] = btn
+    packCards[pName] = {
+        BuyBtn = buyBtn,
+        VariantBtns = packVariantBtns,
+        Card = card
+    }
 end
 
 -- ============================================================================
--- TAB 4: 🏰 INFINITY TOWER BATTLE
+-- TAB 3: 🏰 INFINITY TOWER BATTLE
 -- ============================================================================
-local TowerPage = createTab("Tower", "🏰", 4)
+local TowerPage = createTab("Tower", "🏰", 3)
 
 createSectionHeader(TowerPage, "Auto Infinity Tower")
 createToggle(TowerPage, "🏰 Auto Tower Battle (Repeat Run)", "AutoTower", function(state)
@@ -1930,12 +1906,12 @@ local function updateTowerModeVisual()
     saveConfig()
 end
 
-singleBtn.MouseButton1Click:Connect(function()
+bindBtn(singleBtn, function()
     Config.TowerMode = "Single"
     updateTowerModeVisual()
 end)
 
-rotateBtn.MouseButton1Click:Connect(function()
+bindBtn(rotateBtn, function()
     Config.TowerMode = "Rotate"
     updateTowerModeVisual()
 end)
@@ -1985,7 +1961,7 @@ for _, tId in ipairs(TowerOrder) do
     tcCorner.CornerRadius = UDim.new(0, 6)
     tcCorner.Parent = tCheck
 
-    tCheck.MouseButton1Click:Connect(function()
+    bindBtn(tCheck, function()
         Config.SelectedTowers[tId] = not Config.SelectedTowers[tId]
         local nowState = Config.SelectedTowers[tId]
         tCheck.BackgroundColor3 = nowState and Color3.fromRGB(50, 105, 220) or Color3.fromRGB(42, 48, 64)
@@ -1998,9 +1974,9 @@ createSectionHeader(TowerPage, "Pengaturan Tambahan")
 createToggle(TowerPage, "👁️ Auto Hide Layar Battle", "AutoHideTowerBattle")
 
 -- ============================================================================
--- TAB 5: ⭐ BASE & TOKEN
+-- TAB 4: ⭐ BASE & TOKEN
 -- ============================================================================
-local BasePage = createTab("Base & Token", "⭐", 5)
+local BasePage = createTab("Base & Token", "⭐", 4)
 
 createSectionHeader(BasePage, "Auto Level Up Kartu")
 createToggle(BasePage, "⭐ Auto Level Up (Kartu Base Terendah)", "AutoLevelUp")
@@ -2021,8 +1997,7 @@ tokenDesc.TextXAlignment = Enum.TextXAlignment.Left
 tokenDesc.Parent = BasePage
 
 -- Inisialisasi Tampilan
-updatePacksVisual()
-selectPackForMutation("Romcom Pack")
+updateAllPacksVisual()
 
 -- Buka Tab Farm secara Default
 if tabs["Farm"] then
@@ -2031,4 +2006,4 @@ if tabs["Farm"] then
     tabs["Farm"].Btn.TextColor3 = Color3.fromRGB(255, 255, 255)
 end
 
-print("✅ Card & Crate Tycoon ALL-IN-ONE v3.0 Loaded Successfully!")
+print("✅ Card & Crate Tycoon ALL-IN-ONE v3.1 Loaded Successfully!")
