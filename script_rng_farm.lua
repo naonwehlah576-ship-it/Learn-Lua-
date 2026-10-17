@@ -1,15 +1,13 @@
 -- ============================================================================
 -- 🏴‍☠️ RNG TYCOON & FARM - AUTO LOOT & CASH CYCLE (V1.0)
--- 100% DIAM (Tanpa Perlu Jalan) | Fast & Guaranteed Hit | Jeda 10 Detik
+-- 100% Work & Guaranteed Hit | 3-Step Full Cycle | Jeda 10 Detik
 -- ============================================================================
 
 local Players = game:GetService("Players")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local CoreGui = game:GetService("CoreGui")
 local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
 
--- Tunggu karakter siap
 if not LocalPlayer.Character then
     LocalPlayer.CharacterAdded:Wait()
 end
@@ -27,13 +25,11 @@ local statusText = "Idle (Tekan ON untuk mulai)"
 -- DETEKSI PLOT PLAYER
 -- ============================================================================
 local function getMyPlot()
-    -- 1. Deteksi lewat Attribute game
     local slot = LocalPlayer:GetAttribute("AssignedSlotName")
     if slot and workspace:FindFirstChild(slot) then
         return workspace[slot]
     end
 
-    -- 2. Fallback: Cari di Player1 - Player6 yang LikePlot-nya sesuai nama player
     for i = 1, 6 do
         local pName = "Player" .. i
         local p = workspace:FindFirstChild(pName)
@@ -49,109 +45,120 @@ local function getMyPlot()
 end
 
 -- ============================================================================
--- BYPASS PROXIMITY PROMPT (JARAK JAUH & CEPAT)
+-- SIKLUS UTAMA LENGKAP (3 TAHAPAN BERURUTAN)
 -- ============================================================================
-local function triggerPrompt(prompt)
-    if not prompt or not prompt.Enabled then return false end
-    pcall(function()
-        local oldDist = prompt.MaxActivationDistance
-        local oldLos = prompt.RequiresLineOfSight
-        local oldDur = prompt.HoldDuration
-        
-        prompt.MaxActivationDistance = 999999
-        prompt.RequiresLineOfSight = false
+local isRunningCycle = false
 
-        if typeof(fireproximityprompt) == "function" then
-            fireproximityprompt(prompt)
-        else
-            prompt.HoldDuration = 0
-            prompt:InputHoldBegin()
-            task.wait(0.05)
-            prompt:InputHoldEnd()
-            prompt.HoldDuration = oldDur
-        end
-
-        prompt.MaxActivationDistance = oldDist
-        prompt.RequiresLineOfSight = oldLos
-    end)
-    return true
-end
-
--- ============================================================================
--- SENTUH PAD UANG HIJAU (FIRETOUCHINTEREST - DIAM TOTAL)
--- ============================================================================
-local function collectPayoutPad(myPlot)
-    local pb = myPlot:FindFirstChild("Interactive") and myPlot.Interactive:FindFirstChild("PayoutButton")
-    if not pb then return end
+local function runFullFarmCycle(updateGuiStatus)
+    if isRunningCycle then return end
+    isRunningCycle = true
 
     local char = LocalPlayer.Character
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
-    if not hrp then return end
+    local hum = char and char:FindFirstChildWhichIsA("Humanoid")
 
-    local targets = {}
-    if pb:FindFirstChild("Head") and pb.Head:IsA("BasePart") then table.insert(targets, pb.Head) end
-    if pb:FindFirstChild("Deco") and pb.Deco:IsA("BasePart") then table.insert(targets, pb.Deco) end
-    for _, child in ipairs(pb:GetChildren()) do
-        if child:IsA("BasePart") and not table.find(targets, child) then
-            table.insert(targets, child)
-        end
-    end
-
-    for _, part in ipairs(targets) do
-        pcall(function()
-            if typeof(firetouchinterest) == "function" then
-                firetouchinterest(hrp, part, 0)
-                task.wait(0.03)
-                firetouchinterest(hrp, part, 1)
-            end
-        end)
-    end
-end
-
--- ============================================================================
--- SIKLUS UTAMA (3 TAHAP: PICK UP -> DEPOSIT -> AMBIL UANG)
--- ============================================================================
-local function runFarmCycle(updateGuiStatus)
-    local myPlot = getMyPlot()
-    if not myPlot then
-        if updateGuiStatus then updateGuiStatus("❌ Plot Tidak Ditemukan!") end
+    if not hrp or not hum then
+        isRunningCycle = false
         return
     end
 
+    local myPlot = getMyPlot()
+    if not myPlot then
+        if updateGuiStatus then updateGuiStatus("❌ Plot Tidak Ditemukan!") end
+        isRunningCycle = false
+        return
+    end
+
+    -- 0. Catat titik berdiri awal player
+    local originCFrame = hrp.CFrame
+
+    -- ========================================================================
     -- TAHAP 1: Ambil Loot dari Kotak Kaca (PointPlace)
-    if updateGuiStatus then updateGuiStatus("📦 [1/3] Mengambil Loot...") end
+    -- ========================================================================
     local pp = myPlot:FindFirstChild("Pos") and myPlot.Pos:FindFirstChild("PointPlace")
-    if pp then
-        for _, desc in ipairs(pp:GetDescendants()) do
-            if desc:IsA("ProximityPrompt") then
-                triggerPrompt(desc)
-            end
-        end
-    end
-    task.wait(0.3) -- Jeda pas agar server memproses barang masuk ke punggung
+    local lootPrompt = pp and pp:FindFirstChildWhichIsA("ProximityPrompt", true)
 
-    -- TAHAP 2: Setor Loot ke Mesin Deposit
-    if updateGuiStatus then updateGuiStatus("🏭 [2/3] Menyetor ke Mesin Deposit...") end
+    if pp and lootPrompt and lootPrompt.Enabled then
+        if updateGuiStatus then updateGuiStatus("📦 [1/3] Mengambil Loot...") end
+        local targetPos = Vector3.new(pp.Position.X, pp.Position.Y + 0.5, pp.Position.Z - 5.5)
+        hrp.CFrame = CFrame.new(targetPos, pp.Position)
+        task.wait(0.25)
+
+        if typeof(fireproximityprompt) == "function" then
+            fireproximityprompt(lootPrompt)
+        end
+        lootPrompt:InputHoldBegin()
+        task.wait(0.08)
+        lootPrompt:InputHoldEnd()
+        task.wait(0.25)
+    end
+
+    -- ========================================================================
+    -- TAHAP 2: Setor ke Mesin Deposit
+    -- ========================================================================
     local dep = myPlot:FindFirstChild("Interactive") and myPlot.Interactive:FindFirstChild("Deposit")
-    if dep then
-        for _, desc in ipairs(dep:GetDescendants()) do
-            if desc:IsA("ProximityPrompt") then
-                triggerPrompt(desc)
+    local depPrompt = dep and dep:FindFirstChildWhichIsA("ProximityPrompt", true)
+
+    if dep and depPrompt then
+        if updateGuiStatus then updateGuiStatus("🏭 [2/3] Menyetor ke Deposit...") end
+        local depPos = depPrompt.Parent.Position
+        local targetPos = Vector3.new(depPos.X, depPos.Y + 0.5, depPos.Z + 5.5)
+        hrp.CFrame = CFrame.new(targetPos, depPos)
+        task.wait(0.25)
+
+        if typeof(fireproximityprompt) == "function" then
+            fireproximityprompt(depPrompt)
+        end
+        depPrompt:InputHoldBegin()
+        task.wait(0.08)
+        depPrompt:InputHoldEnd()
+        task.wait(0.25)
+    end
+
+    -- ========================================================================
+    -- TAHAP 3: Ambil Uang di Pad Hijau (PayoutButton)
+    -- ========================================================================
+    local pb = myPlot:FindFirstChild("Interactive") and myPlot.Interactive:FindFirstChild("PayoutButton")
+    local head = pb and pb:FindFirstChild("Head")
+
+    if head then
+        if updateGuiStatus then updateGuiStatus("💰 [3/3] Mengambil Uang...") end
+        hrp.CFrame = CFrame.new(head.Position.X, head.Position.Y + 2.8, head.Position.Z)
+
+        local limbs = {
+            hrp,
+            char:FindFirstChild("LeftFoot"),
+            char:FindFirstChild("RightFoot"),
+            char:FindFirstChild("Left Leg"),
+            char:FindFirstChild("Right Leg"),
+            char:FindFirstChild("Torso"),
+            char:FindFirstChild("LowerTorso")
+        }
+
+        for _, limb in ipairs(limbs) do
+            if limb and typeof(firetouchinterest) == "function" then
+                firetouchinterest(limb, head, 0)
+                task.wait(0.01)
+                firetouchinterest(limb, head, 1)
             end
         end
+
+        task.wait(0.05)
+        hum:MoveTo(head.Position)
+        task.wait(0.2)
     end
-    task.wait(0.3) -- Jeda pas agar server mendaftarkan setor loot
 
-    -- TAHAP 3: Ambil Uang di Pad Hijau (PayoutButton)
-    if updateGuiStatus then updateGuiStatus("💰 [3/3] Mengambil Uang di Pad Hijau...") end
-    collectPayoutPad(myPlot)
-    task.wait(0.2)
-
+    -- ========================================================================
+    -- SELESAI: Kembali ke Titik Awal Berdiri
+    -- ========================================================================
+    hrp.CFrame = originCFrame
     if updateGuiStatus then updateGuiStatus("✅ Siklus Selesai! Menunggu...") end
+
+    isRunningCycle = false
 end
 
 -- ============================================================================
--- GUI BUILDER (CLEAN, MODULAR, SIAP DITAMBAH FITUR LAIN)
+-- GUI BUILDER (CLEAN, DRAGGABLE & MODULAR)
 -- ============================================================================
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "RNGFarmGui"
@@ -172,11 +179,10 @@ if not ScreenGui.Parent then
     ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 end
 
--- Main Window
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
-MainFrame.Size = UDim2.new(0, 360, 0, 240)
-MainFrame.Position = UDim2.new(0.5, -180, 0.4, -120)
+MainFrame.Size = UDim2.new(0, 360, 0, 245)
+MainFrame.Position = UDim2.new(0.5, -180, 0.4, -122)
 MainFrame.BackgroundColor3 = Color3.fromRGB(20, 24, 34)
 MainFrame.BorderSizePixel = 0
 MainFrame.Parent = ScreenGui
@@ -214,7 +220,6 @@ TitleLabel.Font = Enum.Font.GothamBold
 TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
 TitleLabel.Parent = TopBar
 
--- Close Button
 local CloseBtn = Instance.new("TextButton")
 CloseBtn.Size = UDim2.new(0, 28, 0, 28)
 CloseBtn.Position = UDim2.new(1, -34, 0, 5)
@@ -228,10 +233,7 @@ CloseBtn.Parent = TopBar
 local closeCorner = Instance.new("UICorner")
 closeCorner.CornerRadius = UDim.new(0, 6)
 closeCorner.Parent = CloseBtn
-
-CloseBtn.MouseButton1Click:Connect(function()
-    ScreenGui:Destroy()
-end)
+CloseBtn.MouseButton1Click:Connect(function() ScreenGui:Destroy() end)
 
 -- Dragging Handler
 local dragging, dragInput, dragStart, startPos
@@ -241,9 +243,7 @@ TopBar.InputBegan:Connect(function(input)
         dragStart = input.Position
         startPos = MainFrame.Position
         input.Changed:Connect(function()
-            if input.UserInputState == Enum.UserInputState.End then
-                dragging = false
-            end
+            if input.UserInputState == Enum.UserInputState.End then dragging = false end
         end)
     end
 end)
@@ -261,14 +261,13 @@ UserInputService.InputChanged:Connect(function(input)
     end
 end)
 
--- Content Container
 local Content = Instance.new("Frame")
 Content.Size = UDim2.new(1, -24, 1, -50)
 Content.Position = UDim2.new(0, 12, 0, 44)
 Content.BackgroundTransparency = 1
 Content.Parent = MainFrame
 
--- Plot Info Label
+-- Plot Info
 local PlotInfo = Instance.new("TextLabel")
 PlotInfo.Size = UDim2.new(1, 0, 0, 20)
 PlotInfo.BackgroundTransparency = 1
@@ -281,9 +280,9 @@ PlotInfo.TextSize = 11
 PlotInfo.TextXAlignment = Enum.TextXAlignment.Left
 PlotInfo.Parent = Content
 
--- Status Display Label
+-- Status Display
 local StatusLabel = Instance.new("TextLabel")
-StatusLabel.Size = UDim2.new(1, 0, 0, 22)
+StatusLabel.Size = UDim2.new(1, 0, 0, 24)
 StatusLabel.Position = UDim2.new(0, 0, 0, 24)
 StatusLabel.BackgroundColor3 = Color3.fromRGB(14, 17, 24)
 StatusLabel.Text = "Status: " .. statusText
@@ -334,7 +333,7 @@ ToggleBtn.MouseButton1Click:Connect(function()
     updateToggleVisual()
 end)
 
--- Button Manual: Run 1x Now
+-- Manual Test Button
 local RunOnceBtn = Instance.new("TextButton")
 RunOnceBtn.Size = UDim2.new(1, 0, 0, 36)
 RunOnceBtn.Position = UDim2.new(0, 0, 0, 112)
@@ -351,16 +350,16 @@ roCorner.Parent = RunOnceBtn
 
 RunOnceBtn.MouseButton1Click:Connect(function()
     task.spawn(function()
-        runFarmCycle(setStatus)
+        runFullFarmCycle(setStatus)
     end)
 end)
 
--- Info Note
+-- Info Footer
 local InfoLabel = Instance.new("TextLabel")
 InfoLabel.Size = UDim2.new(1, 0, 0, 32)
-InfoLabel.Position = UDim2.new(0, 0, 0, 154)
+InfoLabel.Position = UDim2.new(0, 0, 0, 156)
 InfoLabel.BackgroundTransparency = 1
-InfoLabel.Text = "💡 Siklus otomatis menjalankan: Pick Up Loot (Kotak Kaca) ➜ Setor ke Mesin Deposit ➜ Tarik Uang dari Pad Hijau tanpa karakter harus bergerak."
+InfoLabel.Text = "💡 Siklus otomatis: Ambil Loot ➜ Setor ke Deposit ➜ Tarik Uang dari Pad Hijau ➜ Balik ke Titik Awal."
 InfoLabel.TextColor3 = Color3.fromRGB(130, 145, 170)
 InfoLabel.Font = Enum.Font.Gotham
 InfoLabel.TextSize = 9.5
@@ -369,13 +368,12 @@ InfoLabel.TextXAlignment = Enum.TextXAlignment.Left
 InfoLabel.Parent = Content
 
 -- ============================================================================
--- BACKGROUND WORKER LOOP (JEDA 10 DETIK)
+-- BACKGROUND WORKER LOOP (JEDA 10 DETIK RESPONTIF)
 -- ============================================================================
 task.spawn(function()
     while true do
         if Config.AutoLootCycle then
-            runFarmCycle(setStatus)
-            -- Jeda 10 detik dengan countdown di status bar
+            runFullFarmCycle(setStatus)
             for sec = 10, 1, -1 do
                 if not Config.AutoLootCycle then break end
                 setStatus(string.format("Menunggu siklus berikutnya (%ds)...", sec))
@@ -387,4 +385,4 @@ task.spawn(function()
     end
 end)
 
-print("✅ RNG Farm Tycoon Script Loaded Successfully!")
+print("✅ RNG Farm Tycoon v1.0 Loaded Successfully!")
