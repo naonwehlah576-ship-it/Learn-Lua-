@@ -1,11 +1,11 @@
 -- =========================================================================
--- 🎲 AUTO ROLL EGG DEALER (INSTANT NO-ANIMATION / REMOTE ONLY)
+-- 🏋️🎲 AUTO BENCH PRESS & AUTO ROLL DEALER (DUAL COMBO / INDEPENDENT)
 -- Path: C:\Users\Rzoi7\Documents\Roblox\TD\script_auto_roll_egg.lua
--- Remote: ReplicatedStorage.UIAction:FireServer("DealerRoll", tierId)
 -- =========================================================================
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local CollectionService = game:GetService("CollectionService")
 local HttpService = game:GetService("HttpService")
 local CoreGui = game:GetService("CoreGui")
 local LocalPlayer = Players.LocalPlayer
@@ -16,19 +16,19 @@ local EggResult = ReplicatedStorage:WaitForChild("EggResult")
 local EggData = require(ReplicatedStorage:WaitForChild("EggData"))
 local ShopData = require(ReplicatedStorage:WaitForChild("ShopData"))
 
--- Ambil Coins Player
+-- Player Data
 local PlayerStats = LocalPlayer:WaitForChild("PlayerStats", 10)
 local Coins = PlayerStats and PlayerStats:WaitForChild("Coins", 10)
 
 -- Konfigurasi
 local CONFIG = {
-    Enabled = false,
-    SelectedTier = "Basic", -- "Basic" atau "Premium"
-    Delay = 0.5,            -- Jeda antar roll (bisa diatur)
-    StopIfFull = true,      -- Berhenti jika inventory penuh
+    AutoRoll = false,
+    AutoBench = false,
+    SelectedTier = "Basic", -- "Basic" (10K) atau "Premium"
+    RollDelay = 0.6,
+    StopIfFull = true,
 }
 
--- Cari Tier mana yang harganya 10,000
 local basicCost = EggData.DealerById["Basic"] and EggData.DealerById["Basic"].Cost or 10000
 local premiumCost = EggData.DealerById["Premium"] and EggData.DealerById["Premium"].Cost or 50000
 
@@ -46,70 +46,154 @@ local function isInventoryFull()
     return count >= maxCap, count, maxCap
 end
 
--- Riwayat Roll
-local ROLL_LOGS = {}
+-- Cari Bench Press milik kita
+local function getMyBench()
+    for _, bench in ipairs(CollectionService:GetTagged("BenchPress")) do
+        if bench:IsA("Model") and bench:GetAttribute("OwnerId") == LocalPlayer.UserId then
+            return bench
+        end
+    end
+    -- Fallback: cari bench terdekat yang tidak dipakai orang lain
+    local char = LocalPlayer.Character
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    if root then
+        local closest = nil
+        local minDist = math.huge
+        for _, bench in ipairs(CollectionService:GetTagged("BenchPress")) do
+            if bench:IsA("Model") and not bench:GetAttribute("User") then
+                local dist = (bench:GetPivot().Position - root.Position).Magnitude
+                if dist < minDist then
+                    minDist = dist
+                    closest = bench
+                end
+            end
+        end
+        return closest
+    end
+    return nil
+end
+
+-- Cek apakah karakter sedang di bench
+local function isSittingOnBench()
+    for _, bench in ipairs(CollectionService:GetTagged("BenchPress")) do
+        if bench:GetAttribute("User") == LocalPlayer.UserId then
+            return true, bench
+        end
+    end
+    return false, nil
+end
+
+-- Riwayat & Statistik
+local LOGS = {}
 local refreshLogUI = function() end
-local updateRollCount = function() end
-
+local updateStatsUI = function() end
 local totalRolled = 0
-local rarityCount = {}
+local totalReps = 0
 
--- [[ LISTENER HASIL ROLL DARI SERVER ]] --
-EggResult.OnClientEvent:Connect(function(action, status, tierId, rarity)
+-- [[ LISTENER EGG RESULT & BENCH RESULT DARI SERVER ]] --
+EggResult.OnClientEvent:Connect(function(action, status, p3, p4)
     if action == "dealer" then
         if status == "rolled" then
             totalRolled = totalRolled + 1
-            rarityCount[rarity] = (rarityCount[rarity] or 0) + 1
-            
-            table.insert(ROLL_LOGS, 1, {
+            table.insert(LOGS, 1, {
                 time = os.date("%H:%M:%S"),
-                tier = tierId,
-                rarity = rarity or "Unknown",
+                tag = "ROLL",
+                text = string.format("%s -> %s", tostring(p3), tostring(p4)),
+                color = Color3.fromRGB(100, 255, 120),
             })
-            if #ROLL_LOGS > 40 then table.remove(ROLL_LOGS) end
-            
-            refreshLogUI()
-            updateRollCount()
-            print(string.format("[AUTO ROLL] Berhasil roll %s Egg -> %s!", tierId, tostring(rarity)))
         elseif status == "poor" then
-            print("[AUTO ROLL] Uang tidak cukup!")
-            CONFIG.Enabled = false
+            table.insert(LOGS, 1, {
+                time = os.date("%H:%M:%S"),
+                tag = "ROLL",
+                text = "Koin tidak cukup! Stop roll.",
+                color = Color3.fromRGB(255, 100, 100),
+            })
+            CONFIG.AutoRoll = false
+        else
+            table.insert(LOGS, 1, {
+                time = os.date("%H:%M:%S"),
+                tag = "SERVER",
+                text = string.format("Dealer: %s (%s)", tostring(status), tostring(p3)),
+                color = Color3.fromRGB(240, 200, 80),
+            })
         end
+    elseif action == "bench" then
+        if status == "poor" then
+            table.insert(LOGS, 1, {
+                time = os.date("%H:%M:%S"),
+                tag = "BENCH",
+                text = "Bench: Not enough coins/stats",
+                color = Color3.fromRGB(255, 100, 100),
+            })
+        end
+    end
+    if #LOGS > 35 then table.remove(LOGS) end
+    refreshLogUI()
+    updateStatsUI()
+end)
+
+-- [[ LOOP 1: AUTO BENCH PRESS LOCKER ]] --
+local scriptRunning = true
+task.spawn(function()
+    while scriptRunning do
+        if CONFIG.AutoBench then
+            local sitting, curBench = isSittingOnBench()
+            if not sitting then
+                local bench = getMyBench()
+                if bench then
+                    local prompt = bench:FindFirstChildWhichIsA("ProximityPrompt", true)
+                    local char = LocalPlayer.Character
+                    local root = char and char:FindFirstChild("HumanoidRootPart")
+                    if prompt and root then
+                        -- Dekati bench & picu prompt
+                        local basePos = bench:GetAttribute("Base") or bench:GetPivot()
+                        root.CFrame = basePos * CFrame.new(0, 1.5, 0)
+                        task.wait(0.08)
+                        if prompt.Enabled and typeof(fireproximityprompt) == "function" then
+                            fireproximityprompt(prompt)
+                        end
+                    end
+                end
+            end
+        end
+        task.wait(0.5)
     end
 end)
 
--- [[ LOOP UTAMA AUTO ROLL ]] --
-local autoRollActive = true
+-- [[ LOOP 2: AUTO ROLL DEALER (REMOTE) ]] --
 task.spawn(function()
-    while autoRollActive do
-        if CONFIG.Enabled then
+    while scriptRunning do
+        if CONFIG.AutoRoll then
             local cost = (CONFIG.SelectedTier == "Premium") and premiumCost or basicCost
             local currentCoins = Coins and Coins.Value or 0
             
-            -- 1. Cek Uang
             if currentCoins < cost then
-                print("[AUTO ROLL] Koin habis! Menghentikan auto roll...")
-                CONFIG.Enabled = false
+                CONFIG.AutoRoll = false
             else
-                -- 2. Cek Inventory
                 local full, cur, max = isInventoryFull()
                 if CONFIG.StopIfFull and full then
-                    print(string.format("[AUTO ROLL] Inventory Penuh (%d/%d)! Menghentikan auto roll...", cur, max))
-                    CONFIG.Enabled = false
+                    table.insert(LOGS, 1, {
+                        time = os.date("%H:%M:%S"),
+                        tag = "ROLL",
+                        text = string.format("Inventory Full (%d/%d)!", cur, max),
+                        color = Color3.fromRGB(255, 140, 40),
+                    })
+                    if #LOGS > 35 then table.remove(LOGS) end
+                    refreshLogUI()
+                    CONFIG.AutoRoll = false
                 else
-                    -- 3. Tembak Remote DealerRoll Langsung (Tanpa buka shop & Tanpa Animasi!)
                     UIAction:FireServer("DealerRoll", CONFIG.SelectedTier)
                 end
             end
         end
-        task.wait(CONFIG.Delay)
+        task.wait(CONFIG.RollDelay)
     end
 end)
 
 -- =========================================================================
--- 🖥️ MODERN CLEAN GUI AUTO ROLL
+-- 🖥️ GUI DUAL CONTROL (BENCH PRESS + AUTO ROLL)
 -- =========================================================================
-local guiName = "AutoRollDealerGui"
+local guiName = "DualBenchRollGui"
 pcall(function()
     local old = CoreGui:FindFirstChild(guiName) or LocalPlayer.PlayerGui:FindFirstChild(guiName)
     if old then old:Destroy() end
@@ -122,9 +206,9 @@ pcall(function() ScreenGui.Parent = CoreGui end)
 if not ScreenGui.Parent then ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui") end
 
 local Main = Instance.new("Frame")
-Main.Size = UDim2.new(0, 260, 0, 310)
-Main.Position = UDim2.new(0.04, 0, 0.35, 0)
-Main.BackgroundColor3 = Color3.fromRGB(22, 22, 28)
+Main.Size = UDim2.new(0, 275, 0, 360)
+Main.Position = UDim2.new(0.03, 0, 0.32, 0)
+Main.BackgroundColor3 = Color3.fromRGB(20, 20, 26)
 Main.BorderSizePixel = 0
 Main.Active = true
 Main.Draggable = true
@@ -136,13 +220,13 @@ MainCorner.Parent = Main
 
 local MainStroke = Instance.new("UIStroke")
 MainStroke.Thickness = 1.5
-MainStroke.Color = Color3.fromRGB(60, 60, 75)
+MainStroke.Color = Color3.fromRGB(55, 55, 70)
 MainStroke.Parent = Main
 
 -- Title Bar
 local TitleBar = Instance.new("Frame")
 TitleBar.Size = UDim2.new(1, 0, 0, 32)
-TitleBar.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+TitleBar.BackgroundColor3 = Color3.fromRGB(28, 28, 38)
 TitleBar.BorderSizePixel = 0
 TitleBar.Parent = Main
 local TitleCorner = Instance.new("UICorner")
@@ -153,7 +237,7 @@ local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(0.8, 0, 1, 0)
 Title.Position = UDim2.fromOffset(10, 0)
 Title.BackgroundTransparency = 1
-Title.Text = "🎲 AUTO ROLL DEALER"
+Title.Text = "🏋️ BENCH + 🎲 ROLL DUAL"
 Title.TextColor3 = Color3.fromRGB(255, 215, 0)
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 12
@@ -173,37 +257,74 @@ local CloseCorner = Instance.new("UICorner")
 CloseCorner.CornerRadius = UDim.new(0, 4)
 CloseCorner.Parent = CloseBtn
 CloseBtn.MouseButton1Click:Connect(function()
-    CONFIG.Enabled = false
-    autoRollActive = false
+    CONFIG.AutoRoll = false
+    CONFIG.AutoBench = false
+    scriptRunning = false
     ScreenGui:Destroy()
 end)
 
--- Tombol Toggle ON/OFF
-local ToggleBtn = Instance.new("TextButton")
-ToggleBtn.Size = UDim2.new(0.9, 0, 0, 32)
-ToggleBtn.Position = UDim2.new(0.05, 0, 0, 40)
-ToggleBtn.BackgroundColor3 = Color3.fromRGB(190, 45, 45)
-ToggleBtn.Text = "AUTO ROLL: OFF"
-ToggleBtn.TextColor3 = Color3.new(1, 1, 1)
-ToggleBtn.Font = Enum.Font.GothamBold
-ToggleBtn.TextSize = 13
-ToggleBtn.Parent = Main
-local ToggleCorner = Instance.new("UICorner")
-ToggleCorner.CornerRadius = UDim.new(0, 6)
-ToggleCorner.Parent = ToggleBtn
+-- 1. Tombol Auto Bench Press
+local BenchBtn = Instance.new("TextButton")
+BenchBtn.Size = UDim2.new(0.92, 0, 0, 30)
+BenchBtn.Position = UDim2.new(0.04, 0, 0, 40)
+BenchBtn.BackgroundColor3 = Color3.fromRGB(180, 45, 45)
+BenchBtn.Text = "🏋️ AUTO BENCH PRESS: OFF"
+BenchBtn.TextColor3 = Color3.new(1, 1, 1)
+BenchBtn.Font = Enum.Font.GothamBold
+BenchBtn.TextSize = 11
+BenchBtn.Parent = Main
+local BenchCorner = Instance.new("UICorner")
+BenchCorner.CornerRadius = UDim.new(0, 6)
+BenchCorner.Parent = BenchBtn
 
--- Tombol Ganti Tier (Basic 10K vs Premium)
+BenchBtn.MouseButton1Click:Connect(function()
+    CONFIG.AutoBench = not CONFIG.AutoBench
+    if CONFIG.AutoBench then
+        BenchBtn.BackgroundColor3 = Color3.fromRGB(45, 175, 75)
+        BenchBtn.Text = "🏋️ AUTO BENCH PRESS: ON"
+    else
+        BenchBtn.BackgroundColor3 = Color3.fromRGB(180, 45, 45)
+        BenchBtn.Text = "🏋️ AUTO BENCH PRESS: OFF"
+    end
+end)
+
+-- 2. Tombol Auto Roll Dealer
+local RollBtn = Instance.new("TextButton")
+RollBtn.Size = UDim2.new(0.92, 0, 0, 30)
+RollBtn.Position = UDim2.new(0.04, 0, 0, 76)
+RollBtn.BackgroundColor3 = Color3.fromRGB(180, 45, 45)
+RollBtn.Text = "🎲 AUTO ROLL: OFF"
+RollBtn.TextColor3 = Color3.new(1, 1, 1)
+RollBtn.Font = Enum.Font.GothamBold
+RollBtn.TextSize = 11
+RollBtn.Parent = Main
+local RollCorner = Instance.new("UICorner")
+RollCorner.CornerRadius = UDim.new(0, 6)
+RollCorner.Parent = RollBtn
+
+RollBtn.MouseButton1Click:Connect(function()
+    CONFIG.AutoRoll = not CONFIG.AutoRoll
+    if CONFIG.AutoRoll then
+        RollBtn.BackgroundColor3 = Color3.fromRGB(45, 175, 75)
+        RollBtn.Text = "🎲 AUTO ROLL: ON"
+    else
+        RollBtn.BackgroundColor3 = Color3.fromRGB(180, 45, 45)
+        RollBtn.Text = "🎲 AUTO ROLL: OFF"
+    end
+end)
+
+-- 3. Tombol Ganti Tier Roll ($10K Basic vs Premium)
 local TierBtn = Instance.new("TextButton")
-TierBtn.Size = UDim2.new(0.9, 0, 0, 26)
-TierBtn.Position = UDim2.new(0.05, 0, 0, 78)
+TierBtn.Size = UDim2.new(0.92, 0, 0, 24)
+TierBtn.Position = UDim2.new(0.04, 0, 0, 112)
 TierBtn.BackgroundColor3 = Color3.fromRGB(45, 120, 200)
 TierBtn.Text = string.format("Tier: Basic ($%s)", tostring(basicCost):reverse():gsub("(%d%d%d)", "%1,"):reverse():gsub("^,", ""))
 TierBtn.TextColor3 = Color3.new(1, 1, 1)
 TierBtn.Font = Enum.Font.GothamMedium
-TierBtn.TextSize = 11
+TierBtn.TextSize = 10
 TierBtn.Parent = Main
 local TierCorner = Instance.new("UICorner")
-TierCorner.CornerRadius = UDim.new(0, 6)
+TierCorner.CornerRadius = UDim.new(0, 5)
 TierCorner.Parent = TierBtn
 
 TierBtn.MouseButton1Click:Connect(function()
@@ -218,40 +339,36 @@ TierBtn.MouseButton1Click:Connect(function()
     end
 end)
 
-ToggleBtn.MouseButton1Click:Connect(function()
-    CONFIG.Enabled = not CONFIG.Enabled
-    if CONFIG.Enabled then
-        ToggleBtn.BackgroundColor3 = Color3.fromRGB(45, 175, 75)
-        ToggleBtn.Text = "AUTO ROLL: ON"
-    else
-        ToggleBtn.BackgroundColor3 = Color3.fromRGB(190, 45, 45)
-        ToggleBtn.Text = "AUTO ROLL: OFF"
-    end
-end)
-
--- Status Info (Total Roll & Coins)
+-- Status Info Bar
 local StatusLbl = Instance.new("TextLabel")
-StatusLbl.Size = UDim2.new(0.9, 0, 0, 20)
-StatusLbl.Position = UDim2.new(0.05, 0, 0, 110)
+StatusLbl.Size = UDim2.new(0.92, 0, 0, 18)
+StatusLbl.Position = UDim2.new(0.04, 0, 0, 142)
 StatusLbl.BackgroundTransparency = 1
 StatusLbl.Font = Enum.Font.GothamMedium
-StatusLbl.TextSize = 11
+StatusLbl.TextSize = 10
 StatusLbl.TextColor3 = Color3.fromRGB(180, 200, 220)
 StatusLbl.TextXAlignment = Enum.TextXAlignment.Left
-StatusLbl.Text = "Total Roll: 0 | Koin: $" .. (Coins and tostring(Coins.Value) or "0")
+StatusLbl.Text = "Rolled: 0 | Koin: $" .. (Coins and tostring(Coins.Value) or "0")
 StatusLbl.Parent = Main
 
-updateRollCount = function()
+updateStatsUI = function()
     local cVal = Coins and Coins.Value or 0
-    StatusLbl.Text = string.format("Total: %d | Koin: $%s", totalRolled, tostring(cVal):reverse():gsub("(%d%d%d)", "%1,"):reverse():gsub("^,", ""))
+    local isBench = isSittingOnBench()
+    StatusLbl.Text = string.format("Rolled: %d | Bench: %s | $%s", totalRolled, isBench and "LIFTING" or "IDLE", tostring(cVal):reverse():gsub("(%d%d%d)", "%1,"):reverse():gsub("^,", ""))
+    
+    -- Sync button color if stopped by error
+    if not CONFIG.AutoRoll and RollBtn.Text:find("ON") then
+        RollBtn.BackgroundColor3 = Color3.fromRGB(180, 45, 45)
+        RollBtn.Text = "🎲 AUTO ROLL: OFF"
+    end
 end
-if Coins then Coins.Changed:Connect(updateRollCount) end
+if Coins then Coins.Changed:Connect(updateStatsUI) end
 
--- Box Hasil / Log Roll Terakhir
+-- Box Log
 local LogContainer = Instance.new("ScrollingFrame")
-LogContainer.Size = UDim2.new(0.9, 0, 0, 160)
-LogContainer.Position = UDim2.new(0.05, 0, 0, 136)
-LogContainer.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
+LogContainer.Size = UDim2.new(0.92, 0, 0, 185)
+LogContainer.Position = UDim2.new(0.04, 0, 0, 164)
+LogContainer.BackgroundColor3 = Color3.fromRGB(14, 14, 18)
 LogContainer.BorderSizePixel = 0
 LogContainer.ScrollBarThickness = 3
 LogContainer.Parent = Main
@@ -268,42 +385,22 @@ refreshLogUI = function()
     for _, ch in ipairs(LogContainer:GetChildren()) do
         if ch:IsA("Frame") or ch:IsA("TextLabel") then ch:Destroy() end
     end
-    for idx, item in ipairs(ROLL_LOGS) do
+    for idx, item in ipairs(LOGS) do
         local row = Instance.new("TextLabel")
-        row.Size = UDim2.new(1, -8, 0, 18)
+        row.Size = UDim2.new(1, -8, 0, 16)
         row.Position = UDim2.fromOffset(4, 0)
         row.BackgroundTransparency = 1
         row.Font = Enum.Font.Code
-        row.TextSize = 10
+        row.TextSize = 9
         row.TextXAlignment = Enum.TextXAlignment.Left
-        
-        -- Warna berdasarkan rarity
-        local rCol = Color3.fromRGB(200, 200, 200)
-        local r = item.rarity:lower()
-        if r == "godly" or r == "divine" then
-            rCol = Color3.fromRGB(255, 90, 210)
-        elseif r == "secret" then
-            rCol = Color3.fromRGB(255, 60, 60)
-        elseif r == "mythic" then
-            rCol = Color3.fromRGB(255, 215, 0)
-        elseif r == "legendary" then
-            rCol = Color3.fromRGB(255, 150, 50)
-        elseif r == "epic" then
-            rCol = Color3.fromRGB(180, 80, 255)
-        elseif r == "rare" then
-            rCol = Color3.fromRGB(70, 160, 255)
-        elseif r == "uncommon" then
-            rCol = Color3.fromRGB(80, 230, 90)
-        end
-        
-        row.TextColor3 = rCol
-        row.Text = string.format("[%s] %s -> %s", item.time, item.tier, item.rarity)
+        row.TextColor3 = item.color or Color3.fromRGB(200, 200, 200)
+        row.Text = string.format("[%s] [%s] %s", item.time, item.tag, item.text)
         row.LayoutOrder = idx
         row.Parent = LogContainer
     end
-    LogContainer.CanvasSize = UDim2.new(0, 0, 0, #ROLL_LOGS * 21)
+    LogContainer.CanvasSize = UDim2.new(0, 0, 0, #LOGS * 19)
 end
 
 print("========================================")
-print("✅ Auto Roll Egg Dealer Siap Digunakan!")
+print("✅ DUAL BENCH + ROLL GUI READY!")
 print("========================================")
