@@ -297,6 +297,36 @@ local function getHumanoid()
     return char and char:FindFirstChildOfClass("Humanoid")
 end
 
+-- [[ SMART ANTI-PAUSE TELEPORT (PRE-FETCH STREAMING + ZERO RESIDUAL VELOCITY) ]] --
+local function smartTeleport(targetCF)
+    local root = getRoot()
+    if not root then return end
+
+    -- 1. Netralkan momentum/kecepatan sepenuhnya sebelum TP
+    pcall(function()
+        root.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+        root.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
+    end)
+
+    -- 2. Pre-stream area tujuan jika jarak jauh (> 150 studs) agar Roblox tidak memicu "Gameplay Paused"
+    local targetPos = targetCF.Position
+    local dist = (root.Position - targetPos).Magnitude
+    if dist > 150 then
+        pcall(function()
+            LocalPlayer:RequestStreamAroundAsync(targetPos, 0.1)
+        end)
+    end
+
+    -- 3. Teleportasi tepat ke CFrame target
+    root.CFrame = targetCF
+
+    -- 4. Netralkan kembali momentum setelah mendarat
+    pcall(function()
+        root.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+        root.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
+    end)
+end
+
 -- [[ KALKULASI SKOR LUCK TELUR ]] --
 local function getEggLuckScore(egg)
     local score = 0
@@ -490,7 +520,7 @@ local function secureTakeAndClaim(pet, prompt, petIncome)
     local petRarity = pet:GetAttribute("Rarity") or "Pet"
     local petName = pet.Name
 
-    root.CFrame = CFrame.lookAt(promptPos + Vector3.new(0, 0.5, 2.5), promptPos)
+    smartTeleport(CFrame.lookAt(promptPos + Vector3.new(0, 0.5, 2.5), promptPos))
     task.wait(0.06)
 
     local pickedUp = false
@@ -507,7 +537,7 @@ local function secureTakeAndClaim(pet, prompt, petIncome)
             break
         end
 
-        root.CFrame = CFrame.lookAt(promptPos + Vector3.new(0, 0.5, 2.5), promptPos)
+        smartTeleport(CFrame.lookAt(promptPos + Vector3.new(0, 0.5, 2.5), promptPos))
         if prompt.Enabled and prompt.Parent then
             fireproximityprompt(prompt)
         end
@@ -521,8 +551,8 @@ local function secureTakeAndClaim(pet, prompt, petIncome)
 
     print(string.format("[+] Pet %s ($%s/s) DI TANGAN! Teleport ke Base...", petName, formatShorthand(petIncome)))
 
-    root.CFrame = CONFIG.BaseCFrame + Vector3.new(0, 3, 0)
-    task.wait(0.08)
+    smartTeleport(CONFIG.BaseCFrame + Vector3.new(0, 2.5, 0))
+    task.wait(0.1)
 
     local startClaim = os.clock()
     while os.clock() - startClaim < 1.4 do
@@ -532,8 +562,11 @@ local function secureTakeAndClaim(pet, prompt, petIncome)
             return true
         end
 
-        root.CFrame = CONFIG.BaseCFrame + Vector3.new(0, 3, 0)
-        task.wait(0.08)
+        local curRoot = getRoot()
+        if curRoot and (curRoot.Position - CONFIG.BaseCFrame.Position).Magnitude > 6 then
+            smartTeleport(CONFIG.BaseCFrame + Vector3.new(0, 2.5, 0))
+        end
+        task.wait(0.1)
     end
 
     addClaimLog(petName, petIncome, petRarity)
@@ -565,8 +598,8 @@ task.spawn(function()
 
                         ensureSprayEquipped()
 
-                        root.CFrame = CFrame.lookAt(eggPos + Vector3.new(0, 1, CONFIG.AttackDistance), eggPos)
-                        task.wait(0.08)
+                        smartTeleport(CFrame.lookAt(eggPos + Vector3.new(0, 1, CONFIG.AttackDistance), eggPos))
+                        task.wait(0.06)
 
                         while CONFIG.Enabled and scriptActive and not isClaiming and egg.Parent ~= nil do
                             local curRoot = getRoot()
@@ -586,11 +619,7 @@ task.spawn(function()
                             -- [PREVENTIF 1]: Pastikan jarak tetap rapat ke telur sebelum menembak spray
                             local currentDist = (curRoot.Position - eggPos).Magnitude
                             if currentDist > (CONFIG.AttackDistance + 2.5) then
-                                pcall(function()
-                                    curRoot.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
-                                    curRoot.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
-                                end)
-                                curRoot.CFrame = CFrame.lookAt(eggPos + Vector3.new(0, 1, CONFIG.AttackDistance), eggPos)
+                                smartTeleport(CFrame.lookAt(eggPos + Vector3.new(0, 1, CONFIG.AttackDistance), eggPos))
                                 task.wait(0.04)
                             end
 
@@ -613,11 +642,7 @@ task.spawn(function()
                                 if checkRoot then
                                     local distNow = (checkRoot.Position - eggPos).Magnitude
                                     if distNow > (CONFIG.AttackDistance + 2.5) then
-                                        pcall(function()
-                                            checkRoot.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
-                                            checkRoot.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
-                                        end)
-                                        checkRoot.CFrame = CFrame.lookAt(eggPos + Vector3.new(0, 1, CONFIG.AttackDistance), eggPos)
+                                        smartTeleport(CFrame.lookAt(eggPos + Vector3.new(0, 1, CONFIG.AttackDistance), eggPos))
                                     end
                                 end
                             end
