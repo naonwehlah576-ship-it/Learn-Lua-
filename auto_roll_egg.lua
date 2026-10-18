@@ -89,11 +89,16 @@ local refreshLogUI = function() end
 local updateStatsUI = function() end
 local totalRolled = 0
 local totalReps = 0
+local isRolling = false
+local lastRollTime = 0
+local ROLL_COOLDOWN = 3.0 -- Sesuai delay server dealer game (3.0 detik)
 
 -- [[ LISTENER EGG RESULT & BENCH RESULT DARI SERVER ]] --
 EggResult.OnClientEvent:Connect(function(action, status, p3, p4)
     if action == "dealer" then
         if status == "rolled" then
+            isRolling = false
+            lastRollTime = os.clock()
             totalRolled = totalRolled + 1
             table.insert(LOGS, 1, {
                 time = os.date("%H:%M:%S"),
@@ -101,7 +106,13 @@ EggResult.OnClientEvent:Connect(function(action, status, p3, p4)
                 text = string.format("%s -> %s", tostring(p3), tostring(p4)),
                 color = Color3.fromRGB(100, 255, 120),
             })
+        elseif status == "busy" then
+            -- Server sedang dalam cooldown roll sebelumnya, tunggu sejenak lalu retry
+            task.delay(1.0, function()
+                isRolling = false
+            end)
         elseif status == "poor" then
+            isRolling = false
             table.insert(LOGS, 1, {
                 time = os.date("%H:%M:%S"),
                 tag = "ROLL",
@@ -110,6 +121,7 @@ EggResult.OnClientEvent:Connect(function(action, status, p3, p4)
             })
             CONFIG.AutoRoll = false
         else
+            isRolling = false
             table.insert(LOGS, 1, {
                 time = os.date("%H:%M:%S"),
                 tag = "SERVER",
@@ -145,7 +157,6 @@ task.spawn(function()
                     local char = LocalPlayer.Character
                     local root = char and char:FindFirstChild("HumanoidRootPart")
                     if prompt and root then
-                        -- Dekati bench & picu prompt
                         local basePos = bench:GetAttribute("Base") or bench:GetPivot()
                         root.CFrame = basePos * CFrame.new(0, 1.5, 0)
                         task.wait(0.08)
@@ -160,33 +171,45 @@ task.spawn(function()
     end
 end)
 
--- [[ LOOP 2: AUTO ROLL DEALER (REMOTE) ]] --
+-- [[ LOOP 2: AUTO ROLL DEALER (SMART HANDSHAKE - NO BUSY SPAM) ]] --
 task.spawn(function()
     while scriptRunning do
-        if CONFIG.AutoRoll then
-            local cost = (CONFIG.SelectedTier == "Premium") and premiumCost or basicCost
-            local currentCoins = Coins and Coins.Value or 0
-            
-            if currentCoins < cost then
-                CONFIG.AutoRoll = false
-            else
-                local full, cur, max = isInventoryFull()
-                if CONFIG.StopIfFull and full then
-                    table.insert(LOGS, 1, {
-                        time = os.date("%H:%M:%S"),
-                        tag = "ROLL",
-                        text = string.format("Inventory Full (%d/%d)!", cur, max),
-                        color = Color3.fromRGB(255, 140, 40),
-                    })
-                    if #LOGS > 35 then table.remove(LOGS) end
-                    refreshLogUI()
+        if CONFIG.AutoRoll and not isRolling then
+            local now = os.clock()
+            if (now - lastRollTime) >= ROLL_COOLDOWN then
+                local cost = (CONFIG.SelectedTier == "Premium") and premiumCost or basicCost
+                local currentCoins = Coins and Coins.Value or 0
+                
+                if currentCoins < cost then
                     CONFIG.AutoRoll = false
                 else
-                    UIAction:FireServer("DealerRoll", CONFIG.SelectedTier)
+                    local full, cur, max = isInventoryFull()
+                    if CONFIG.StopIfFull and full then
+                        table.insert(LOGS, 1, {
+                            time = os.date("%H:%M:%S"),
+                            tag = "ROLL",
+                            text = string.format("Inventory Full (%d/%d)!", cur, max),
+                            color = Color3.fromRGB(255, 140, 40),
+                        })
+                        if #LOGS > 35 then table.remove(LOGS) end
+                        refreshLogUI()
+                        CONFIG.AutoRoll = false
+                    else
+                        isRolling = true
+                        lastRollTime = now
+                        UIAction:FireServer("DealerRoll", CONFIG.SelectedTier)
+                        
+                        -- Safety Watchdog: jika dalam 4.5s tidak ada respon, buka lock
+                        task.delay(4.5, function()
+                            if isRolling and (os.clock() - lastRollTime >= 4.0) then
+                                isRolling = false
+                            end
+                        end)
+                    end
                 end
             end
         end
-        task.wait(CONFIG.RollDelay)
+        task.wait(0.2)
     end
 end)
 
