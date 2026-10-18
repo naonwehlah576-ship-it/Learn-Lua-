@@ -218,6 +218,7 @@ local function queueScriptExecution()
         pcall(function()
             qot([[
                 repeat task.wait() until game:IsLoaded()
+                local loaded = false
                 if typeof(loadfile) == "function" then
                     local paths = {
                         "C:\\Users\\Rzoi7\\Documents\\Roblox\\TD\\script_egg_spray_farm.lua",
@@ -228,9 +229,15 @@ local function queueScriptExecution()
                         local ok, fn = pcall(loadfile, p)
                         if ok and typeof(fn) == "function" then
                             fn()
+                            loaded = true
                             break
                         end
                     end
+                end
+                if not loaded then
+                    pcall(function()
+                        loadstring(game:HttpGet("https://raw.githubusercontent.com/naonwehlah576-ship-it/Learn-Lua-/main/egg_spray_farm.lua"))()
+                    end)
                 end
             ]])
         end)
