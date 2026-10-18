@@ -615,20 +615,15 @@ task.spawn(function()
             end
 
             if not isClaiming then
+                -- 1. Cek apakah ada pet bebas yang belum diambil sebelum mulai cari telur
                 local pet, prompt, petIncome = findValuablePet()
                 if pet and prompt then
                     isClaiming = true
                     claimStartTime = os.clock()
                     setFarmStatus(string.format("🐾 Mengambil %s ($%s/s)", pet.Name, formatShorthand(petIncome)), Color3.fromRGB(255, 215, 0))
-                    print(string.format("[WATCHER] Pet terdeteksi: $%s/s -> Mengambil...", formatShorthand(petIncome)))
-
-                    local claimOk, claimErr = pcall(function()
+                    pcall(function()
                         secureTakeAndClaim(pet, prompt, petIncome)
                     end)
-                    if not claimOk then
-                        warn("[CLAIM ERROR]", claimErr)
-                    end
-
                     claimedPets[pet] = true
                     isClaiming = false
                 else
@@ -641,12 +636,13 @@ task.spawn(function()
 
                             ensureSprayEquipped()
                             local attackCF = CFrame.lookAt(eggPos + Vector3.new(0, 1, CONFIG.AttackDistance), eggPos)
-                            smartTeleport(attackCF)
-                            task.wait(0.06)
+                            root.CFrame = attackCF
+                            task.wait(0.08)
 
                             local lastHp = egg:GetAttribute(EggConfig.Attributes.Health) or 0
                             local lastHpDropTime = os.clock()
 
+                            -- [[ LOOP MENYEMPROT TELUR SAMPAI PECAH ]] --
                             while CONFIG.Enabled and scriptActive and not isClaiming and egg.Parent ~= nil do
                                 local curRoot = getRoot()
                                 if not curRoot then break end
@@ -657,36 +653,31 @@ task.spawn(function()
                                     break
                                 end
 
-                                -- [DETEKSI REBUTAN]: Jika diambil/direserve player lain, langsung skip tanpa nunggu!
-                                local reserved = egg:GetAttribute(EggConfig.Attributes.ReservedUserId)
-                                if reserved ~= nil and reserved ~= false and reserved ~= 0 and tonumber(reserved) ~= LocalPlayer.UserId then
-                                    print(string.format("[REBUTAN] Telur %s di-reserve player lain (%s)! Skip langsung...", tostring(eggId), tostring(reserved)))
+                                -- Deteksi jika telur valid direbut player lain
+                                local resNum = tonumber(egg:GetAttribute(EggConfig.Attributes.ReservedUserId))
+                                if resNum and resNum > 0 and resNum ~= LocalPlayer.UserId then
+                                    print(string.format("[REBUTAN] Telur %s di-reserve player lain (%d)! Ganti target...", tostring(eggId), resNum))
                                     ignoredEggs[egg] = true
-                                    task.delay(4, function() ignoredEggs[egg] = nil end)
+                                    task.delay(5, function() ignoredEggs[egg] = nil end)
                                     break
                                 end
 
-                                -- [ANTI-STUCK CEPAT]: Jika HP tidak berkurang sama sekali dalam 2 detik, langsung skip!
+                                -- Anti-Stuck: jika HP sama sekali tidak turun selama 5 detik (kebal/ghost)
                                 if hp < lastHp then
                                     lastHp = hp
                                     lastHpDropTime = os.clock()
-                                elseif (os.clock() - lastHpDropTime) > 2.0 then
-                                    print("[ANTI-STUCK] Telur tidak menerima damage dalam 2s! Skip langsung...")
+                                elseif (os.clock() - lastHpDropTime) > 5.0 then
+                                    print("[ANTI-STUCK] Telur tidak menerima damage selama 5s! Skip...")
                                     ignoredEggs[egg] = true
-                                    task.delay(6, function() ignoredEggs[egg] = nil end)
+                                    task.delay(8, function() ignoredEggs[egg] = nil end)
                                     break
                                 end
 
-                                local urgentPet, urgentPrompt = findValuablePet()
-                                if urgentPet and urgentPrompt then
-                                    break
-                                end
-
-                                -- [PREVENTIF 1]: Pastikan jarak tetap rapat ke telur
+                                -- Anti-Knockback: hanya teleport balik jika benar-benar terlempar jauh (> 12 studs)
                                 local currentDist = (curRoot.Position - eggPos).Magnitude
-                                if currentDist > (CONFIG.AttackDistance + 2.5) then
-                                    smartTeleport(CFrame.lookAt(eggPos + Vector3.new(0, 1, CONFIG.AttackDistance), eggPos))
-                                    task.wait(0.04)
+                                if currentDist > 12 then
+                                    curRoot.CFrame = CFrame.lookAt(eggPos + Vector3.new(0, 1, CONFIG.AttackDistance), eggPos)
+                                    task.wait(0.05)
                                 end
 
                                 ensureSprayEquipped()
@@ -695,9 +686,9 @@ task.spawn(function()
                                     NetworkShared.RequestClean:Invoke({ eggId = eggId })
                                 end)
 
-                                -- [PREVENTIF 2]: Watchdog Anti-Knockback / Anti-Punch
+                                -- Cooldown semprot
                                 local cd = getSprayCooldown()
-                                local waitStep = math.min(0.04, cd / 5)
+                                local waitStep = math.min(0.05, cd / 4)
                                 local elapsed = 0
                                 while elapsed < cd and CONFIG.Enabled and not isClaiming do
                                     task.wait(waitStep)
@@ -706,15 +697,39 @@ task.spawn(function()
                                     local checkRoot = getRoot()
                                     if checkRoot then
                                         local distNow = (checkRoot.Position - eggPos).Magnitude
-                                        if distNow > (CONFIG.AttackDistance + 2.5) then
-                                            smartTeleport(CFrame.lookAt(eggPos + Vector3.new(0, 1, CONFIG.AttackDistance), eggPos))
+                                        if distNow > 12 then
+                                            checkRoot.CFrame = CFrame.lookAt(eggPos + Vector3.new(0, 1, CONFIG.AttackDistance), eggPos)
                                         end
                                     end
                                 end
                             end
 
+                            -- [[ EGG BREAK HANDLER: TUNGGU PET DROP DARI TELUR INI ]] --
+                            -- Jika telur pecah (hp <= 0 atau hatching), jangan langsung kabur! Tunggu petnya muncul di sini!
+                            local hpNow = egg:GetAttribute(EggConfig.Attributes.Health) or 0
+                            local isHatching = egg:GetAttribute(EggConfig.Attributes.Hatching) == true
+                            if hpNow <= 0 or isHatching then
+                                setFarmStatus("✨ Telur pecah! Menunggu hewan...", Color3.fromRGB(255, 230, 100))
+                                local waitDropStart = os.clock()
+                                while (os.clock() - waitDropStart) < 1.0 do
+                                    local dropPet, dropPrompt, dropIncome = findValuablePet()
+                                    if dropPet and dropPrompt then
+                                        isClaiming = true
+                                        claimStartTime = os.clock()
+                                        setFarmStatus(string.format("🐾 Mengambil %s ($%s/s)", dropPet.Name, formatShorthand(dropIncome)), Color3.fromRGB(255, 215, 0))
+                                        pcall(function()
+                                            secureTakeAndClaim(dropPet, dropPrompt, dropIncome)
+                                        end)
+                                        claimedPets[dropPet] = true
+                                        isClaiming = false
+                                        break
+                                    end
+                                    task.wait(0.1)
+                                end
+                            end
+
                             ignoredEggs[egg] = true
-                            task.delay(4, function() ignoredEggs[egg] = nil end)
+                            task.delay(3, function() ignoredEggs[egg] = nil end)
                         else
                             task.wait(0.2)
                         end
