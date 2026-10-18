@@ -301,34 +301,61 @@ local function getHumanoid()
     return char and char:FindFirstChildOfClass("Humanoid")
 end
 
--- [[ SMART ANTI-PAUSE TELEPORT (PRE-FETCH STREAMING + ZERO RESIDUAL VELOCITY) ]] --
+-- [[ INSTANT TELEPORT (ZERO LOAD, ZERO DELAY, DUAL PIVOT+CFRAME) ]] --
 local function smartTeleport(targetCF)
-    local root = getRoot()
+    local char = LocalPlayer.Character
+    if not char then return end
+    local root = char:FindFirstChild("HumanoidRootPart")
     if not root then return end
+    local hum = char:FindFirstChildOfClass("Humanoid")
 
-    -- 1. Netralkan momentum/kecepatan sepenuhnya sebelum TP
     pcall(function()
-        root.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
-        root.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
+        if hum and hum.Sit then
+            hum.Sit = false
+        end
+        root.AssemblyLinearVelocity = Vector3.zero
+        root.AssemblyAngularVelocity = Vector3.zero
     end)
 
-    -- 2. Pre-stream area tujuan jika jarak jauh (> 150 studs) agar Roblox tidak memicu "Gameplay Paused"
-    local targetPos = targetCF.Position
-    local dist = (root.Position - targetPos).Magnitude
-    if dist > 150 then
-        pcall(function()
-            LocalPlayer:RequestStreamAroundAsync(targetPos, 0.1)
-        end)
+    pcall(function()
+        char:PivotTo(targetCF)
+    end)
+    pcall(function()
+        root.CFrame = targetCF
+    end)
+
+    pcall(function()
+        root.AssemblyLinearVelocity = Vector3.zero
+        root.AssemblyAngularVelocity = Vector3.zero
+    end)
+end
+
+-- [[ KALKULASI RADIUS & POSISI STAND TELUR ]] --
+local function getEggRadius(egg)
+    local radius = 3.5
+    if EggConfig and EggConfig.WorldSize then
+        local sizeMult = egg:GetAttribute(EggConfig.Attributes.SpawnSizeMult)
+        if typeof(sizeMult) ~= "number" then sizeMult = 1 end
+        radius = (EggConfig.WorldSize * sizeMult) / 2
+    end
+    return radius
+end
+
+local function getEggAttackCFrame(egg, curRootPos)
+    local eggPos = egg:GetPivot().Position
+    local radius = getEggRadius(egg)
+    local standDist = radius + (CONFIG.AttackDistance or 5)
+
+    local dir = curRootPos and (curRootPos - eggPos) or Vector3.new(0, 0, 1)
+    local dirXZ = Vector3.new(dir.X, 0, dir.Z)
+    if dirXZ.Magnitude < 0.1 then
+        dirXZ = Vector3.new(0, 0, 1)
+    else
+        dirXZ = dirXZ.Unit
     end
 
-    -- 3. Teleportasi tepat ke CFrame target
-    root.CFrame = targetCF
-
-    -- 4. Netralkan kembali momentum setelah mendarat
-    pcall(function()
-        root.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
-        root.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
-    end)
+    local standPos = eggPos + (dirXZ * standDist) + Vector3.new(0, 1.5, 0)
+    return CFrame.lookAt(standPos, Vector3.new(eggPos.X, standPos.Y, eggPos.Z))
 end
 
 -- [[ KALKULASI SKOR LUCK TELUR ]] --
@@ -360,7 +387,7 @@ local function ensureSprayEquipped()
 
     for _, tool in ipairs(char:GetChildren()) do
         if tool:IsA("Tool") then
-            if tool:GetAttribute(SprayConfig.ToolAttribute) or tool.Name:lower():find("spray") then
+            if tool:GetAttribute(SprayConfig.ToolAttribute) or tool:GetAttribute("SprayId") or tool.Name:lower():find("spray") or tool.Name:lower():find("shovel") then
                 return tool
             end
         end
@@ -370,7 +397,7 @@ local function ensureSprayEquipped()
     if backpack then
         for _, tool in ipairs(backpack:GetChildren()) do
             if tool:IsA("Tool") then
-                if tool:GetAttribute(SprayConfig.ToolAttribute) or tool.Name:lower():find("spray") then
+                if tool:GetAttribute(SprayConfig.ToolAttribute) or tool:GetAttribute("SprayId") or tool.Name:lower():find("spray") or tool.Name:lower():find("shovel") then
                     hum:EquipTool(tool)
                     return tool
                 end
@@ -641,7 +668,7 @@ task.spawn(function()
                             local eggPos = egg:GetPivot().Position
 
                             ensureSprayEquipped()
-                            smartTeleport(CFrame.lookAt(eggPos + Vector3.new(0, 1, CONFIG.AttackDistance), eggPos))
+                            smartTeleport(getEggAttackCFrame(egg, root.Position))
                             task.wait(0.06)
 
                             local lastHp = egg:GetAttribute(EggConfig.Attributes.Health) or 0
@@ -673,10 +700,12 @@ task.spawn(function()
                                     break
                                 end
 
-                                -- [PREVENTIF 1]: Pastikan jarak tetap rapat ke telur sebelum menembak spray
+                                -- [PREVENTIF 1]: Pastikan jarak tetap pas di luar hitbox telur
+                                local eggRad = getEggRadius(egg)
+                                local allowedDist = eggRad + (CONFIG.AttackDistance or 5) + 3
                                 local currentDist = (curRoot.Position - eggPos).Magnitude
-                                if currentDist > (CONFIG.AttackDistance + 2.5) then
-                                    smartTeleport(CFrame.lookAt(eggPos + Vector3.new(0, 1, CONFIG.AttackDistance), eggPos))
+                                if currentDist > allowedDist or currentDist < (eggRad - 0.5) then
+                                    smartTeleport(getEggAttackCFrame(egg, curRoot.Position))
                                     task.wait(0.04)
                                 end
 
@@ -697,8 +726,8 @@ task.spawn(function()
                                     local checkRoot = getRoot()
                                     if checkRoot then
                                         local distNow = (checkRoot.Position - eggPos).Magnitude
-                                        if distNow > (CONFIG.AttackDistance + 2.5) then
-                                            smartTeleport(CFrame.lookAt(eggPos + Vector3.new(0, 1, CONFIG.AttackDistance), eggPos))
+                                        if distNow > allowedDist or distNow < (eggRad - 0.5) then
+                                            smartTeleport(getEggAttackCFrame(egg, checkRoot.Position))
                                         end
                                     end
                                 end
