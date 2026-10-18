@@ -84,7 +84,7 @@ local CONFIG = {
         ["Uncommon"] = false,
         ["Common"] = false,
     },
-    AttackDistance = 5,
+    AttackDistance = 4.5,
     ClaimWait = 1.2,
 }
 
@@ -287,6 +287,11 @@ pcall(function()
     end
 end)
 
+-- Sembunyikan notifikasi "Gameplay Paused" dari Roblox
+pcall(function()
+    GuiService:SetGameplayPausedNotificationEnabled(false)
+end)
+
 -- [[ FUNGSI BANTUAN ]] --
 local function getRoot()
     local char = LocalPlayer.Character
@@ -301,7 +306,7 @@ local function getHumanoid()
     return char and char:FindFirstChildOfClass("Humanoid")
 end
 
--- [[ INSTANT TELEPORT (ZERO LOAD, ZERO DELAY, DUAL PIVOT+CFRAME) ]] --
+-- [[ INSTANT TELEPORT ]] --
 local function smartTeleport(targetCF)
     local char = LocalPlayer.Character
     if not char then return end
@@ -323,39 +328,6 @@ local function smartTeleport(targetCF)
     pcall(function()
         root.CFrame = targetCF
     end)
-
-    pcall(function()
-        root.AssemblyLinearVelocity = Vector3.zero
-        root.AssemblyAngularVelocity = Vector3.zero
-    end)
-end
-
--- [[ KALKULASI RADIUS & POSISI STAND TELUR ]] --
-local function getEggRadius(egg)
-    local radius = 3.5
-    if EggConfig and EggConfig.WorldSize then
-        local sizeMult = egg:GetAttribute(EggConfig.Attributes.SpawnSizeMult)
-        if typeof(sizeMult) ~= "number" then sizeMult = 1 end
-        radius = (EggConfig.WorldSize * sizeMult) / 2
-    end
-    return radius
-end
-
-local function getEggAttackCFrame(egg, curRootPos)
-    local eggPos = egg:GetPivot().Position
-    local radius = getEggRadius(egg)
-    local standDist = radius + (CONFIG.AttackDistance or 5)
-
-    local dir = curRootPos and (curRootPos - eggPos) or Vector3.new(0, 0, 1)
-    local dirXZ = Vector3.new(dir.X, 0, dir.Z)
-    if dirXZ.Magnitude < 0.1 then
-        dirXZ = Vector3.new(0, 0, 1)
-    else
-        dirXZ = dirXZ.Unit
-    end
-
-    local standPos = eggPos + (dirXZ * standDist) + Vector3.new(0, 1.5, 0)
-    return CFrame.lookAt(standPos, Vector3.new(eggPos.X, standPos.Y, eggPos.Z))
 end
 
 -- [[ KALKULASI SKOR LUCK TELUR ]] --
@@ -668,7 +640,8 @@ task.spawn(function()
                             local eggPos = egg:GetPivot().Position
 
                             ensureSprayEquipped()
-                            smartTeleport(getEggAttackCFrame(egg, root.Position))
+                            local attackCF = CFrame.lookAt(eggPos + Vector3.new(0, 1, CONFIG.AttackDistance), eggPos)
+                            smartTeleport(attackCF)
                             task.wait(0.06)
 
                             local lastHp = egg:GetAttribute(EggConfig.Attributes.Health) or 0
@@ -684,14 +657,23 @@ task.spawn(function()
                                     break
                                 end
 
-                                -- Anti-Ghost Egg: jika HP tidak berkurang sama sekali selama 8 detik, skip
+                                -- [DETEKSI REBUTAN]: Jika diambil/direserve player lain, langsung skip tanpa nunggu!
+                                local reserved = egg:GetAttribute(EggConfig.Attributes.ReservedUserId)
+                                if reserved ~= nil and reserved ~= false and reserved ~= 0 and tonumber(reserved) ~= LocalPlayer.UserId then
+                                    print(string.format("[REBUTAN] Telur %s di-reserve player lain (%s)! Skip langsung...", tostring(eggId), tostring(reserved)))
+                                    ignoredEggs[egg] = true
+                                    task.delay(4, function() ignoredEggs[egg] = nil end)
+                                    break
+                                end
+
+                                -- [ANTI-STUCK CEPAT]: Jika HP tidak berkurang sama sekali dalam 2 detik, langsung skip!
                                 if hp < lastHp then
                                     lastHp = hp
                                     lastHpDropTime = os.clock()
-                                elseif (os.clock() - lastHpDropTime) > 8 then
-                                    print("[ANTI-STUCK] Telur tidak menerima damage selama 8 detik! Skip ke telur lain...")
+                                elseif (os.clock() - lastHpDropTime) > 2.0 then
+                                    print("[ANTI-STUCK] Telur tidak menerima damage dalam 2s! Skip langsung...")
                                     ignoredEggs[egg] = true
-                                    task.delay(15, function() ignoredEggs[egg] = nil end)
+                                    task.delay(6, function() ignoredEggs[egg] = nil end)
                                     break
                                 end
 
@@ -700,12 +682,10 @@ task.spawn(function()
                                     break
                                 end
 
-                                -- [PREVENTIF 1]: Pastikan jarak tetap pas di luar hitbox telur
-                                local eggRad = getEggRadius(egg)
-                                local allowedDist = eggRad + (CONFIG.AttackDistance or 5) + 3
+                                -- [PREVENTIF 1]: Pastikan jarak tetap rapat ke telur
                                 local currentDist = (curRoot.Position - eggPos).Magnitude
-                                if currentDist > allowedDist or currentDist < (eggRad - 0.5) then
-                                    smartTeleport(getEggAttackCFrame(egg, curRoot.Position))
+                                if currentDist > (CONFIG.AttackDistance + 2.5) then
+                                    smartTeleport(CFrame.lookAt(eggPos + Vector3.new(0, 1, CONFIG.AttackDistance), eggPos))
                                     task.wait(0.04)
                                 end
 
@@ -726,8 +706,8 @@ task.spawn(function()
                                     local checkRoot = getRoot()
                                     if checkRoot then
                                         local distNow = (checkRoot.Position - eggPos).Magnitude
-                                        if distNow > allowedDist or distNow < (eggRad - 0.5) then
-                                            smartTeleport(getEggAttackCFrame(egg, checkRoot.Position))
+                                        if distNow > (CONFIG.AttackDistance + 2.5) then
+                                            smartTeleport(CFrame.lookAt(eggPos + Vector3.new(0, 1, CONFIG.AttackDistance), eggPos))
                                         end
                                     end
                                 end
