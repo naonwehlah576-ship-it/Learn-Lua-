@@ -710,30 +710,6 @@ task.spawn(function()
                                 end
                             end
 
-                            -- [[ EGG BREAK HANDLER: TUNGGU PET DROP DARI TELUR INI ]] --
-                            -- Jika telur pecah (hp <= 0 atau hatching), jangan langsung kabur! Tunggu petnya muncul di sini!
-                            local hpNow = egg:GetAttribute(EggConfig.Attributes.Health) or 0
-                            local isHatching = egg:GetAttribute(EggConfig.Attributes.Hatching) == true
-                            if hpNow <= 0 or isHatching then
-                                setFarmStatus("✨ Telur pecah! Menunggu hewan...", Color3.fromRGB(255, 230, 100))
-                                local waitDropStart = os.clock()
-                                while (os.clock() - waitDropStart) < 1.0 do
-                                    local dropPet, dropPrompt, dropIncome = findValuablePet()
-                                    if dropPet and dropPrompt then
-                                        isClaiming = true
-                                        claimStartTime = os.clock()
-                                        setFarmStatus(string.format("🐾 Mengambil %s ($%s/s)", dropPet.Name, formatShorthand(dropIncome)), Color3.fromRGB(255, 215, 0))
-                                        pcall(function()
-                                            secureTakeAndClaim(dropPet, dropPrompt, dropIncome)
-                                        end)
-                                        claimedPets[dropPet] = true
-                                        isClaiming = false
-                                        break
-                                    end
-                                    task.wait(0.1)
-                                end
-                            end
-
                             ignoredEggs[egg] = true
                             task.delay(3, function() ignoredEggs[egg] = nil end)
                         else
