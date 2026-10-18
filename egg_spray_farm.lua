@@ -673,6 +673,12 @@ task.spawn(function()
                                     break
                                 end
 
+                                -- [PRIORITAS PET]: Jika ada hewan bernilai tinggi spawn di map, langsung ambil!
+                                local urgentPet, urgentPrompt = findValuablePet()
+                                if urgentPet and urgentPrompt then
+                                    break
+                                end
+
                                 -- Anti-Knockback: hanya teleport balik jika benar-benar terlempar jauh (> 12 studs)
                                 local currentDist = (curRoot.Position - eggPos).Magnitude
                                 if currentDist > 12 then
