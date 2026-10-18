@@ -118,6 +118,7 @@ end
 local CLAIM_LOGS = {}
 local refreshLogUI = function() end
 local updateLogTabBadge = function() end
+local setFarmStatus = function() end
 
 -- Parser Shorthand
 local function parseShorthand(str)
@@ -289,7 +290,10 @@ end)
 -- [[ FUNGSI BANTUAN ]] --
 local function getRoot()
     local char = LocalPlayer.Character
-    return char and char:FindFirstChild("HumanoidRootPart")
+    if not char then return nil end
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if not hum or hum.Health <= 0 then return nil end
+    return char:FindFirstChild("HumanoidRootPart")
 end
 
 local function getHumanoid()
@@ -416,31 +420,49 @@ local function findTargetEgg()
     if not root then return nil end
 
     local candidates = {}
+    local totalOnMap = 0
+    local skippedByRarity = 0
 
-    for _, egg in ipairs(CollectionService:GetTagged(EggConfig.WorldEggTag)) do
-        if egg:IsA("Model") and egg.Parent ~= nil and not ignoredEggs[egg] then
+    local taggedEggs = CollectionService:GetTagged(EggConfig.WorldEggTag)
+    for _, egg in ipairs(taggedEggs) do
+        if egg:IsA("Model") and egg.Parent ~= nil then
+            totalOnMap = totalOnMap + 1
             local health = egg:GetAttribute(EggConfig.Attributes.Health) or 0
             local hatching = egg:GetAttribute(EggConfig.Attributes.Hatching) == true
             local reserved = egg:GetAttribute(EggConfig.Attributes.ReservedUserId)
             local rarity = egg:GetAttribute(EggConfig.Attributes.Rarity) or "Common"
 
-            local isFree = (reserved == nil or reserved == LocalPlayer.UserId)
-            if health > 0 and not hatching and isFree and CONFIG.TargetRarities[rarity] then
-                local eggPos = egg:GetPivot().Position
-                local dist = (Vector2.new(root.Position.X, root.Position.Z) - Vector2.new(eggPos.X, eggPos.Z)).Magnitude
-                local luckScore = getEggLuckScore(egg)
+            local isFree = (reserved == nil or reserved == false or reserved == 0 or tonumber(reserved) == LocalPlayer.UserId)
+            if health > 0 and not hatching and isFree and not ignoredEggs[egg] then
+                if CONFIG.TargetRarities[rarity] then
+                    local eggPos = egg:GetPivot().Position
+                    local dist = (Vector2.new(root.Position.X, root.Position.Z) - Vector2.new(eggPos.X, eggPos.Z)).Magnitude
+                    local luckScore = getEggLuckScore(egg)
 
-                table.insert(candidates, {
-                    egg = egg,
-                    health = health,
-                    dist = dist,
-                    luckScore = luckScore,
-                })
+                    table.insert(candidates, {
+                        egg = egg,
+                        health = health,
+                        dist = dist,
+                        luckScore = luckScore,
+                        rarity = rarity,
+                    })
+                else
+                    skippedByRarity = skippedByRarity + 1
+                end
             end
         end
     end
 
-    if #candidates == 0 then return nil end
+    if #candidates == 0 then
+        if totalOnMap == 0 then
+            setFarmStatus("Menunggu telur spawn di map...", Color3.fromRGB(240, 180, 80))
+        elseif skippedByRarity > 0 then
+            setFarmStatus(string.format("0 cocok (%d di-skip filter Rarity)", skippedByRarity), Color3.fromRGB(240, 180, 80))
+        else
+            setFarmStatus("Menunggu telur bebas (0 cocok)", Color3.fromRGB(240, 180, 80))
+        end
+        return nil
+    end
 
     if CONFIG.TargetMode == "HighestLuck" then
         table.sort(candidates, function(a, b)
@@ -457,17 +479,19 @@ local function findTargetEgg()
         table.sort(candidates, function(a, b) return a.dist < b.dist end)
     end
 
-    return candidates[1].egg
+    local chosen = candidates[1]
+    setFarmStatus(string.format("🎯 Menyerang %s (HP: %s)", tostring(chosen.rarity), formatShorthand(chosen.health)), Color3.fromRGB(100, 255, 150))
+    return chosen.egg
 end
 
 -- [[ MAP PET WATCHER & SECURE TAKE/CLAIM ]] --
-local pickupsFolder = workspace:WaitForChild("AnimalPickups", 5)
 local claimedPets = {}
 
 local function findValuablePet()
-    if not pickupsFolder then return nil end
+    local pickups = workspace:FindFirstChild("AnimalPickups")
+    if not pickups then return nil end
 
-    for _, animal in ipairs(pickupsFolder:GetChildren()) do
+    for _, animal in ipairs(pickups:GetChildren()) do
         if animal:IsA("Model") and not claimedPets[animal] then
             local income = animal:GetAttribute("Income") or 0
             if income >= CONFIG.MinIncome then
@@ -575,86 +599,126 @@ end
 
 -- [[ CORE SYSTEM: FAST BREAKER + INTERRUPT CLAIM ]] --
 local isClaiming = false
+local claimStartTime = 0
 
 task.spawn(function()
     while scriptActive do
-        if CONFIG.Enabled and not isClaiming then
-            local pet, prompt, petIncome = findValuablePet()
-            if pet and prompt then
-                isClaiming = true
-                print(string.format("[WATCHER] Pet terdeteksi: $%s/s -> Mengambil...", formatShorthand(petIncome)))
+        local ok, err = pcall(function()
+            if not CONFIG.Enabled then
+                setFarmStatus("⏸️ AUTO FARM: OFF", Color3.fromRGB(180, 180, 180))
+                return
+            end
 
-                secureTakeAndClaim(pet, prompt, petIncome)
-
-                claimedPets[pet] = true
+            -- Watchdog: jika claiming nyangkut lebih dari 6 detik, paksa reset
+            if isClaiming and (os.clock() - claimStartTime > 6) then
+                print("[WATCHDOG] isClaiming nyangkut > 6s! Me-reset ke false...")
                 isClaiming = false
-            else
-                local root = getRoot()
-                if root then
-                    local egg = findTargetEgg()
-                    if egg then
-                        local eggId = egg:GetAttribute(EggConfig.Attributes.EggId)
-                        local eggPos = egg:GetPivot().Position
+            end
 
-                        ensureSprayEquipped()
+            if not isClaiming then
+                local pet, prompt, petIncome = findValuablePet()
+                if pet and prompt then
+                    isClaiming = true
+                    claimStartTime = os.clock()
+                    setFarmStatus(string.format("🐾 Mengambil %s ($%s/s)", pet.Name, formatShorthand(petIncome)), Color3.fromRGB(255, 215, 0))
+                    print(string.format("[WATCHER] Pet terdeteksi: $%s/s -> Mengambil...", formatShorthand(petIncome)))
 
-                        smartTeleport(CFrame.lookAt(eggPos + Vector3.new(0, 1, CONFIG.AttackDistance), eggPos))
-                        task.wait(0.06)
+                    local claimOk, claimErr = pcall(function()
+                        secureTakeAndClaim(pet, prompt, petIncome)
+                    end)
+                    if not claimOk then
+                        warn("[CLAIM ERROR]", claimErr)
+                    end
 
-                        while CONFIG.Enabled and scriptActive and not isClaiming and egg.Parent ~= nil do
-                            local curRoot = getRoot()
-                            if not curRoot then break end
-
-                            local hp = egg:GetAttribute(EggConfig.Attributes.Health) or 0
-                            local hatching = egg:GetAttribute(EggConfig.Attributes.Hatching) == true
-                            if hp <= 0 or hatching then
-                                break
-                            end
-
-                            local urgentPet, urgentPrompt = findValuablePet()
-                            if urgentPet and urgentPrompt then
-                                break
-                            end
-
-                            -- [PREVENTIF 1]: Pastikan jarak tetap rapat ke telur sebelum menembak spray
-                            local currentDist = (curRoot.Position - eggPos).Magnitude
-                            if currentDist > (CONFIG.AttackDistance + 2.5) then
-                                smartTeleport(CFrame.lookAt(eggPos + Vector3.new(0, 1, CONFIG.AttackDistance), eggPos))
-                                task.wait(0.04)
-                            end
+                    claimedPets[pet] = true
+                    isClaiming = false
+                else
+                    local root = getRoot()
+                    if root then
+                        local egg = findTargetEgg()
+                        if egg then
+                            local eggId = egg:GetAttribute(EggConfig.Attributes.EggId)
+                            local eggPos = egg:GetPivot().Position
 
                             ensureSprayEquipped()
+                            smartTeleport(CFrame.lookAt(eggPos + Vector3.new(0, 1, CONFIG.AttackDistance), eggPos))
+                            task.wait(0.06)
 
-                            pcall(function()
-                                NetworkShared.RequestClean:Invoke({ eggId = eggId })
-                            end)
+                            local lastHp = egg:GetAttribute(EggConfig.Attributes.Health) or 0
+                            local lastHpDropTime = os.clock()
 
-                            -- [PREVENTIF 2]: Watchdog Anti-Knockback / Anti-Punch
-                            -- Cooldown otomatis menyesuaikan (0.25s jika punya x2 Spray, atau 0.5s normal)
-                            local cd = getSprayCooldown()
-                            local waitStep = math.min(0.04, cd / 5)
-                            local elapsed = 0
-                            while elapsed < cd and CONFIG.Enabled and not isClaiming do
-                                task.wait(waitStep)
-                                elapsed = elapsed + waitStep
+                            while CONFIG.Enabled and scriptActive and not isClaiming and egg.Parent ~= nil do
+                                local curRoot = getRoot()
+                                if not curRoot then break end
 
-                                local checkRoot = getRoot()
-                                if checkRoot then
-                                    local distNow = (checkRoot.Position - eggPos).Magnitude
-                                    if distNow > (CONFIG.AttackDistance + 2.5) then
-                                        smartTeleport(CFrame.lookAt(eggPos + Vector3.new(0, 1, CONFIG.AttackDistance), eggPos))
+                                local hp = egg:GetAttribute(EggConfig.Attributes.Health) or 0
+                                local hatching = egg:GetAttribute(EggConfig.Attributes.Hatching) == true
+                                if hp <= 0 or hatching then
+                                    break
+                                end
+
+                                -- Anti-Ghost Egg: jika HP tidak berkurang sama sekali selama 8 detik, skip
+                                if hp < lastHp then
+                                    lastHp = hp
+                                    lastHpDropTime = os.clock()
+                                elseif (os.clock() - lastHpDropTime) > 8 then
+                                    print("[ANTI-STUCK] Telur tidak menerima damage selama 8 detik! Skip ke telur lain...")
+                                    ignoredEggs[egg] = true
+                                    task.delay(15, function() ignoredEggs[egg] = nil end)
+                                    break
+                                end
+
+                                local urgentPet, urgentPrompt = findValuablePet()
+                                if urgentPet and urgentPrompt then
+                                    break
+                                end
+
+                                -- [PREVENTIF 1]: Pastikan jarak tetap rapat ke telur sebelum menembak spray
+                                local currentDist = (curRoot.Position - eggPos).Magnitude
+                                if currentDist > (CONFIG.AttackDistance + 2.5) then
+                                    smartTeleport(CFrame.lookAt(eggPos + Vector3.new(0, 1, CONFIG.AttackDistance), eggPos))
+                                    task.wait(0.04)
+                                end
+
+                                ensureSprayEquipped()
+
+                                pcall(function()
+                                    NetworkShared.RequestClean:Invoke({ eggId = eggId })
+                                end)
+
+                                -- [PREVENTIF 2]: Watchdog Anti-Knockback / Anti-Punch
+                                local cd = getSprayCooldown()
+                                local waitStep = math.min(0.04, cd / 5)
+                                local elapsed = 0
+                                while elapsed < cd and CONFIG.Enabled and not isClaiming do
+                                    task.wait(waitStep)
+                                    elapsed = elapsed + waitStep
+
+                                    local checkRoot = getRoot()
+                                    if checkRoot then
+                                        local distNow = (checkRoot.Position - eggPos).Magnitude
+                                        if distNow > (CONFIG.AttackDistance + 2.5) then
+                                            smartTeleport(CFrame.lookAt(eggPos + Vector3.new(0, 1, CONFIG.AttackDistance), eggPos))
+                                        end
                                     end
                                 end
                             end
-                        end
 
-                        ignoredEggs[egg] = true
-                        task.delay(4, function() ignoredEggs[egg] = nil end)
+                            ignoredEggs[egg] = true
+                            task.delay(4, function() ignoredEggs[egg] = nil end)
+                        else
+                            task.wait(0.2)
+                        end
                     else
-                        task.wait(0.2)
+                        setFarmStatus("Menunggu karakter spawn...", Color3.fromRGB(240, 180, 80))
+                        task.wait(0.5)
                     end
                 end
             end
+        end)
+        if not ok then
+            warn("[MAIN LOOP CRASH PROTECT]", err)
+            isClaiming = false
         end
         task.wait(0.04)
     end
@@ -815,7 +879,7 @@ local function createUI()
             LogTabBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 42)
             LogTabBtn.TextColor3 = Color3.fromRGB(180, 180, 190)
             LogTabBtn.Font = Enum.Font.GothamMedium
-            Main.Size = UDim2.new(0, 255, 0, 285)
+            Main.Size = UDim2.new(0, 255, 0, 320)
         else
             FarmPage.Visible = false
             LogPage.Visible = true
@@ -825,7 +889,7 @@ local function createUI()
             FarmTabBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 42)
             FarmTabBtn.TextColor3 = Color3.fromRGB(180, 180, 190)
             FarmTabBtn.Font = Enum.Font.GothamMedium
-            Main.Size = UDim2.new(0, 255, 0, 310)
+            Main.Size = UDim2.new(0, 255, 0, 320)
             refreshLogUI()
         end
     end
@@ -835,13 +899,13 @@ local function createUI()
 
     -- [[ FARM CONTROLS ]] --
     local ToggleBtn = Instance.new("TextButton")
-    ToggleBtn.Size = UDim2.new(0.9, 0, 0, 30)
+    ToggleBtn.Size = UDim2.new(0.9, 0, 0, 28)
     ToggleBtn.Position = UDim2.new(0.05, 0, 0, 4)
     ToggleBtn.BackgroundColor3 = CONFIG.Enabled and Color3.fromRGB(45, 175, 75) or Color3.fromRGB(190, 45, 45)
     ToggleBtn.Text = CONFIG.Enabled and "AUTO FARM: ON" or "AUTO FARM: OFF"
     ToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
     ToggleBtn.Font = Enum.Font.GothamBold
-    ToggleBtn.TextSize = 13
+    ToggleBtn.TextSize = 12
     ToggleBtn.Parent = FarmPage
     local BtnCorner = Instance.new("UICorner")
     BtnCorner.CornerRadius = UDim.new(0, 6)
@@ -860,12 +924,34 @@ local function createUI()
             ToggleBtn.BackgroundColor3 = Color3.fromRGB(190, 45, 45)
             ToggleBtn.Text = "AUTO FARM: OFF"
         end
-        saveSettings() -- Status ON/OFF tersimpan secara otomatis
+        saveSettings()
     end)
 
+    -- Live Status Label
+    local StatusLbl = Instance.new("TextLabel")
+    StatusLbl.Size = UDim2.new(0.9, 0, 0, 18)
+    StatusLbl.Position = UDim2.new(0.05, 0, 0, 34)
+    StatusLbl.BackgroundColor3 = Color3.fromRGB(22, 22, 28)
+    StatusLbl.Text = "Status: Memuat..."
+    StatusLbl.TextColor3 = Color3.fromRGB(180, 200, 220)
+    StatusLbl.Font = Enum.Font.GothamMedium
+    StatusLbl.TextSize = 10
+    StatusLbl.TextTruncate = Enum.TextTruncate.AtEnd
+    StatusLbl.Parent = FarmPage
+    local StatusCorner = Instance.new("UICorner")
+    StatusCorner.CornerRadius = UDim.new(0, 4)
+    StatusCorner.Parent = StatusLbl
+
+    setFarmStatus = function(text, color)
+        if StatusLbl and StatusLbl.Parent then
+            StatusLbl.Text = text
+            if color then StatusLbl.TextColor3 = color end
+        end
+    end
+
     local TargetModeBtn = Instance.new("TextButton")
-    TargetModeBtn.Size = UDim2.new(0.9, 0, 0, 24)
-    TargetModeBtn.Position = UDim2.new(0.05, 0, 0, 38)
+    TargetModeBtn.Size = UDim2.new(0.9, 0, 0, 22)
+    TargetModeBtn.Position = UDim2.new(0.05, 0, 0, 56)
     TargetModeBtn.BackgroundColor3 = Color3.fromRGB(45, 55, 75)
     TargetModeBtn.Text = getTargetModeLabel(CONFIG.TargetMode)
     TargetModeBtn.TextColor3 = Color3.fromRGB(140, 210, 255)
@@ -891,8 +977,8 @@ local function createUI()
     end)
 
     local EquipBestBtn = Instance.new("TextButton")
-    EquipBestBtn.Size = UDim2.new(0.9, 0, 0, 24)
-    EquipBestBtn.Position = UDim2.new(0.05, 0, 0, 66)
+    EquipBestBtn.Size = UDim2.new(0.9, 0, 0, 22)
+    EquipBestBtn.Position = UDim2.new(0.05, 0, 0, 81)
     EquipBestBtn.BackgroundColor3 = CONFIG.AutoEquipBest and Color3.fromRGB(35, 130, 70) or Color3.fromRGB(50, 50, 60)
     EquipBestBtn.Text = string.format("Auto Equip Best (5s): %s", CONFIG.AutoEquipBest and "ON" or "OFF")
     EquipBestBtn.TextColor3 = Color3.fromRGB(240, 240, 240)
@@ -915,8 +1001,8 @@ local function createUI()
 
     -- Tombol Auto Reconnect
     local ReconnectBtn = Instance.new("TextButton")
-    ReconnectBtn.Size = UDim2.new(0.9, 0, 0, 24)
-    ReconnectBtn.Position = UDim2.new(0.05, 0, 0, 94)
+    ReconnectBtn.Size = UDim2.new(0.9, 0, 0, 22)
+    ReconnectBtn.Position = UDim2.new(0.05, 0, 0, 106)
     ReconnectBtn.BackgroundColor3 = CONFIG.AutoReconnect and Color3.fromRGB(35, 130, 70) or Color3.fromRGB(50, 50, 60)
     ReconnectBtn.Text = string.format("Auto Reconnect: %s", CONFIG.AutoReconnect and "ON" or "OFF")
     ReconnectBtn.TextColor3 = Color3.fromRGB(240, 240, 240)
@@ -935,8 +1021,8 @@ local function createUI()
     end)
 
     local SetBaseBtn = Instance.new("TextButton")
-    SetBaseBtn.Size = UDim2.new(0.9, 0, 0, 24)
-    SetBaseBtn.Position = UDim2.new(0.05, 0, 0, 122)
+    SetBaseBtn.Size = UDim2.new(0.9, 0, 0, 22)
+    SetBaseBtn.Position = UDim2.new(0.05, 0, 0, 131)
     SetBaseBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
     SetBaseBtn.Text = "Set Base Pos (Current)"
     SetBaseBtn.TextColor3 = Color3.fromRGB(210, 210, 210)
@@ -960,14 +1046,14 @@ local function createUI()
     end)
 
     local MinIncomeBox = Instance.new("TextBox")
-    MinIncomeBox.Size = UDim2.new(0.9, 0, 0, 26)
-    MinIncomeBox.Position = UDim2.new(0.05, 0, 0, 150)
+    MinIncomeBox.Size = UDim2.new(0.9, 0, 0, 24)
+    MinIncomeBox.Position = UDim2.new(0.05, 0, 0, 156)
     MinIncomeBox.BackgroundColor3 = Color3.fromRGB(32, 32, 40)
     MinIncomeBox.Text = CONFIG.MinIncomeText or formatShorthand(CONFIG.MinIncome)
     MinIncomeBox.PlaceholderText = "Threshold $/s (Contoh: 100K, 1M)"
     MinIncomeBox.TextColor3 = Color3.fromRGB(100, 255, 150)
     MinIncomeBox.Font = Enum.Font.GothamBold
-    MinIncomeBox.TextSize = 12
+    MinIncomeBox.TextSize = 11
     MinIncomeBox.Parent = FarmPage
     local BoxCorner = Instance.new("UICorner")
     BoxCorner.CornerRadius = UDim.new(0, 5)
@@ -986,8 +1072,8 @@ local function createUI()
     end)
 
     local DropdownBtn = Instance.new("TextButton")
-    DropdownBtn.Size = UDim2.new(0.9, 0, 0, 26)
-    DropdownBtn.Position = UDim2.new(0.05, 0, 0, 180)
+    DropdownBtn.Size = UDim2.new(0.9, 0, 0, 24)
+    DropdownBtn.Position = UDim2.new(0.05, 0, 0, 183)
     DropdownBtn.BackgroundColor3 = Color3.fromRGB(48, 48, 62)
     DropdownBtn.Text = "[v] Filter Rarity (Klik Buka/Tutup)"
     DropdownBtn.TextColor3 = Color3.fromRGB(240, 240, 255)
@@ -1000,7 +1086,7 @@ local function createUI()
 
     local RarityListFrame = Instance.new("ScrollingFrame")
     RarityListFrame.Name = "RarityList"
-    RarityListFrame.Size = UDim2.new(0.9, 0, 0, 140)
+    RarityListFrame.Size = UDim2.new(0.9, 0, 0, 130)
     RarityListFrame.Position = UDim2.new(0.05, 0, 0, 210)
     RarityListFrame.BackgroundColor3 = Color3.fromRGB(28, 28, 36)
     RarityListFrame.BorderSizePixel = 0
@@ -1047,7 +1133,7 @@ local function createUI()
             Main.Size = UDim2.new(0, 255, 0, 420)
         else
             DropdownBtn.Text = "[v] Filter Rarity (Klik Buka/Tutup)"
-            Main.Size = UDim2.new(0, 255, 0, 285)
+            Main.Size = UDim2.new(0, 255, 0, 320)
         end
     end)
 
