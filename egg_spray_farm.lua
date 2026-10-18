@@ -26,6 +26,14 @@ if not configFolder or not configFolder:FindFirstChild("Gameplay") or not config
     return
 end
 
+-- Matikan instance script lama jika ada yang masih berjalan di background
+if _G.EggFarmInstanceId then
+    _G.EggFarmInstanceId = nil
+    task.wait(0.15)
+end
+local CURRENT_INSTANCE = os.clock()
+_G.EggFarmInstanceId = CURRENT_INSTANCE
+
 local LocalPlayer = Players.LocalPlayer
 while not LocalPlayer do
     task.wait(0.1)
@@ -381,7 +389,7 @@ end
 
 local scriptActive = true
 task.spawn(function()
-    while scriptActive do
+    while scriptActive and _G.EggFarmInstanceId == CURRENT_INSTANCE do
         if CONFIG.Enabled then
             ensureSprayEquipped()
         end
@@ -403,7 +411,7 @@ local function triggerEquipBest()
 end
 
 task.spawn(function()
-    while scriptActive do
+    while scriptActive and _G.EggFarmInstanceId == CURRENT_INSTANCE do
         if CONFIG.Enabled and CONFIG.AutoEquipBest then
             triggerEquipBest()
         end
@@ -601,7 +609,7 @@ local isClaiming = false
 local claimStartTime = 0
 
 task.spawn(function()
-    while scriptActive do
+    while scriptActive and _G.EggFarmInstanceId == CURRENT_INSTANCE do
         local ok, err = pcall(function()
             if not CONFIG.Enabled then
                 setFarmStatus("⏸️ AUTO FARM: OFF", Color3.fromRGB(180, 180, 180))
@@ -768,7 +776,7 @@ local function createUI()
     Title.Size = UDim2.new(0.7, 0, 1, 0)
     Title.Position = UDim2.new(0, 8, 0, 0)
     Title.BackgroundTransparency = 1
-    Title.Text = "FAST BREAKER [RShift]"
+    Title.Text = "FAST BREAKER v3.2 [RShift]"
     Title.TextColor3 = Color3.fromRGB(255, 255, 255)
     Title.Font = Enum.Font.GothamBold
     Title.TextSize = 12
